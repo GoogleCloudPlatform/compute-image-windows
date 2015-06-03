@@ -14,7 +14,7 @@
 
 # Install script for the GCE agent and metadata scripts executable on Windows.
 
-$github_release = 'https://github.com/GoogleCloudPlatform/compute-image-windows/releases'
+$github_url = 'https://github.com/GoogleCloudPlatform/compute-image-windows'
 
 function Get-LatestRelease {
   <#
@@ -30,7 +30,7 @@ function Get-LatestRelease {
   #>
 
   # The latest GitHub release.
-  $url = "$github_release/latest"
+  $url = "$github_url/releases/latest"
   $request = [System.Net.WebRequest]::Create($url)
   $request.AllowAutoRedirect=$false
   try {
@@ -45,62 +45,20 @@ function Get-LatestRelease {
   }
 }
 
-function Get-Url {
-  <#
-    .SYNOPSIS
-      Download the contents of a provided URL.
-
-    .DESCRIPTION
-      Attempt to download the contents of a URL.
-      Print an error and exit if the download fails.
-
-    .PARAMETER $url
-      The URL to download.
-
-    .PARAMETER $name
-      The name of the contents getting downloaded.
-      For logging purposes only.
-
-    .RETURNS
-      $result: the downloaded content from the URL.
-  #>
-  param (
-    [parameter(Mandatory=$true, ValueFromPipeline=$true)]
-      [String]$url,
-    [parameter(Mandatory=$false, ValueFromPipeline=$true)]
-      [String]$name
-  )
-
-  try {
-    if ($name) {
-      Write-Host "Downloading $name..."
-    }
-    $client = New-Object System.Net.WebClient
-    $result = $client.DownloadData($url)
-    Write-Host 'Download complete.'
-  }
-  catch {
-    Write-Host $Error.Exception[0].Message
-    exit 2
-  }
-
-  return $result
-}
-
 function Install-Source {
   <#
     .SYNOPSIS
-      Write source data to destination location.
+      Downloads a source URL and installs to destination location.
 
     .DESCRIPTION
-      Attempt write data to a specified file.
+      Attempt to download from a URL and install to a specified file.
       Print an error and exit if the download fails.
 
-    .PARAMETER $source
-      The data to store.
+    .PARAMETER $src
+      The URL to download.
 
-    .PARAMETER $path
-      The destination where the data should be written.
+    .PARAMETER $dest
+      The destination where data should be written.
 
     .PARAMETER $service
       The service that should be started.
@@ -111,9 +69,9 @@ function Install-Source {
   #>
   param (
     [parameter(Mandatory=$true, ValueFromPipeline=$true)]
-      $source,
+      [String]$src,
     [parameter(Mandatory=$true, ValueFromPipeline=$true)]
-      [String]$path,
+      [String]$dest,
     [parameter(Mandatory=$false, ValueFromPipeline=$true)]
       [String]$service,
     [parameter(Mandatory=$false, ValueFromPipeline=$true)]
@@ -124,10 +82,22 @@ function Install-Source {
     if ($name) {
       Write-Host "Installing $name..."
     }
-    [IO.File]::WriteAllBytes($path, $source)
+    $temp_dest = "$dest.temp"
+    $client = New-Object System.Net.WebClient
+    $client.DownloadFile($src, $temp_dest)
+
     if ($service) {
+      Write-Host "Stopping $service..."
+      Stop-Service $service
+      Copy-Item $temp_dest $dest -Force
       Start-Service $service
+      Write-Host "Started $service."
     }
+    else {
+      Copy-Item $temp_dest $dest -Force
+    }
+
+    Remove-Item $temp_dest -Force
     Write-Host 'Install complete.'
   }
   catch {
@@ -145,23 +115,10 @@ $agent_path = "$agent_dir\$agent_name"
 $metadata_scripts_path = "$agent_dir\$metadata_scripts_name"
 $service_name = 'GCEAgent'
 
-
 # Get the latest release version.
 $release_version = Get-LatestRelease
-$agent_url = "$github_release/download/$release_version/$agent_name"
-$metadata_scripts_url = "$github_release/download/$release_version/$metadata_scripts_name"
-
-# Download the agent executable.
-$agent_source = Get-Url -url $agent_url -name 'GCE agent'
-
-# Remove the agent and stop the service.
-if (Test-Path $agent_path) {
-  Write-Host 'Stopping GCE agent...'
-  Stop-Service $service_name
-  Write-Host 'Deleting old GCE agent...'
-  Remove-Item $agent_path -Force
-  Write-Host 'Uninstall complete.'
-}
+$agent_url = "$github_url/releases/download/$release_version/$agent_name"
+$metadata_scripts_url = "$github_url/releases/download/$release_version/$metadata_scripts_name"
 
 # Create the install directory if it does not exist.
 if (-Not (Test-Path $agent_dir)) {
@@ -169,19 +126,9 @@ if (-Not (Test-Path $agent_dir)) {
 }
 
 # Install the agent executable.
-Install-Source -source $agent_source -path $agent_path -service $service_name -name 'GCE agent'
-
-# Download the GCE metadata script executable.
-$metadata_scripts_source = Get-Url -url $metadata_scripts_url -name 'GCE metadata scripts executable'
-
-# Remove the metadata scripts executable
-if (Test-Path $metadata_scripts_path) {
-  Write-Host 'Deleting old GCE metadata scripts executable...'
-  Remove-Item $metadata_scripts_path -Force
-  Write-Host 'Deletion complete.'
-}
+Install-Source -src $agent_url -dest $agent_path -service $service_name -name 'GCE agent'
 
 # Install the metadata scripts executable.
-Install-Source -source $metadata_scripts_source -path $metadata_scripts_path -name 'GCE metadata scripts executable'
+Install-Source -src $metadata_scripts_url -dest $metadata_scripts_path -name 'GCE metadata scripts executable'
 
 Write-Host 'Installation of GCE Windows scripts complete.'
