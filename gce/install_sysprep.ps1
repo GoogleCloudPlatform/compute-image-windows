@@ -13,12 +13,53 @@
 # limitations under the License.
 
 # Install script for updating sysprep scripts on Windows.
+param (
+  [switch] $Head
+)
 
-$github_zip = 'https://github.com/GoogleCloudPlatform/compute-image-windows/archive/master.zip'
+$github_url = 'https://github.com/GoogleCloudPlatform/compute-image-windows'
+
+function Get-LatestRelease {
+  <#
+    .SYNOPSIS
+      Get the lastet GitHub release version.
+
+    .DESCRIPTION
+      Request the lastest GitHub release of the GCE Windows agent
+      and metadata scripts executable and return the release version.
+
+    .RETURNS
+      $result: the latest GitHub release version number.
+  #>
+
+  # The latest GitHub release.
+  $url = "$github_url/releases/latest"
+  $request = [System.Net.WebRequest]::Create($url)
+  $request.AllowAutoRedirect=$false
+  try {
+    $response = $request.GetResponse()
+    $redirect = $response.GetResponseHeader('Location')
+    return $redirect.split('/')[-1]
+  }
+  catch {
+    $message = $Error.Exception[0].Message
+    Write-Host "Error finding latest release version: $message"
+    exit 2
+  }
+}
+
+if ($Head) {
+  $zip_version = Get-LatestRelease
+}
+else {
+  $zip_version = 'master'
+}
+
+$github_zip = "$github_url/archive/$zip_version.zip"
 $local_dest = 'C:\Program Files\Google\Compute Engine'
 $local_github_zip = "$local_dest\github_source.zip"
 $local_github_source = "$local_dest\github_source"
-$sysprep_src = "$local_github_source\compute-image-windows-master\gce\*"
+$sysprep_src = "$local_github_source\compute-image-windows-$zip_version\gce\*"
 
 Write-Host 'Starting sysprep install script...'
 
