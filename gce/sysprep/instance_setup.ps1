@@ -473,9 +473,6 @@ if (-not ($global:write_to_serial)) {
 if ($specialize) {
   Write-Log 'Starting sysprep specialize phase.'
 
-  # Disable administrator account to prevent logins.
-  Disable-Administrator
-
   # Change computer name.
   Change-InstanceName
 
@@ -505,6 +502,7 @@ else {
   # Calling function in a sequence.
   Change-InstanceProperties
   Configure-Addons
+  Disable-Administrator
   Activate-Instance
   Enable-RemoteDesktop
 
