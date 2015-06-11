@@ -49,10 +49,10 @@ function Get-LatestRelease {
 }
 
 if ($Head) {
-  $zip_version = Get-LatestRelease
+  $zip_version = 'master'
 }
 else {
-  $zip_version = 'master'
+  $zip_version = Get-LatestRelease
 }
 
 $github_zip = "$github_url/archive/$zip_version.zip"
