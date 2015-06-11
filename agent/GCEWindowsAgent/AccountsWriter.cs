@@ -153,11 +153,24 @@ namespace GCEAgent
       return System.Web.Security.Membership.GeneratePassword(15, 5);
     }
 
-    private static void FailWithError(string method)
+    private static void FailWithError(
+        string method,
+        NativeMethods.NetUserRetEnum netUserRet = NativeMethods.NetUserRetEnum.NERR_Success)
     {
-      int error = Marshal.GetLastWin32Error();
-      string message = new Win32Exception(error).Message;
-      Logger.Warning("{0} failed with error: {1}", method, error);
+      int error;
+      string message;
+
+      if (NativeMethods.NetUserRetEnum.NERR_Success != netUserRet)
+      {
+        error = (int)netUserRet;
+        message = netUserRet.ToString();
+      }
+      else
+      {
+        error = Marshal.GetLastWin32Error();
+        message = new Win32Exception(error).Message;
+      }
+      Logger.Warning("{0} failed with error {1}: {2}", method, error, message);
       throw new Win32Exception(error, message);
     }
 
@@ -225,7 +238,7 @@ namespace GCEAgent
       Marshal.FreeHGlobal(userSidNative);
       if (NativeMethods.NetUserRetEnum.NERR_Success != netUserRet)
       {
-        FailWithError("NetLocalGroupAddMembers");
+        FailWithError("NetLocalGroupAddMembers", netUserRet: netUserRet);
       }
     }
 
