@@ -179,7 +179,14 @@ try {
 
   Write-Log 'Setting new startup command.'
   Set-ItemProperty -Path HKLM:\SYSTEM\Setup -Name CmdLine -Value "`"$PSScriptRoot\windeploy.cmd`""
-
+  Write-Log 'Forgetting persistent disks.'
+  # While we are using the PersistAllDeviceInstalls setting to make boot faster on GCE, it's a
+  # good idea to forget the disks so that online/offline settings aren't applied to different
+  # disks on future VMs.
+  $disk_root = 'HKLM:\SYSTEM\CurrentControlSet\Enum\SCSI\Disk&Ven_Google&Prod_PersistentDisk'
+  if (Test-Path $disk_root) {
+    Remove-Item -Path "$disk_root\*\Device Parameters\Partmgr" -Recurse -Force
+  }
   Write-Log 'Shutting down.'
   Stop-Computer
 }
