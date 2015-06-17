@@ -68,31 +68,31 @@
 #>
 [CmdletBinding()]
 param (
-  [Parameter(HelpMessage = "XML answer file for sysprep.exe.")]
-  [alias("unattended")]
+  [Parameter(HelpMessage = 'XML answer file for sysprep.exe.')]
+  [alias('unattended')]
   $ans_file,
 
-  [Parameter(HelpMessage = "Destination dir from where scripts are executed.")]
-  [alias("destination")]
-  $scripts_location = "C:\Program Files\Google\Compute Engine\",
+  [Parameter(HelpMessage = 'Destination dir from where scripts are executed.')]
+  [alias('destination')]
+  $scripts_location = 'C:\Program Files\Google\Compute Engine',
 
-  [Parameter(HelpMessage = "Location to generate modified answer file. " +
-             "Ignored if an answer file is specified.")]
-  [alias("generated")]
+  [Parameter(HelpMessage = 'Location to generate modified answer file. ' +
+             'Ignored if an answer file is specified.')]
+  [alias('generated')]
   $generated_ans_file = "$env:WinDir\Panther\unattend.xml",
 
-  [Parameter(HelpMessage = "Display help message.")]
+  [Parameter(HelpMessage = 'Display help message.')]
   [switch] $help=$false
 )
 
 # ErrorAction
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 
 # Script Default Values
 $script:hostname = [System.Net.Dns]::GetHostName()
 $script:psversion = $PSVersionTable.PSVersion.Major
-$script:sysprep_dir = $scripts_location + "sysprep\"
-$script:sysprep_tag = "C:\Windows\System32\Sysprep\Sysprep_succeeded.tag"
+$script:sysprep_dir = "$scripts_location\sysprep"
+$script:sysprep_tag = 'C:\Windows\System32\Sysprep\Sysprep_succeeded.tag'
 
 
 # Main
@@ -110,7 +110,7 @@ try {
 catch [System.Management.Automation.ActionPreferenceStopException] {
   Write-Host $_.Exception.GetBaseException().Message
   Write-Host ("Unable to import GCE module from $PSScriptRoot. " +
-    "Check error message, or ensure module is present.")
+    'Check error message, or ensure module is present.')
   exit 2
 }
 
@@ -120,18 +120,18 @@ if (-not(_TestAdmin)) {
   Write-Log 'Script is not running in a elevated prompt.'
   Write-Log 'Re-running as Administrator.'
   $command_definition = $MyInvocation.MyCommand.Definition
-  $script_args = @("-ExecutionPolicy", "Unrestricted", "-File", "`"$command_definition`"")
+  $script_args = @('-ExecutionPolicy', 'Unrestricted', '-File', "`"$command_definition`"")
   foreach ($arg_name in $PSBoundParameters.Keys) {
     $value = $PSBoundParameters[$arg_name]
     $script_args = $script_args + @("-$arg_name", "`"$value`"")
   }
 
-  $new_process = New-Object System.Diagnostics.ProcessStartInfo "PowerShell"
+  $new_process = New-Object System.Diagnostics.ProcessStartInfo 'PowerShell'
   $new_process.Arguments = $script_args
   $new_process.WorkingDirectory = $Pwd.Path
 
   # Indicate that the process should be elevated.
-  $new_process.Verb = "runas"
+  $new_process.Verb = 'runas'
 
   # Start the new process.
   [System.Diagnostics.Process]::Start($new_process)
@@ -144,8 +144,7 @@ if (-not(_TestAdmin)) {
 if (-not ($script:psversion -ge 3)) {
   $script:show_msgs = $true
   Write-Log ('Powershell version should be at least Version 3 or higher. ' +
-    'Current version is ' + $script:psversion + ' this script will run but ' +
-    'might have errors.') -is_error
+    "Current version is $script:psversion. This script will run but might have errors.") -is_error
 }
 
 # Check Unattended.xml file.
