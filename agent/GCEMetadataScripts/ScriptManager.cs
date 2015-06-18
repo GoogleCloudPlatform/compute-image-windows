@@ -47,14 +47,12 @@ namespace GCEMetadataScripts
       {
         Logger.Warning("Exception caught reading version number. {0}", e);
       }
-      finally
-      {
-        Logger.Info("Starting {0} scripts (version {1})...", this.scriptType, version);
-        MetadataJson metadata = MetadataWatcher.GetMetadata();
-        this.metadata = reader.GetScripts(metadata);
-        this.writer.SetScripts(this.metadata);
-        Logger.Info("Finished running {0} scripts.", this.scriptType);
-      }
+
+      Logger.Info("Starting {0} scripts (version {1})...", this.scriptType, version);
+      MetadataJson metadata = MetadataWatcher.GetMetadata();
+      this.metadata = reader.GetScripts(metadata);
+      this.writer.SetScripts(this.metadata);
+      Logger.Info("Finished running {0} scripts.", this.scriptType);
     }
 
     private static string ValidateArguments(string[] args)
