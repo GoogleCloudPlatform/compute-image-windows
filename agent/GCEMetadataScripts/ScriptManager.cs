@@ -17,6 +17,7 @@
 using Common;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace GCEMetadataScripts
 {
@@ -37,7 +38,17 @@ namespace GCEMetadataScripts
 
     private void RunScripts()
     {
-      Logger.Info("Starting {0} scripts...", this.scriptType);
+      string version = "unknown";
+      try
+      {
+        version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+      }
+      catch (Exception e)
+      {
+        Logger.Warning("Exception caught reading version number. {0}", e);
+      }
+
+      Logger.Info("Starting {0} scripts (version {1})...", this.scriptType, version);
       MetadataJson metadata = MetadataWatcher.GetMetadata();
       this.metadata = reader.GetScripts(metadata);
       this.writer.SetScripts(this.metadata);
