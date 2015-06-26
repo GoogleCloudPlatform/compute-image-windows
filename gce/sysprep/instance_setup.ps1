@@ -230,6 +230,17 @@ function Change-InstanceProperties {
   # Set minimum password length.
   _RunExternalCMD net accounts /MINPWLEN:8
 
+  # Enable automatic update.
+  try {
+    Write-Log 'Enabling automatic updates.'
+    $updates_setting = (New-Object -com 'Microsoft.Update.AutoUpdate').Settings
+    $updates_setting.NotificationLevel = 4
+    $updates_setting.Save()
+  }
+  catch {
+    _PrintError
+  }
+
   # Schedule startup script.
   Write-Log 'Adding startup scripts from metadata server.'
   $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
