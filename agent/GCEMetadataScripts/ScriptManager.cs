@@ -48,7 +48,7 @@ namespace GCEMetadataScripts
         Logger.Warning("Exception caught reading version number. {0}", e);
       }
 
-      Logger.Info("Starting {0} scripts (version {1})...", this.scriptType, version);
+      Logger.Info("Starting {0} scripts (version {1}).", this.scriptType, version);
       MetadataJson metadata = MetadataWatcher.GetMetadata();
       this.metadata = reader.GetScripts(metadata);
       this.writer.SetScripts(this.metadata);
