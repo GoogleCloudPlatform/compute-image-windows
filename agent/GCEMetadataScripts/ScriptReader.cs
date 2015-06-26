@@ -274,7 +274,7 @@ namespace GCEMetadataScripts
             GetPropertyValue(projectAttributesJson, scriptKey);
         if (!string.IsNullOrEmpty(script))
         {
-          Logger.Info("Found [{0}] in metadata.", MetadataScript.GetMetadataKeyHyphen(this.scriptType, suffix));
+          Logger.Info("Found {0} in metadata.", MetadataScript.GetMetadataKeyHyphen(this.scriptType, suffix));
           scripts.Add(FetchScript(suffix, script));
         }
       }
