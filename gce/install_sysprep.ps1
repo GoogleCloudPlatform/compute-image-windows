@@ -14,10 +14,10 @@
 
 # Install script for updating sysprep scripts on Windows.
 param (
-  [switch] $Head
-)
-
-$github_url = 'https://github.com/GoogleCloudPlatform/compute-image-windows'
+  [string] $Github = 'GoogleCloudPlatform',
+  [string] $Tag,
+  [switch] $Head = $false
+ )
 
 function Get-LatestRelease {
   <#
@@ -48,7 +48,12 @@ function Get-LatestRelease {
   }
 }
 
-if ($Head) {
+$github_url = "https://github.com/$Github/compute-image-windows"
+
+if ($PSBoundParameters.ContainsKey('Tag')) {
+  $zip_version = $Tag
+}
+elseif ($Head) {
   $zip_version = 'master'
 }
 else {
