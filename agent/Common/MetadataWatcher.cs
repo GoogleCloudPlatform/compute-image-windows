@@ -72,7 +72,7 @@ namespace Common
     private static WebRequest CreateRequest(string metadataRequest)
     {
       HttpWebRequest request = WebRequest.CreateHttp(metadataRequest);
-      request.Headers.Add("X-Google-Metadata-Request", "True");
+      request.Headers.Add("Metadata-Flavor", "Google");
       request.Timeout = REQUEST_TIMEOUT;
       return request;
     }
