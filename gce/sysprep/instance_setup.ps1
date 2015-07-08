@@ -183,20 +183,15 @@ function Change-InstanceName {
   $new_hostname = $hostname_parts[0]
   # Change computer name to match GCE hostname.
   # This will take effect after reboot.
-  if ($new_hostname -eq $global:hostname) {
-    Write-Log "$new_hostname matches instance name in metadata server. No action necessary."
+  try {
+    $computer_wmi = Get-WmiObject Win32_ComputerSystem
+    $computer_wmi.Rename($new_hostname)
+    Write-Log "Renamed from $global:hostname to $new_hostname."
+    $global:hostname = $new_hostname
   }
-  else {
-    try {
-      $computer_wmi = Get-WmiObject Win32_ComputerSystem
-      $computer_wmi.Rename($new_hostname)
-      Write-Log "Renamed from $global:hostname to $new_hostname."
-      $global:hostname = $new_hostname
-    }
-    catch {
-      Write-Log 'Unable to change hostname.'
-      _PrintError
-    }
+  catch {
+    Write-Log 'Unable to change hostname.'
+    _PrintError
   }
 }
 
