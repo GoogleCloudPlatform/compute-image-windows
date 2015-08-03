@@ -105,10 +105,9 @@ function Activate-Instance {
       _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /ipk $license_key
 
       # Check if the product can be activated.
-      # Only Windows 2008 R2 Datacenter is supported.
       $reg_query = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
       $get_product_details = (Get-ItemProperty -Path $reg_query -Name ProductName).ProductName
-      $known_editions_regex = "Windows Server (2008 R2|2012|2012 R2) Datacenter"
+      $known_editions_regex = "Windows Server (2008 R2|2012|2012 R2)"
       if ($get_product_details -notmatch $known_editions_regex) {
         Write-Log ("$get_product_details activations are currently not " +
             'supported on GCE. Activation request will be skipped.')
@@ -342,6 +341,7 @@ function Get-ProductKmsClientKey {
     Write-Log 'Failed to get the product details. Skipping activation.'
     return
   }
+  # KMS Client Keys: https://technet.microsoft.com/en-us/jj612867.aspx
   switch ($get_product_details) {
     # Workstations
     # Currently not supported.
@@ -368,28 +368,33 @@ function Get-ProductKmsClientKey {
     'Windows 8.1 Enterprise' {
       $license_key = 'MHF9N-XY6XB-WVXMC-BTDCT-MKKG7'
     }
+    # Currently not supported.
+    'Windows 10 Professional' {
+      $license_key = 'W269N-WFGWX-YVC9B-4J6C9-T83GX'
+    }
+    'Windows 10 Enterprise' {
+      $license_key = 'NPPR9-FWDCX-D2C8J-H872K-2YT43'
+    }
 
     # Servers
     'Windows Server 2008 R2 Datacenter' {
       $license_key = '74YFP-3QFB3-KQT8W-PMXWJ-7M648'
     }
-    # Currently not supported.
     'Windows Server 2008 R2 Standard' {
       $license_key = 'YC6KT-GKW9T-YTKYR-T4X34-R7VHC'
     }
-    # Currently not supported.
     'Windows Server 2008 R2 Enterprise' {
+      $license_key = '489J6-VHDMP-X63PK-3K798-CPX3Y'
+    }
+    'Windows Server 2008 R2 Web' {
       $license_key = '6TPJF-RBVHG-WBW2R-86QPH-6RTM4'
     }
-    # Currently not supported.
     'Windows Server 2012 Server Standard' {
       $license_key = 'XC9B7-NBPP2-83J2H-RHMBY-92BT4'
     }
-    # Currently not supported.
     'Windows Server 2012 Datacenter' {
       $license_key = '48HP8-DN98B-MYWDG-T2DCC-8W83P'
     }
-    # Currently not supported.
     'Windows Server 2012 R2 Server Standard' {
       $license_key = 'D2N9P-3P6X9-2R39C-7RTCD-MDVJX'
     }
