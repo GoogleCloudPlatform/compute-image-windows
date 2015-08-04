@@ -202,7 +202,7 @@ namespace GCEAgent
       }
 
       Logger.Info(
-          "Changing public IPs from {0} to {1} by adding {2} and removing {3}",
+          "Changing forwarded IPs from {0} to {1} by adding {2} and removing {3}",
           GetJoinStringOrNone(configured),
           GetJoinStringOrNone(desired),
           GetJoinStringOrNone(toAdd),
