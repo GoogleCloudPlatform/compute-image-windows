@@ -44,17 +44,7 @@ namespace GCEAgent
       {
         Logger.Warning("Exception caught reading version number. {0}", e);
       }
-
-      string doc_url = "https://cloud.google.com/compute/docs/operating-systems/windows#understand_auth";
-      string[] startup_message = { string.Format("GCE Agent started (version {0}).", version),
-                                   new string('-', 80),
-                                   "This instance is using a new secure authentication scheme.",
-                                   "Please verify you are running gcloud version 0.9.58 or newer.",
-                                   "",
-                                   "For more information, refer to:",
-                                   doc_url,
-                                   new string('-', 80) };
-      Logger.Info(string.Join("\n", startup_message));
+      Logger.Info("GCE Agent started (version {0}).", version);
       metadataService.OnStart();
     }
 
