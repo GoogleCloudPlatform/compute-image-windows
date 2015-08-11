@@ -236,8 +236,8 @@ function Change-InstanceProperties {
   }
 
   # Enable access to Windows administrative file share.
-  _RunExternalCMD reg add ('HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\' +
-      'CurrentVersion\Policies\System') /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f
+  Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
+      -Name 'LocalAccountTokenFilterPolicy' -Value 1 -Force
 
   # Schedule startup script.
   Write-Log 'Adding startup scripts from metadata server.'
@@ -287,13 +287,13 @@ function Enable-RemoteDesktop {
   #>
 
   # Enable remote desktop.
-  _RunExternalCMD reg add ('HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\' +
-      'Control\Terminal Server') /v fDenyTSConnections /t REG_DWORD /d 0 /f
+  Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' `
+      -Name 'fDenyTSConnections' -Value 0 -Force
   Write-Log 'Enabled remote desktop.'
 
   # Disable Ctrl + Alt + Del.
-  _RunExternalCMD reg add ('HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\' +
-      'CurrentVersion\Policies\System') /v DisableCAD /t REG_DWORD /d 1 /f
+  Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
+      -Name 'DisableCAD' -Value 1 -Force
   Write-Log 'Disabled Ctrl + Alt + Del.'
 
   # Restart Terminal Service service via cmdlets.
