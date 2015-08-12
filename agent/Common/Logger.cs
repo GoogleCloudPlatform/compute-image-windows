@@ -58,6 +58,7 @@ namespace Common
             port.Open();
           }
           port.WriteLine(entry);
+          break;
         }
         catch (UnauthorizedAccessException)
         {
@@ -69,7 +70,6 @@ namespace Common
           // Sleep for one second before trying again.
           Thread.Sleep(1000);
         }
-        break;
       }
     }
 
