@@ -80,5 +80,17 @@ namespace GCEAgent
       }
       return new HashSet<WindowsKey>(oldMetadata).SetEquals(newMetadata);
     }
+
+    public bool IsEnabled(MetadataJson metadata)
+    {
+      try
+      {
+        return !metadata.Instance.Attributes.DisableAccountManager;
+      }
+      catch (NullReferenceException)
+      {
+        return true;
+      }
+    }
   }
 }

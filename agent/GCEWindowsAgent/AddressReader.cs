@@ -69,5 +69,17 @@ namespace GCEAgent
       }
       return new HashSet<IPAddress>(oldMetadata).SetEquals(newMetadata);
     }
+
+    public bool IsEnabled(MetadataJson metadata)
+    {
+      try
+      {
+        return !metadata.Instance.Attributes.DisableAddressManager;
+      }
+      catch (NullReferenceException)
+      {
+        return true;
+      }
+    }
   }
 }
