@@ -16,9 +16,7 @@
 
 using Common;
 using System;
-using System.IO;
 using System.Runtime.Serialization;
-using System.Runtime.Serialization.Json;
 using System.Threading;
 
 namespace GCEAgent
@@ -38,16 +36,9 @@ namespace GCEAgent
 
   class MetadataService
   {
-    private AccountsManager accountsManager;
-    private AddressManager addressManager;
-
+    private AccountsManager accountsManager = new AccountsManager();
+    private AddressManager addressManager = new AddressManager();
     private CancellationTokenSource token = new CancellationTokenSource();
-
-    public MetadataService()
-    {
-      accountsManager = new AccountsManager();
-      addressManager = new AddressManager();
-    }
 
     private void PrintAgentStartupJson()
     {

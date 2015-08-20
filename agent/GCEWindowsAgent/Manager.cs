@@ -37,18 +37,21 @@ namespace GCEAgent
 
     private void Synchronize(object sender, MetadataUpdateEventArgs e)
     {
-      try
+      if (reader.IsEnabled(e.metadata))
       {
-        T metadata = (T)reader.GetMetadata(e.metadata);
-        if (!reader.CompareMetadata(this.metadata, metadata))
+        try
         {
-          this.metadata = metadata;
-          this.writer.SetMetadata(this.metadata);
+          T metadata = (T)reader.GetMetadata(e.metadata);
+          if (!reader.CompareMetadata(this.metadata, metadata))
+          {
+            this.metadata = metadata;
+            this.writer.SetMetadata(this.metadata);
+          }
         }
-      }
-      catch (Exception ex)
-      {
-        Logger.Error("Caught top level exception. {0}\n{1}", ex.Message, ex.StackTrace);
+        catch (Exception ex)
+        {
+          Logger.Error("Caught top level exception. {0}\r\n{1}", ex.Message, ex.StackTrace);
+        }
       }
     }
   }

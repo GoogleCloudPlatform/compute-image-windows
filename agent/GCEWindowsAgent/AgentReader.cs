@@ -30,5 +30,10 @@ namespace GCEAgent
     /// A comparator for the metadata object.
     /// </summary>
     bool CompareMetadata(T oldMetadata, T newMetadata);
+
+    /// <summary>
+    /// Check whether the component is enabled in the metadata server.
+    /// </summary>
+    bool IsEnabled(MetadataJson metadata);
   }
 }

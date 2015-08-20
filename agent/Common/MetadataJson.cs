@@ -63,50 +63,64 @@ namespace Common
   [DataContract]
   public class AttributesJson
   {
-    [DataMember(Name = "windows-keys")]
+    #region Windows GCE Agent
+    [DataMember(Name = AttributeKeys.WindowsKeys)]
     public string WindowsKeys { get; set; }
 
-    [DataMember(Name = "windows-startup-script-ps1")]
+    [DataMember(Name = AttributeKeys.DisableAddressManager)]
+    public bool DisableAddressManager { get; set; }
+
+    [DataMember(Name = AttributeKeys.DisableAccountManager)]
+    public bool DisableAccountManager { get; set; }
+    #endregion
+
+    #region Startup Scripts
+    [DataMember(Name = AttributeKeys.WindowsStartupScriptPs1)]
     public string WindowsStartupScriptPs1 { get; set; }
 
-    [DataMember(Name = "windows-startup-script-cmd")]
+    [DataMember(Name = AttributeKeys.WindowsStartupScriptCmd)]
     public string WindowsStartupScriptCmd { get; set; }
 
-    [DataMember(Name = "windows-startup-script-bat")]
+    [DataMember(Name = AttributeKeys.WindowsStartupScriptBat)]
     public string WindowsStartupScriptBat { get; set; }
 
-    [DataMember(Name = "windows-startup-script-url")]
+    [DataMember(Name = AttributeKeys.WindowsStartupScriptUrl)]
     public string WindowsStartupScriptUrl { get; set; }
+    #endregion
 
-    [DataMember(Name = "windows-shutdown-script-ps1")]
+    #region Shutdown Scripts
+    [DataMember(Name = AttributeKeys.WindowsShutdownScriptPs1)]
     public string WindowsShutdownScriptPs1 { get; set; }
 
-    [DataMember(Name = "windows-shutdown-script-cmd")]
+    [DataMember(Name = AttributeKeys.WindowsShutdownScriptCmd)]
     public string WindowsShutdownScriptCmd { get; set; }
 
-    [DataMember(Name = "windows-shutdown-script-bat")]
+    [DataMember(Name = AttributeKeys.WindowsShutdownScriptBat)]
     public string WindowsShutdownScriptBat { get; set; }
 
-    [DataMember(Name = "windows-shutdown-script-url")]
+    [DataMember(Name = AttributeKeys.WindowsShutdownScriptUrl)]
     public string WindowsShutdownScriptUrl { get; set; }
+    #endregion
 
-    [DataMember(Name = "sysprep-oobe-script-ps1")]
+    #region Sysprep Startup Scripts
+    [DataMember(Name = AttributeKeys.SysprepOobeScriptPs1)]
     public string SysprepOobeScriptPs1 { get; set; }
 
-    [DataMember(Name = "sysprep-oobe-script-cmd")]
+    [DataMember(Name = AttributeKeys.SysprepOobeScriptCmd)]
     public string SysprepOobeScriptCmd { get; set; }
 
-    [DataMember(Name = "sysprep-oobe-script-bat")]
+    [DataMember(Name = AttributeKeys.SysprepOobeScriptBat)]
     public string SysprepOobeScriptBat { get; set; }
 
-    [DataMember(Name = "sysprep-specialize-script-ps1")]
+    [DataMember(Name = AttributeKeys.SysprepSpecializeScriptPs1)]
     public string SysprepSpecializeScriptPs1 { get; set; }
 
-    [DataMember(Name = "sysprep-specialize-script-cmd")]
+    [DataMember(Name = AttributeKeys.SysprepSpecializeScriptCmd)]
     public string SysprepSpecializeScriptCmd { get; set; }
 
-    [DataMember(Name = "sysprep-specialize-script-bat")]
+    [DataMember(Name = AttributeKeys.SysprepSpecializeScriptBat)]
     public string SysprepSpecializeScriptBat { get; set; }
+    #endregion
   }
 
   public static class MetadataDeserializer
@@ -142,5 +156,26 @@ namespace Common
         }
       }
     }
+  }
+
+  public static class AttributeKeys
+  {
+    public const string DisableAccountManager = "disable-account-manager";
+    public const string DisableAddressManager = "disable-address-manager";
+    public const string SysprepOobeScriptBat = "sysprep-oobe-script-bat";
+    public const string SysprepOobeScriptCmd = "sysprep-oobe-script-cmd";
+    public const string SysprepOobeScriptPs1 = "sysprep-oobe-script-ps1";
+    public const string SysprepSpecializeScriptBat = "sysprep-specialize-script-bat";
+    public const string SysprepSpecializeScriptCmd = "sysprep-specialize-script-cmd";
+    public const string SysprepSpecializeScriptPs1 = "sysprep-specialize-script-ps1";
+    public const string WindowsKeys = "windows-keys";
+    public const string WindowsShutdownScriptBat = "windows-shutdown-script-bat";
+    public const string WindowsShutdownScriptCmd = "windows-shutdown-script-cmd";
+    public const string WindowsShutdownScriptPs1 = "windows-shutdown-script-ps1";
+    public const string WindowsShutdownScriptUrl = "windows-shutdown-script-url";
+    public const string WindowsStartupScriptPs1 = "windows-startup-script-ps1";
+    public const string WindowsStartupScriptCmd = "windows-startup-script-cmd";
+    public const string WindowsStartupScriptBat = "windows-startup-script-bat";
+    public const string WindowsStartupScriptUrl = "windows-startup-script-url";
   }
 }
