@@ -62,8 +62,9 @@ namespace GCEAgent
     private const int UF_SCRIPT = 0x0001;
     private const int UF_NORMAL_ACCOUNT = 0x0200;
     private const int UF_DONT_EXPIRE_PASSWD = 0x10000;
+    private const string REGISTRY_KEY_PATH = @"SOFTWARE\Google\ComputeEngine";
     private const string REGISTRY_KEY = "PublicKeys";
-    private RegistryWriter registryWriter = new RegistryWriter(REGISTRY_KEY);
+    private RegistryWriter registryWriter = new RegistryWriter(REGISTRY_KEY_PATH, REGISTRY_KEY);
 
     public AccountsWriter() { }
 

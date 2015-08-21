@@ -26,8 +26,9 @@ namespace GCEAgent
 {
   public class AddressWriter : AgentWriter<List<IPAddress>>
   {
+    private const string REGISTRY_KEY_PATH = @"SOFTWARE\Google\ComputeEngine";
     private const string REGISTRY_KEY = "ForwardedIps";
-    private RegistryWriter registryWriter = new RegistryWriter(REGISTRY_KEY);
+    private RegistryWriter registryWriter = new RegistryWriter(REGISTRY_KEY_PATH, REGISTRY_KEY);
 
     public AddressWriter() { }
 
