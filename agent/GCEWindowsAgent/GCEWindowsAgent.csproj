@@ -63,16 +63,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\Common\Logger.cs">
-      <Link>Logger.cs</Link>
-    </Compile>
-    <Compile Include="..\Common\MetadataJson.cs">
-      <Link>MetadataJson.cs</Link>
-    </Compile>
-    <Compile Include="..\Common\MetadataWatcher.cs">
-      <Link>MetadataWatcher.cs</Link>
-    </Compile>
-    <Compile Include="RegistryWriter.cs" />
     <Compile Include="WindowsKey.cs" />
     <Compile Include="AccountsWriter.cs" />
     <Compile Include="AccountsReader.cs" />
@@ -111,6 +101,12 @@
       <ProductName>.NET Framework 3.5 SP1</ProductName>
       <Install>false</Install>
     </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Common.csproj">
+      <Project>{d02325d0-6a11-435c-8fde-f20cb8d42e0d}</Project>
+      <Name>Common</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.

@@ -17,15 +17,16 @@
 using Microsoft.Win32;
 using System.Collections.Generic;
 
-namespace GCEAgent
+namespace Common
 {
   public class RegistryWriter
   {
-    private const string REGISTRY_KEY_PATH = @"SOFTWARE\Google\ComputeEngine";
-    private string registryKeyName;
+    private readonly string registryKeyPath;
+    private readonly string registryKeyName;
 
-    public RegistryWriter(string registryKey)
+    public RegistryWriter(string registryKeyPath,string registryKey)
     {
+      this.registryKeyPath = registryKeyPath;
       this.registryKeyName = registryKey;
     }
 
@@ -34,7 +35,7 @@ namespace GCEAgent
     /// </summary>
     public List<string> GetRegistryKeys()
     {
-      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(REGISTRY_KEY_PATH, true))
+      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registryKeyPath, true))
       {
         string[] values = new string[] { };
         if (key != null)
@@ -50,8 +51,8 @@ namespace GCEAgent
     /// </summary>
     public void AddRegistryKey(string registryValue)
     {
-      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(REGISTRY_KEY_PATH, true) ??
-          Registry.LocalMachine.CreateSubKey(REGISTRY_KEY_PATH))
+      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registryKeyPath, true) ??
+          Registry.LocalMachine.CreateSubKey(registryKeyPath))
       {
         List<string> registryValues = GetRegistryKeys();
         registryValues.Add(registryValue);
@@ -66,7 +67,7 @@ namespace GCEAgent
     private void RemoveRegistryKey(string registryValue)
     {
       List<string> registryValues = GetRegistryKeys();
-      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(REGISTRY_KEY_PATH, true))
+      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registryKeyPath, true))
       {
         if (key != null && registryValues.Contains(registryValue))
         {
