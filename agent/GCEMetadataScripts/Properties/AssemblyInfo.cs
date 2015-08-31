@@ -24,9 +24,9 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("GCEMetadataScripts")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("GCEMetadataScripts")]
-[assembly: AssemblyCopyright("Copyright ©  2015")]
+[assembly: AssemblyCompany("Google Inc")]
+[assembly: AssemblyProduct("GCE Metadata Scripts")]
+[assembly: AssemblyCopyright("Copyright © 2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
