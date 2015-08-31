@@ -54,6 +54,9 @@ function Install-Source {
       Attempt to download from a URL and install to a specified file.
       Print an error and exit if the download fails.
 
+    .PARAMETER $binaries
+      A list of binary names that need to be installed.
+
     .PARAMETER $src
       The URL to download.
 
@@ -62,42 +65,37 @@ function Install-Source {
 
     .PARAMETER $service
       The service that should be started.
-
-    .PARAMETER $name
-      The name of the source getting installed.
-      For logging purposes only.
   #>
   param (
+    [parameter(Mandatory=$true, ValueFromPipeline=$true)]
+      [String[]]$binaries,
     [parameter(Mandatory=$true, ValueFromPipeline=$true)]
       [String]$src,
     [parameter(Mandatory=$true, ValueFromPipeline=$true)]
       [String]$dest,
-    [parameter(Mandatory=$false, ValueFromPipeline=$true)]
-      [String]$service,
-    [parameter(Mandatory=$false, ValueFromPipeline=$true)]
-      [String]$name
+    [parameter(Mandatory=$true, ValueFromPipeline=$true)]
+      [String]$service
   )
 
   try {
-    if ($name) {
-      Write-Host "Installing $name..."
-    }
-    $temp_dest = "$dest.temp"
+
     $client = New-Object System.Net.WebClient
-    $client.DownloadFile($src, $temp_dest)
-
-    if ($service) {
-      Write-Host "Stopping $service..."
-      Stop-Service $service
-      Copy-Item $temp_dest $dest -Force
-      Start-Service $service
-      Write-Host "Started $service."
-    }
-    else {
-      Copy-Item $temp_dest $dest -Force
+    foreach ($binary in $binaries) {
+      Write-Host "Downloading $binary..."
+      $client.DownloadFile("$src/$binary", "$dest\$binary.temp")
     }
 
-    Remove-Item $temp_dest -Force
+    Write-Host "Stopping $service..."
+    Stop-Service $service
+
+    foreach ($binary in $binaries) {
+      $temp_dest = "$dest\$binary.temp"
+      Copy-Item $temp_dest "$dest\$binary" -Force
+      Remove-Item $temp_dest -Force
+    }
+
+    Start-Service $service
+    Write-Host "Started $service."
     Write-Host 'Install complete.'
   }
   catch {
@@ -108,27 +106,29 @@ function Install-Source {
 
 Write-Host 'Starting agent install script...'
 
-$agent_dir = 'C:\Program Files\Google\Compute Engine\agent'
+$service_name = 'GCEAgent'
+$common_assembly = 'Common.dll'
 $agent_name = 'GCEWindowsAgent.exe'
 $metadata_scripts_name = 'GCEMetadataScripts.exe'
-$agent_path = "$agent_dir\$agent_name"
-$metadata_scripts_path = "$agent_dir\$metadata_scripts_name"
-$service_name = 'GCEAgent'
 
 # Get the latest release version.
 $release_version = Get-LatestRelease
-$agent_url = "$github_url/releases/download/$release_version/$agent_name"
-$metadata_scripts_url = "$github_url/releases/download/$release_version/$metadata_scripts_name"
+$download_path = "$github_url/releases/download/$release_version"
+$destination = 'C:\Program Files\Google\Compute Engine\agent'
+$binaries = @($agent_name, $metadata_scripts_name)
 
-# Create the install directory if it does not exist.
-if (-Not (Test-Path $agent_dir)) {
-  New-Item -ItemType directory -Path $agent_dir
+# Releases before 3.1.0.0 does not contain Common.dll.
+# This logic need to be removed after 3.1.0.0 is released.
+$common_version = '3.1.0.0'
+if ([System.Version]$release_version -ge [System.Version]$common_version) {
+  $binaries += $common_assembly
 }
 
-# Install the agent executable.
-Install-Source -src $agent_url -dest $agent_path -service $service_name -name 'GCE agent'
+# Create the install directory if it does not exist.
+if (-Not (Test-Path $destination)) {
+  New-Item -ItemType directory -Path $destination
+}
 
-# Install the metadata scripts executable.
-Install-Source -src $metadata_scripts_url -dest $metadata_scripts_path -name 'GCE metadata scripts executable'
-
-Write-Host 'Installation of GCE Windows scripts complete.'
+# Install the agent and metadata scripts.
+Install-Source -binaries $binaries -src $download_path -dest $destination -service $service_name
+Write-Host 'Installation of GCE Windows executables complete.'
