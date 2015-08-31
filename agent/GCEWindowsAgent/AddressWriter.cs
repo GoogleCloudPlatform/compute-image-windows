@@ -54,8 +54,8 @@ namespace GCEAgent
       int interfaceIndex = GetPrimaryInterfaceIndex();
       IntPtr ptrMyNTEContext = new IntPtr(MyNTEContext);
       IntPtr ptrMyNTEInstance = new IntPtr(MyNTEInstance);
-      int address = (int)addressToAdd.Address;
-      int mask = (int)IPAddress.Parse("255.255.255.255").Address;
+      int address = BitConverter.ToInt32(addressToAdd.GetAddressBytes(), 0);
+      int mask = BitConverter.ToInt32(IPAddress.None.GetAddressBytes(), 0);
 
       int result = NativeMethods.AddIPAddress(address, mask, interfaceIndex,
           out ptrMyNTEContext, out ptrMyNTEInstance);
