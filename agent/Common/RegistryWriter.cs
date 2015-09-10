@@ -15,6 +15,7 @@
  */
 
 using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
 
 namespace Common
@@ -22,20 +23,21 @@ namespace Common
   public class RegistryWriter
   {
     private readonly string registryKeyPath;
-    private readonly string registryKeyName;
 
-    public RegistryWriter(string registryKeyPath,string registryKey)
+    public RegistryWriter(string registryKeyPath)
     {
+      ArgumentValidator.ThrowIfNullOrEmpty(registryKeyPath, "registryKeyPath");
       this.registryKeyPath = registryKeyPath;
-      this.registryKeyName = registryKey;
     }
 
     /// <summary>
-    /// Get the list of registry keys.
+    /// Get the list of values of a MultiString value entry.
     /// </summary>
-    public List<string> GetRegistryKeys()
+    public List<string> GetMultiStringValue(string registryKeyName)
     {
-      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registryKeyPath, true))
+      ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
+
+      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(this.registryKeyPath, true))
       {
         string[] values = new string[] { };
         if (key != null)
@@ -47,14 +49,16 @@ namespace Common
     }
 
     /// <summary>
-    /// Add a registry key to the registry.
+    /// Add a value key to the MultiString value entry.
     /// </summary>
-    public void AddRegistryKey(string registryValue)
+    public void AddMultiStringValue(string registryKeyName, string registryValue)
     {
-      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registryKeyPath, true) ??
-          Registry.LocalMachine.CreateSubKey(registryKeyPath))
+      ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
+
+      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(this.registryKeyPath, true) ??
+          Registry.LocalMachine.CreateSubKey(this.registryKeyPath))
       {
-        List<string> registryValues = GetRegistryKeys();
+        List<string> registryValues = GetMultiStringValue(registryKeyName);
         registryValues.Add(registryValue);
         registryValues.RemoveAll(value => value == null);
         key.SetValue(registryKeyName, registryValues.ToArray(), RegistryValueKind.MultiString);
@@ -62,12 +66,38 @@ namespace Common
     }
 
     /// <summary>
-    /// Remove a registry key from the registry.
+    /// Write a list of values to the sub key.
     /// </summary>
-    private void RemoveRegistryKey(string registryValue)
+    /// <param name="subKey">Name of the sub-key.</param>
+    /// <param name="registryValues">
+    /// A list of registry values. Each value is a 3-tuple: entry name, entry
+    /// value and entry type.
+    /// </param>
+    public void AddValueEntries(string subKey, IEnumerable<Tuple<string, object, RegistryValueKind>> registryValues)
     {
-      List<string> registryValues = GetRegistryKeys();
-      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registryKeyPath, true))
+      ArgumentValidator.ThrowIfNullOrEmpty(subKey, "subKey");
+      ArgumentValidator.ThrowIfNullOrEmpty(registryValues, "registryValues");
+
+      string registrykey = string.Format(@"{0}\{1}", this.registryKeyPath, subKey);
+      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registrykey, true) ??
+          Registry.LocalMachine.CreateSubKey(registrykey))
+      {
+        foreach (Tuple<string, object, RegistryValueKind> registryValue in registryValues)
+        {
+          key.SetValue(registryValue.Item1, registryValue.Item2, registryValue.Item3);
+        }
+      }
+    }
+
+    /// <summary>
+    /// Remove a value from a MultiString value entry.
+    /// </summary>
+    private void RemoveMultiStringValue(string registryKeyName, string registryValue)
+    {
+      ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
+
+      List<string> registryValues = GetMultiStringValue(registryKeyName);
+      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(this.registryKeyPath, true))
       {
         if (key != null && registryValues.Contains(registryValue))
         {
@@ -78,13 +108,15 @@ namespace Common
     }
 
     /// <summary>
-    /// Remove a list of registry keys from the registry.
+    /// Remove a list of values from a MultiString value entry.
     /// </summary>
-    public void RemoveRegistryKeys(List<string> registryValues)
+    public void RemoveMultiStringValues(string registryKeyName, List<string> registryValues)
     {
+      ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
+
       foreach (string registryValue in registryValues ?? new List<string>())
       {
-        RemoveRegistryKey(registryValue);
+        RemoveMultiStringValue(registryKeyName, registryValue);
       }
     }
   }

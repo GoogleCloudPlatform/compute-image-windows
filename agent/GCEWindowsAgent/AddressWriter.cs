@@ -28,7 +28,7 @@ namespace GCEAgent
   {
     private const string REGISTRY_KEY_PATH = @"SOFTWARE\Google\ComputeEngine";
     private const string REGISTRY_KEY = "ForwardedIps";
-    private RegistryWriter registryWriter = new RegistryWriter(REGISTRY_KEY_PATH, REGISTRY_KEY);
+    private RegistryWriter registryWriter = new RegistryWriter(REGISTRY_KEY_PATH);
 
     public AddressWriter() { }
 
@@ -73,7 +73,7 @@ namespace GCEAgent
       foreach (IPAddress address in toAdd)
       {
         AddAddress(address);
-        registryWriter.AddRegistryKey(address.ToString());
+        registryWriter.AddMultiStringValue(REGISTRY_KEY, address.ToString());
       }
     }
 
@@ -225,7 +225,7 @@ namespace GCEAgent
 
     public void SetMetadata(List<IPAddress> metadata)
     {
-      List<string> registryKeys = registryWriter.GetRegistryKeys();
+      List<string> registryKeys = registryWriter.GetMultiStringValue(REGISTRY_KEY);
       List<IPAddress> registryForwardedIps = registryKeys.ConvertAll<IPAddress>(ConvertStringToIpAddress);
       List<IPAddress> addressesConfigured = AddressSystemReader.GetAddresses();
       List<IPAddress> toAdd = new List<IPAddress>(metadata.Except(addressesConfigured));
@@ -235,7 +235,7 @@ namespace GCEAgent
       LogForwardedIpsChanges(addressesConfigured, metadata, toAdd, toRemove);
       AddAddresses(toAdd);
       RemoveAddresses(toRemove);
-      registryWriter.RemoveRegistryKeys(toRemoveFromRegistry);
+      registryWriter.RemoveMultiStringValues(REGISTRY_KEY, toRemoveFromRegistry);
     }
   }
 }
