@@ -16,6 +16,7 @@
 
 using Common;
 using System;
+using System.Diagnostics;
 using System.Runtime.Serialization;
 using System.Threading;
 
@@ -47,7 +48,7 @@ namespace GCEAgent
       agentStartupJson.OSVersion = Environment.OSVersion.ToString();
 
       string serializedAgentStartup = MetadataSerializer.SerializeMetadata<GoogleAgentStartupJson>(agentStartupJson);
-      Logger.LogWithCom(Logger.EntryType.Info, "COM4", "{0}", serializedAgentStartup);
+      Logger.LogWithCom(EventLogEntryType.Information, "COM4", "{0}", serializedAgentStartup);
     }
 
     public void OnStart()

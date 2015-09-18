@@ -28,12 +28,6 @@ namespace Common
     private const string LOG_NAME = "Google";
     private const int RETRY_LIMIT = 5;
     private static EventLog log;
-    public struct EntryType
-    {
-      public const EventLogEntryType Info = EventLogEntryType.Information;
-      public const EventLogEntryType Warning = EventLogEntryType.Warning;
-      public const EventLogEntryType Error = EventLogEntryType.Error;
-    }
 
     static Logger()
     {
@@ -95,17 +89,17 @@ namespace Common
 
     public static void Info(string format, params object[] args)
     {
-      LogWithCom(EntryType.Info, DEFAULT_COM, format, args);
+      LogWithCom(EventLogEntryType.Information, DEFAULT_COM, format, args);
     }
 
     public static void Warning(string format, params object[] args)
     {
-      LogWithCom(EntryType.Warning, DEFAULT_COM, format, args);
+      LogWithCom(EventLogEntryType.Warning, DEFAULT_COM, format, args);
     }
 
     public static void Error(string format, params object[] args)
     {
-      LogWithCom(EntryType.Error, DEFAULT_COM, format, args);
+      LogWithCom(EventLogEntryType.Error, DEFAULT_COM, format, args);
     }
   }
 }
