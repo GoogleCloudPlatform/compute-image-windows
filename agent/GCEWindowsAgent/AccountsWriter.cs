@@ -18,6 +18,7 @@ using Common;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
@@ -64,7 +65,7 @@ namespace GCEAgent
     private const int UF_DONT_EXPIRE_PASSWD = 0x10000;
     private const string REGISTRY_KEY_PATH = @"SOFTWARE\Google\ComputeEngine";
     private const string REGISTRY_KEY = "PublicKeys";
-    private RegistryWriter registryWriter = new RegistryWriter(REGISTRY_KEY_PATH, REGISTRY_KEY);
+    private RegistryWriter registryWriter = new RegistryWriter(REGISTRY_KEY_PATH);
 
     public AccountsWriter() { }
 
@@ -95,7 +96,7 @@ namespace GCEAgent
       credentialsJson.Error = error;
 
       string serializedCredentials = MetadataSerializer.SerializeMetadata<GoogleCredentialsJson>(credentialsJson);
-      Logger.LogWithCom(Logger.EntryType.Info, "COM4", "{0}", serializedCredentials);
+      Logger.LogWithCom(EventLogEntryType.Information, "COM4", "{0}", serializedCredentials);
     }
 
     private static void PrintEncryptedCredentials(NetworkCredential credentials, string modulus, string exponent)
@@ -352,21 +353,22 @@ namespace GCEAgent
             }
           }
         }
-        // The user account was created so add the key to the registry.
-        registryWriter.AddRegistryKey(userAccount.ToString());
+        // The user account was created so add a multi-string value to the
+        // registry.
+        registryWriter.AddMultiStringValue(REGISTRY_KEY, userAccount.ToString());
       }
     }
 
     [PermissionSetAttribute(SecurityAction.Demand, Name = "FullTrust")]
     public void SetMetadata(List<WindowsKey> metadata)
     {
-      List<string> registryKeys = registryWriter.GetRegistryKeys();
+      List<string> registryKeys = registryWriter.GetMultiStringValue(REGISTRY_KEY);
       List<WindowsKey> registryWindowsKeys = registryKeys.ConvertAll<WindowsKey>(WindowsKey.DeserializeWindowsKey);
       List<WindowsKey> toAdd = new List<WindowsKey>(metadata.Except(registryWindowsKeys));
       List<string> metadataStrings = metadata.ConvertAll<string>(user => user.ToString());
       List<string> toRemoveFromRegistry = new List<string>(registryKeys.Except(metadataStrings));
       AddUserAccounts(toAdd);
-      registryWriter.RemoveRegistryKeys(toRemoveFromRegistry);
+      registryWriter.RemoveMultiStringValues(REGISTRY_KEY, toRemoveFromRegistry);
     }
   }
 }
