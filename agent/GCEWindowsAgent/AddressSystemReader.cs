@@ -18,33 +18,33 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.NetworkInformation;
 
-namespace GCEAgent
+namespace Google.ComputeEngine.Agent
 {
-  public static class AddressSystemReader
-  {
-    public static List<IPAddress> GetAddresses()
+    public static class AddressSystemReader
     {
-      List<IPAddress> addresses = new List<IPAddress>();
-      foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
-      {
-        foreach (var unicastAddress in networkInterface.GetIPProperties().UnicastAddresses)
+        public static List<IPAddress> GetAddresses()
         {
-          if (IsManuallyConfigured(unicastAddress))
-          {
-            addresses.Add(unicastAddress.Address);
-          }
+            List<IPAddress> addresses = new List<IPAddress>();
+            foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                foreach (var unicastAddress in networkInterface.GetIPProperties().UnicastAddresses)
+                {
+                    if (IsManuallyConfigured(unicastAddress))
+                    {
+                        addresses.Add(unicastAddress.Address);
+                    }
+                }
+            }
+            return addresses;
         }
-      }
-      return addresses;
-    }
 
-    private static bool IsManuallyConfigured(UnicastIPAddressInformation unicastAddress)
-    {
-      // Only report IPv4 addresses with manual origin settings.
-      return ((unicastAddress.Address.AddressFamily ==
-          System.Net.Sockets.AddressFamily.InterNetwork)
-          && (unicastAddress.PrefixOrigin == PrefixOrigin.Manual)
-          && (unicastAddress.SuffixOrigin == SuffixOrigin.Manual));
+        private static bool IsManuallyConfigured(UnicastIPAddressInformation unicastAddress)
+        {
+            // Only report IPv4 addresses with manual origin settings.
+            return unicastAddress.Address.AddressFamily ==
+                System.Net.Sockets.AddressFamily.InterNetwork
+                && (unicastAddress.PrefixOrigin == PrefixOrigin.Manual)
+                && (unicastAddress.SuffixOrigin == SuffixOrigin.Manual);
+        }
     }
-  }
 }

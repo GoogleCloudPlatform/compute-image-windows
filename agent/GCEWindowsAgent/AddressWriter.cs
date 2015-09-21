@@ -14,228 +14,233 @@
  * limitations under the License.
  */
 
-using Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
+using Google.ComputeEngine.Common;
 
-namespace GCEAgent
+namespace Google.ComputeEngine.Agent
 {
-  public class AddressWriter : AgentWriter<List<IPAddress>>
-  {
-    private const string REGISTRY_KEY_PATH = @"SOFTWARE\Google\ComputeEngine";
-    private const string REGISTRY_KEY = "ForwardedIps";
-    private RegistryWriter registryWriter = new RegistryWriter(REGISTRY_KEY_PATH);
-
-    public AddressWriter() { }
-
-    private static int GetPrimaryInterfaceIndex()
+    public sealed class AddressWriter : IAgentWriter<List<IPAddress>>
     {
-      foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces())
-      {
-        if ((networkInterface.NetworkInterfaceType == NetworkInterfaceType.Ethernet)
-            && networkInterface.Supports(NetworkInterfaceComponent.IPv4))
+        private const string RegistryKeyPath = @"SOFTWARE\Google\ComputeEngine";
+        private const string RegistryKey = "ForwardedIps";
+        private readonly RegistryWriter registryWriter = new RegistryWriter(RegistryKeyPath);
+
+        private static int GetPrimaryInterfaceIndex()
         {
-          return networkInterface.GetIPProperties().GetIPv4Properties().Index;
-        }
-      }
+            foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if ((networkInterface.NetworkInterfaceType == NetworkInterfaceType.Ethernet)
+                    && networkInterface.Supports(NetworkInterfaceComponent.IPv4))
+                {
+                    return networkInterface.GetIPProperties().GetIPv4Properties().Index;
+                }
+            }
 
-      throw new InvalidOperationException("Unable to find primary network interface.");
-    }
-
-    private static void AddAddress(IPAddress addressToAdd)
-    {
-      int MyNTEContext = 0;
-      int MyNTEInstance = 0;
-
-      int interfaceIndex = GetPrimaryInterfaceIndex();
-      IntPtr ptrMyNTEContext = new IntPtr(MyNTEContext);
-      IntPtr ptrMyNTEInstance = new IntPtr(MyNTEInstance);
-      int address = BitConverter.ToInt32(addressToAdd.GetAddressBytes(), 0);
-      int mask = BitConverter.ToInt32(IPAddress.None.GetAddressBytes(), 0);
-
-      int result = NativeMethods.AddIPAddress(address, mask, interfaceIndex,
-          out ptrMyNTEContext, out ptrMyNTEInstance);
-      if (result != 0)
-      {
-        Logger.Error(
-            "Failed to add address {0} to interface index {1} due to error {2}",
-            addressToAdd, interfaceIndex, result);
-        throw new System.ComponentModel.Win32Exception(result);
-      }
-    }
-
-    private void AddAddresses(IEnumerable<IPAddress> toAdd)
-    {
-      foreach (IPAddress address in toAdd)
-      {
-        AddAddress(address);
-        registryWriter.AddMultiStringValue(REGISTRY_KEY, address.ToString());
-      }
-    }
-
-    private static IntPtr FindAddressContextInAddressList(
-        NativeMethods.IP_ADDR_STRING firstIpAddrString,
-        IPAddress addressToFind)
-    {
-      IntPtr result = IntPtr.Zero;
-      NativeMethods.IP_ADDR_STRING ipAddrString = firstIpAddrString;
-      while (true)
-      {
-        IPAddress address = IPAddress.Parse(ipAddrString.IpAddress.Address);
-        if (address.Equals(addressToFind))
-        {
-          result = new IntPtr(ipAddrString.Context);
-          break;
+            throw new InvalidOperationException("Unable to find primary network interface.");
         }
 
-        if (ipAddrString.Next == IntPtr.Zero)
+        private static void AddAddress(IPAddress addressToAdd)
         {
-          break;
+            int myNteContext = 0;
+            int myNteInstance = 0;
+
+            int interfaceIndex = GetPrimaryInterfaceIndex();
+            IntPtr ptrMyNTEContext = new IntPtr(myNteContext);
+            IntPtr ptrMyNTEInstance = new IntPtr(myNteInstance);
+            int address = BitConverter.ToInt32(addressToAdd.GetAddressBytes(), 0);
+            int mask = BitConverter.ToInt32(IPAddress.None.GetAddressBytes(), 0);
+
+            int result = NativeMethods.AddIPAddress(
+                address,
+                mask,
+                interfaceIndex,
+                out ptrMyNTEContext,
+                out ptrMyNTEInstance);
+            if (result != 0)
+            {
+                Logger.Error(
+                    "Failed to add address {0} to interface index {1} due to error {2}",
+                    addressToAdd,
+                    interfaceIndex,
+                    result);
+                throw new System.ComponentModel.Win32Exception(result);
+            }
         }
 
-        ipAddrString = (NativeMethods.IP_ADDR_STRING)Marshal.PtrToStructure(
-            ipAddrString.Next, typeof(NativeMethods.IP_ADDR_STRING));
-      }
-
-      return result;
-    }
-
-    private static IntPtr FindAddressContextInBuffer(IntPtr ipAdapterInfoBuffer, IPAddress addressToFind)
-    {
-      IntPtr result = IntPtr.Zero;
-      do
-      {
-        NativeMethods.IP_ADAPTER_INFO entry = (NativeMethods.IP_ADAPTER_INFO)Marshal.PtrToStructure(
-            ipAdapterInfoBuffer, typeof(NativeMethods.IP_ADAPTER_INFO));
-        result = FindAddressContextInAddressList(entry.IpAddressList, addressToFind);
-        if (result != IntPtr.Zero)
+        private void AddAddresses(IEnumerable<IPAddress> toAdd)
         {
-          break;
+            foreach (IPAddress address in toAdd)
+            {
+                AddAddress(address);
+                registryWriter.AddMultiStringValue(RegistryKey, address.ToString());
+            }
         }
 
-        ipAdapterInfoBuffer = entry.Next;
-      } while (ipAdapterInfoBuffer != IntPtr.Zero);
-
-      return result;
-    }
-
-    private static IntPtr FindAddressContext(IPAddress addressToFind)
-    {
-      // Get the required buffer size
-      int bufferSize = 0;
-      NativeMethods.GetAdaptersInfo(IntPtr.Zero, ref bufferSize);
-
-      // Allocate the buffer
-      IntPtr buffer = Marshal.AllocHGlobal(bufferSize);
-
-      // Retrieve the table.
-      try
-      {
-        int result = NativeMethods.GetAdaptersInfo(buffer, ref bufferSize);
-        if (result != 0)
+        private static IntPtr FindAddressContextInAddressList(
+            NativeMethods.IP_ADDR_STRING firstIpAddrString,
+            IPAddress addressToFind)
         {
-          throw new System.ComponentModel.Win32Exception(result);
+            IntPtr result = IntPtr.Zero;
+            NativeMethods.IP_ADDR_STRING ipAddrString = firstIpAddrString;
+            while (true)
+            {
+                IPAddress address = IPAddress.Parse(ipAddrString.IpAddress.Address);
+                if (address.Equals(addressToFind))
+                {
+                    result = new IntPtr(ipAddrString.Context);
+                    break;
+                }
+
+                if (ipAddrString.Next == IntPtr.Zero)
+                {
+                    break;
+                }
+
+                ipAddrString = (NativeMethods.IP_ADDR_STRING)Marshal.PtrToStructure(
+                    ipAddrString.Next, typeof(NativeMethods.IP_ADDR_STRING));
+            }
+
+            return result;
         }
 
-        // Walk over the buffer and locate the matching context token.
-        IntPtr nteContext = FindAddressContextInBuffer(buffer, addressToFind);
-        if (nteContext == IntPtr.Zero)
+        private static IntPtr FindAddressContextInBuffer(IntPtr ipAdapterInfoBuffer, IPAddress addressToFind)
         {
-          string message = string.Format("Unable to locate NTEContext for address {0}", addressToFind);
-          throw new InvalidOperationException(message);
+            IntPtr result = IntPtr.Zero;
+            do
+            {
+                NativeMethods.IP_ADAPTER_INFO entry = (NativeMethods.IP_ADAPTER_INFO)Marshal.PtrToStructure(
+                    ipAdapterInfoBuffer, typeof(NativeMethods.IP_ADAPTER_INFO));
+                result = FindAddressContextInAddressList(entry.IpAddressList, addressToFind);
+                if (result != IntPtr.Zero)
+                {
+                    break;
+                }
+
+                ipAdapterInfoBuffer = entry.Next;
+            }
+            while (ipAdapterInfoBuffer != IntPtr.Zero);
+
+            return result;
         }
-        return nteContext;
-      }
-      finally
-      {
-        if (buffer != IntPtr.Zero)
+
+        private static IntPtr FindAddressContext(IPAddress addressToFind)
         {
-          Marshal.FreeHGlobal(buffer);
+            // Get the required buffer size
+            int bufferSize = 0;
+            NativeMethods.GetAdaptersInfo(IntPtr.Zero, ref bufferSize);
+
+            // Allocate the buffer
+            IntPtr buffer = Marshal.AllocHGlobal(bufferSize);
+
+            // Retrieve the table.
+            try
+            {
+                int result = NativeMethods.GetAdaptersInfo(buffer, ref bufferSize);
+                if (result != 0)
+                {
+                    throw new System.ComponentModel.Win32Exception(result);
+                }
+
+                // Walk over the buffer and locate the matching context token.
+                IntPtr nteContext = FindAddressContextInBuffer(buffer, addressToFind);
+                if (nteContext == IntPtr.Zero)
+                {
+                    string message = string.Format("Unable to locate NTEContext for address {0}", addressToFind);
+                    throw new InvalidOperationException(message);
+                }
+                return nteContext;
+            }
+            finally
+            {
+                if (buffer != IntPtr.Zero)
+                {
+                    Marshal.FreeHGlobal(buffer);
+                }
+            }
         }
-      }
+
+        private static void RemoveAddress(IPAddress addressToRemove)
+        {
+            int interfaceIndex = GetPrimaryInterfaceIndex();
+
+            // The Net Table Entry context for the IP address.
+            IntPtr nteContext = FindAddressContext(addressToRemove);
+            int result = NativeMethods.DeleteIPAddress(nteContext);
+            if (result != 0)
+            {
+                Logger.Error("Failed to delete address {0} due to error {1}", addressToRemove, result);
+                throw new System.ComponentModel.Win32Exception(result);
+            }
+        }
+
+        private void RemoveAddresses(IEnumerable<IPAddress> toRemove)
+        {
+            foreach (IPAddress address in toRemove)
+            {
+                RemoveAddress(address);
+            }
+        }
+
+        private string GetJoinStringOrNone<T>(List<T> items)
+        {
+            if (items.Count == 0)
+            {
+                return "None";
+            }
+
+            return string.Join(", ", items);
+        }
+
+        private void LogForwardedIpsChanges(
+            List<IPAddress> configured,
+            List<IPAddress> desired,
+            List<IPAddress> toAdd,
+            List<IPAddress> toRemove)
+        {
+            if (toAdd.Count == 0 && toRemove.Count == 0)
+            {
+                return;
+            }
+
+            Logger.Info(
+                "Changing forwarded IPs from {0} to {1} by adding {2} and removing {3}",
+                GetJoinStringOrNone(configured),
+                GetJoinStringOrNone(desired),
+                GetJoinStringOrNone(toAdd),
+                GetJoinStringOrNone(toRemove));
+        }
+
+        private static IPAddress ConvertStringToIpAddress(string ip)
+        {
+            try
+            {
+                return IPAddress.Parse(ip);
+            }
+            catch (FormatException)
+            {
+                Logger.Info("Caught exception in GetRegistryAddresses. Could not parse IP: {0}", ip);
+                return null;
+            }
+        }
+
+        public void SetMetadata(List<IPAddress> metadata)
+        {
+            List<string> registryKeys = registryWriter.GetMultiStringValue(RegistryKey);
+            List<IPAddress> registryForwardedIps = registryKeys.ConvertAll<IPAddress>(ConvertStringToIpAddress);
+            List<IPAddress> addressesConfigured = AddressSystemReader.GetAddresses();
+            List<IPAddress> toAdd = new List<IPAddress>(metadata.Except(addressesConfigured));
+            List<IPAddress> toRemove = new List<IPAddress>(registryForwardedIps.Except(metadata));
+            List<string> metadataStrings = metadata.ConvertAll<string>(ip => ip.ToString());
+            List<string> toRemoveFromRegistry = new List<string>(registryKeys.Except(metadataStrings));
+            LogForwardedIpsChanges(addressesConfigured, metadata, toAdd, toRemove);
+            AddAddresses(toAdd);
+            RemoveAddresses(toRemove);
+            registryWriter.RemoveMultiStringValues(RegistryKey, toRemoveFromRegistry);
+        }
     }
-
-    private static void RemoveAddress(IPAddress addressToRemove)
-    {
-      int interfaceIndex = GetPrimaryInterfaceIndex();
-
-      // The Net Table Entry context for the IP address.
-      IntPtr nteContext = FindAddressContext(addressToRemove);
-      int result = NativeMethods.DeleteIPAddress(nteContext);
-      if (result != 0)
-      {
-        Logger.Error("Failed to delete address {0} due to error {1}", addressToRemove, result);
-        throw new System.ComponentModel.Win32Exception(result);
-      }
-    }
-
-    private void RemoveAddresses(IEnumerable<IPAddress> toRemove)
-    {
-      foreach (IPAddress address in toRemove)
-      {
-        RemoveAddress(address);
-      }
-    }
-
-    private string GetJoinStringOrNone<T>(List<T> items)
-    {
-      if (items.Count == 0)
-      {
-        return "None";
-      }
-
-      return string.Join(", ", items);
-    }
-
-    private void LogForwardedIpsChanges(
-        List<IPAddress> configured,
-        List<IPAddress> desired,
-        List<IPAddress> toAdd,
-        List<IPAddress> toRemove)
-    {
-      if (toAdd.Count == 0 && toRemove.Count == 0)
-      {
-        return;
-      }
-
-      Logger.Info(
-          "Changing forwarded IPs from {0} to {1} by adding {2} and removing {3}",
-          GetJoinStringOrNone(configured),
-          GetJoinStringOrNone(desired),
-          GetJoinStringOrNone(toAdd),
-          GetJoinStringOrNone(toRemove));
-    }
-
-    private static IPAddress ConvertStringToIpAddress(string ip)
-    {
-      try
-      {
-        return IPAddress.Parse(ip);
-      }
-      catch (FormatException)
-      {
-        Logger.Info("Caught exception in GetRegistryAddresses. Could not parse IP: {0}", ip);
-        return null;
-      }
-    }
-
-    public void SetMetadata(List<IPAddress> metadata)
-    {
-      List<string> registryKeys = registryWriter.GetMultiStringValue(REGISTRY_KEY);
-      List<IPAddress> registryForwardedIps = registryKeys.ConvertAll<IPAddress>(ConvertStringToIpAddress);
-      List<IPAddress> addressesConfigured = AddressSystemReader.GetAddresses();
-      List<IPAddress> toAdd = new List<IPAddress>(metadata.Except(addressesConfigured));
-      List<IPAddress> toRemove = new List<IPAddress>(registryForwardedIps.Except(metadata));
-      List<string> metadataStrings = metadata.ConvertAll<string>(ip => ip.ToString());
-      List<string> toRemoveFromRegistry = new List<string>(registryKeys.Except(metadataStrings));
-      LogForwardedIpsChanges(addressesConfigured, metadata, toAdd, toRemove);
-      AddAddresses(toAdd);
-      RemoveAddresses(toRemove);
-      registryWriter.RemoveMultiStringValues(REGISTRY_KEY, toRemoveFromRegistry);
-    }
-  }
 }

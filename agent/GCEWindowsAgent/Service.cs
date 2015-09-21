@@ -14,49 +14,49 @@
  * limitations under the License.
  */
 
-using Common;
 using System;
 using System.Reflection;
 using System.ServiceProcess;
+using Google.ComputeEngine.Common;
 
-namespace GCEAgent
+namespace Google.ComputeEngine.Agent
 {
-  /// <summary>
-  /// Service daemon for GCE hosted Windows VMs.
-  /// </summary>
-  public class GCEService : ServiceBase
-  {
-    private MetadataService metadataService;
-
-    public GCEService()
+    /// <summary>
+    /// Service daemon for GCE hosted Windows VMs.
+    /// </summary>
+    public sealed class ComputeEngineService : ServiceBase
     {
-      metadataService = new MetadataService();
-    }
+        private readonly MetadataService metadataService;
 
-    protected override void OnStart(string[] args)
-    {
-      string version = "unknown";
-      try
-      {
-        version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
-      }
-      catch (Exception e)
-      {
-        Logger.Warning("Exception caught reading version number. {0}", e);
-      }
-      Logger.Info("GCE Agent started (version {0}).", version);
-      metadataService.OnStart();
-    }
+        public ComputeEngineService()
+        {
+            metadataService = new MetadataService();
+        }
 
-    protected override void OnStop()
-    {
-      metadataService.OnStop();
-      Logger.Info("GCE Agent stopped.");
-    }
+        protected override void OnStart(string[] args)
+        {
+            string version = "unknown";
+            try
+            {
+                version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+            }
+            catch (Exception e)
+            {
+                Logger.Warning("Exception caught reading version number. {0}", e);
+            }
+            Logger.Info("GCE Agent started (version {0}).", version);
+            metadataService.OnStart();
+        }
 
-    static void Main(string[] args)
-    {
-      ServiceBase.Run(new GCEService());
+        protected override void OnStop()
+        {
+            metadataService.OnStop();
+            Logger.Info("GCE Agent stopped.");
+        }
+
+        public static void Main(string[] args)
+        {
+            ServiceBase.Run(new ComputeEngineService());
+        }
     }
-  }
 }

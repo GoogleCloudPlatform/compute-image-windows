@@ -14,72 +14,70 @@
  * limitations under the License.
  */
 
-using Common;
 using System;
 using System.Collections.Generic;
 using System.Net;
+using Google.ComputeEngine.Common;
 
-namespace GCEAgent
+namespace Google.ComputeEngine.Agent
 {
-  /// <summary>
-  /// Reads and parses address information from GCE's metadata service.
-  /// </summary>
-  public class AddressReader : AgentReader<List<IPAddress>>
-  {
-    public AddressReader() { }
-
-    private List<IPAddress> ParseForwardIpsResult(string[] forwardedIps)
+    /// <summary>
+    /// Reads and parses address information from GCE's metadata service.
+    /// </summary>
+    public sealed class AddressReader : IAgentReader<List<IPAddress>>
     {
-      List<IPAddress> addresses = new List<IPAddress>();
-      foreach (string ip in forwardedIps)
-      {
-        if (!string.IsNullOrEmpty(ip))
+        private List<IPAddress> ParseForwardIpsResult(string[] forwardedIps)
         {
-          try
-          {
-            addresses.Add(IPAddress.Parse(ip));
-          }
-          catch (FormatException)
-          {
-            Logger.Info("Caught exception in ParseForwardIpsResult. Could not parse IP: {0}", ip);
-          }
+            List<IPAddress> addresses = new List<IPAddress>();
+            foreach (string ip in forwardedIps)
+            {
+                if (!string.IsNullOrEmpty(ip))
+                {
+                    try
+                    {
+                        addresses.Add(IPAddress.Parse(ip));
+                    }
+                    catch (FormatException)
+                    {
+                        Logger.Info("Caught exception in ParseForwardIpsResult. Could not parse IP: {0}", ip);
+                    }
+                }
+            }
+            return addresses;
         }
-      }
-      return addresses;
-    }
 
-    public List<IPAddress> GetMetadata(MetadataJson metadata)
-    {
-      try
-      {
-        string[] forwardedIps = metadata.Instance.NetworkInterfaces[0].ForwardedIps;
-        return ParseForwardIpsResult(forwardedIps);
-      }
-      catch (NullReferenceException)
-      {
-        return null;
-      }
-    }
+        public List<IPAddress> GetMetadata(MetadataJson metadata)
+        {
+            try
+            {
+                string[] forwardedIps = metadata.Instance.NetworkInterfaces[0].ForwardedIps;
+                return ParseForwardIpsResult(forwardedIps);
+            }
+            catch (NullReferenceException)
+            {
+                return null;
+            }
+        }
 
-    public bool CompareMetadata(List<IPAddress> oldMetadata, List<IPAddress> newMetadata)
-    {
-      if (oldMetadata == null || newMetadata == null)
-      {
-        return oldMetadata == null && newMetadata == null;
-      }
-      return new HashSet<IPAddress>(oldMetadata).SetEquals(newMetadata);
-    }
+        public bool CompareMetadata(List<IPAddress> oldMetadata, List<IPAddress> newMetadata)
+        {
+            if (oldMetadata == null || newMetadata == null)
+            {
+                return oldMetadata == null && newMetadata == null;
+            }
+            return new HashSet<IPAddress>(oldMetadata).SetEquals(newMetadata);
+        }
 
-    public bool IsEnabled(MetadataJson metadata)
-    {
-      try
-      {
-        return !metadata.Instance.Attributes.DisableAddressManager;
-      }
-      catch (NullReferenceException)
-      {
-        return true;
-      }
+        public bool IsEnabled(MetadataJson metadata)
+        {
+            try
+            {
+                return !metadata.Instance.Attributes.DisableAddressManager;
+            }
+            catch (NullReferenceException)
+            {
+                return true;
+            }
+        }
     }
-  }
 }

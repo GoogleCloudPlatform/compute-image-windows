@@ -14,54 +14,58 @@
  * limitations under the License.
  */
 
-using Common;
 using System;
 using System.Diagnostics;
 using System.Runtime.Serialization;
 using System.Threading;
+using Google.ComputeEngine.Common;
 
-namespace GCEAgent
+namespace Google.ComputeEngine.Agent
 {
-  /// <summary>
-  /// The JSON object format for agent startup information.
-  /// </summary>
-  [DataContract]
-  internal class GoogleAgentStartupJson
-  {
-    [DataMember(Name = "ready")]
-    internal bool Ready { get; set; }
-
-    [DataMember(Name = "version")]
-    internal string OSVersion { get; set; }
-  }
-
-  class MetadataService
-  {
-    private AccountsManager accountsManager = new AccountsManager();
-    private AddressManager addressManager = new AddressManager();
-    private CancellationTokenSource token = new CancellationTokenSource();
-
-    private void PrintAgentStartupJson()
+    /// <summary>
+    /// The JSON object format for agent startup information.
+    /// </summary>
+    [DataContract]
+    internal class GoogleAgentStartupJson
     {
-      GoogleAgentStartupJson agentStartupJson = new GoogleAgentStartupJson();
-      agentStartupJson.Ready = true;
-      agentStartupJson.OSVersion = Environment.OSVersion.ToString();
+        [DataMember(Name = "ready")]
+        internal bool Ready { get; set; }
 
-      string serializedAgentStartup = MetadataSerializer.SerializeMetadata<GoogleAgentStartupJson>(agentStartupJson);
-      Logger.LogWithCom(EventLogEntryType.Information, "COM4", "{0}", serializedAgentStartup);
+        [DataMember(Name = "version")]
+        internal string OSVersion { get; set; }
     }
 
-    public void OnStart()
+    internal class MetadataService
     {
-      // Indicate a Windows instance is running.
-      PrintAgentStartupJson();
-      // Run the work loop until the service shuts down
-      MetadataWatcher.UpdateToken(token);
-    }
+        private AccountsManager accountsManager = new AccountsManager();
+        private AddressManager addressManager = new AddressManager();
+        private readonly CancellationTokenSource token = new CancellationTokenSource();
 
-    public void OnStop()
-    {
-      token.Cancel();
+        private static void PrintAgentStartupJson()
+        {
+            GoogleAgentStartupJson agentStartupJson = new GoogleAgentStartupJson
+            {
+                Ready = true,
+                OSVersion = Environment.OSVersion.ToString()
+            };
+
+            string serializedAgentStartup = MetadataSerializer
+                .SerializeMetadata<GoogleAgentStartupJson>(agentStartupJson);
+            Logger.LogWithCom(EventLogEntryType.Information, "COM4", "{0}", serializedAgentStartup);
+        }
+
+        public void OnStart()
+        {
+            // Indicate a Windows instance is running.
+            PrintAgentStartupJson();
+
+            // Run the work loop until the service shuts down
+            MetadataWatcher.UpdateToken(token);
+        }
+
+        public void OnStop()
+        {
+            token.Cancel();
+        }
     }
-  }
 }
