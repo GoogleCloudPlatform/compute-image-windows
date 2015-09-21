@@ -14,83 +14,84 @@
  * limitations under the License.
  */
 
-using Common;
 using System;
 using System.Collections.Generic;
+using Google.ComputeEngine.Common;
 
-namespace GCEAgent
+namespace Google.ComputeEngine.Agent
 {
-  /// <summary>
-  /// Reads and parses user account information from GCE's metadata service.
-  /// </summary>
-  public class AccountsReader : AgentReader<List<WindowsKey>>
-  {
-    public AccountsReader() { }
-
     /// <summary>
-    /// Given the windows-keys metadata attribute, return a list of WindowsKey
-    /// objects. Only add WindowsKey objects to the list that are not expired.
+    /// Reads and parses user account information from GCE's metadata service.
     /// </summary>
-    /// <param name="windowsKeys">
-    /// The metadata response for the windows-keys metadata attrbute.
-    /// </param>
-    /// <returns>A list of WindowsKey objects that are not expired.</returns>
-    private List<WindowsKey> ParseWindowsKeys(string windowsKeys)
+    public sealed class AccountsReader : IAgentReader<List<WindowsKey>>
     {
-      List<WindowsKey> windowsKeysList = new List<WindowsKey>();
-      if (string.IsNullOrEmpty(windowsKeys))
-      {
-        return windowsKeysList;
-      }
-
-      foreach (string windowsKeyString in windowsKeys.Split(Environment.NewLine.ToCharArray()))
-      {
-        WindowsKey windowsKey = WindowsKey.DeserializeWindowsKey(windowsKeyString);
-
-        if (windowsKey != null
-            && !string.IsNullOrEmpty(windowsKey.Exponent)
-            && !string.IsNullOrEmpty(windowsKey.Modulus)
-            && !string.IsNullOrEmpty(windowsKey.UserName)
-            && !windowsKey.HasExpired())
+        /// <summary>
+        /// Given the windows-keys metadata attribute, return a list of
+        /// WindowsKey objects. Only add WindowsKey objects to the list that are
+        /// not expired.
+        /// </summary>
+        /// <param name="windowsKeys">
+        /// The metadata response for the windows-keys metadata attrbute.
+        /// </param>
+        /// <returns>
+        /// A list of WindowsKey objects that are not expired.
+        /// </returns>
+        private List<WindowsKey> ParseWindowsKeys(string windowsKeys)
         {
-          windowsKeysList.Add(windowsKey);
+            List<WindowsKey> windowsKeysList = new List<WindowsKey>();
+            if (string.IsNullOrEmpty(windowsKeys))
+            {
+                return windowsKeysList;
+            }
+
+            foreach (string windowsKeyString in windowsKeys.Split(Environment.NewLine.ToCharArray()))
+            {
+                WindowsKey windowsKey = WindowsKey.DeserializeWindowsKey(windowsKeyString);
+
+                if (windowsKey != null
+                    && !string.IsNullOrEmpty(windowsKey.Exponent)
+                    && !string.IsNullOrEmpty(windowsKey.Modulus)
+                    && !string.IsNullOrEmpty(windowsKey.UserName)
+                    && !windowsKey.HasExpired())
+                {
+                    windowsKeysList.Add(windowsKey);
+                }
+            }
+            return windowsKeysList;
         }
-      }
-      return windowsKeysList;
-    }
 
-    public List<WindowsKey> GetMetadata(MetadataJson metadata)
-    {
-      try
-      {
-        string windowsKeys = metadata.Instance.Attributes.WindowsKeys;
-        return ParseWindowsKeys(windowsKeys);
-      }
-      catch (NullReferenceException)
-      {
-        return null;
-      }
-    }
+        public List<WindowsKey> GetMetadata(MetadataJson metadata)
+        {
+            try
+            {
+                string windowsKeys = metadata.Instance.Attributes.WindowsKeys;
+                return ParseWindowsKeys(windowsKeys);
+            }
+            catch (NullReferenceException)
+            {
+                return null;
+            }
+        }
 
-    public bool CompareMetadata(List<WindowsKey> oldMetadata, List<WindowsKey> newMetadata)
-    {
-      if (oldMetadata == null || newMetadata == null)
-      {
-        return oldMetadata == null && newMetadata == null;
-      }
-      return new HashSet<WindowsKey>(oldMetadata).SetEquals(newMetadata);
-    }
+        public bool CompareMetadata(List<WindowsKey> oldMetadata, List<WindowsKey> newMetadata)
+        {
+            if (oldMetadata == null || newMetadata == null)
+            {
+                return oldMetadata == null && newMetadata == null;
+            }
+            return new HashSet<WindowsKey>(oldMetadata).SetEquals(newMetadata);
+        }
 
-    public bool IsEnabled(MetadataJson metadata)
-    {
-      try
-      {
-        return !metadata.Instance.Attributes.DisableAccountManager;
-      }
-      catch (NullReferenceException)
-      {
-        return true;
-      }
+        public bool IsEnabled(MetadataJson metadata)
+        {
+            try
+            {
+                return !metadata.Instance.Attributes.DisableAccountManager;
+            }
+            catch (NullReferenceException)
+            {
+                return true;
+            }
+        }
     }
-  }
 }

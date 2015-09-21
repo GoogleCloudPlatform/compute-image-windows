@@ -16,31 +16,31 @@
 
 using System;
 
-namespace Common
+namespace Google.ComputeEngine.Common
 {
-  public static class ArgumentValidator
-  {
-    /// <summary>
-    /// Throw ArgumentException if argument is null.
-    /// </summary>
-    public static void ThrowIfNull(object argument, string paramName)
+    public static class ArgumentValidator
     {
-      if (argument == null)
-      {
-        throw new ArgumentNullException(paramName);
-      }
-    }
+        /// <summary>
+        /// Throw ArgumentException if argument is null.
+        /// </summary>
+        public static void ThrowIfNull(object argument, string paramName)
+        {
+            if (argument == null)
+            {
+                throw new ArgumentNullException(paramName);
+            }
+        }
 
-    /// <summary>
-    /// Throw ArgumentExceiption if argument is null or an empty string.
-    /// </summary>
-    public static void ThrowIfNullOrEmpty(string argument, string paramName)
-    {
-      ThrowIfNull(argument, paramName);
-      if (argument.Equals(string.Empty))
-      {
-        throw new ArgumentException(string.Format("The argument {0} is empty", paramName));
-      }
+        /// <summary>
+        /// Throw ArgumentExceiption if argument is null or an empty string.
+        /// </summary>
+        public static void ThrowIfNullOrEmpty(string argument, string paramName)
+        {
+            ThrowIfNull(argument, paramName);
+            if (argument.Equals(string.Empty))
+            {
+                throw new ArgumentException(string.Format("The argument {0} is empty", paramName));
+            }
+        }
     }
-  }
 }

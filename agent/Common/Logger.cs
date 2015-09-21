@@ -19,87 +19,87 @@ using System.Diagnostics;
 using System.IO.Ports;
 using System.Threading;
 
-namespace Common
+namespace Google.ComputeEngine.Common
 {
-  public static class Logger
-  {
-    private const string DEFAULT_COM = "COM1";
-    private const string EVENT_SOURCE = "Google Service";
-    private const string LOG_NAME = "Google";
-    private const int RETRY_LIMIT = 5;
-    private static EventLog log;
-
-    static Logger()
+    public static class Logger
     {
-      if (!EventLog.SourceExists(EVENT_SOURCE))
-      {
-        EventLog.CreateEventSource(EVENT_SOURCE, LOG_NAME);
-      }
+        private const string DefaultCom = "COM1";
+        private const string EventSource = "Google Service";
+        private const string LogName = "Google";
+        private const int RetryLimit = 5;
+        private static readonly EventLog EventLogger;
 
-      log = new EventLog();
-      log.Source = EVENT_SOURCE;
-    }
-
-    private static void Log(SerialPort port, string entry)
-    {
-      int attempt = 1;
-      while (true)
-      {
-        try
+        static Logger()
         {
-          if (!port.IsOpen)
-          {
-            port.Open();
-          }
-          port.WriteLine(entry);
-          break;
+            if (!EventLog.SourceExists(EventSource))
+            {
+                EventLog.CreateEventSource(EventSource, LogName);
+            }
+
+            EventLogger = new EventLog { Source = EventSource };
         }
-        catch (UnauthorizedAccessException)
+
+        private static void Log(SerialPort port, string entry)
         {
-          if (attempt++ >= RETRY_LIMIT)
-          {
-            throw;
-          }
-          port.Close();
-          // Sleep for one second before trying again.
-          Thread.Sleep(1000);
+            int attempt = 1;
+            while (true)
+            {
+                try
+                {
+                    if (!port.IsOpen)
+                    {
+                        port.Open();
+                    }
+                    port.WriteLine(entry);
+                    break;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    if (attempt++ >= RetryLimit)
+                    {
+                        throw;
+                    }
+                    port.Close();
+
+                    // Sleep for one second before trying again.
+                    Thread.Sleep(1000);
+                }
+            }
         }
-      }
+
+        public static void LogWithCom(EventLogEntryType type, string com, string format, params object[] args)
+        {
+            // Add the date to any log message sent to COM1.
+            if (DefaultCom == com)
+            {
+                format = string.Format("{0} UTC: {1}", DateTime.UtcNow, format);
+            }
+
+            string entry = string.Format(format, args);
+
+            // Write to the event log
+            EventLogger.WriteEntry(entry, type);
+
+            // Also write to the COM port.
+            using (SerialPort port = new SerialPort(com))
+            {
+                Log(port, entry);
+            }
+        }
+
+        public static void Info(string format, params object[] args)
+        {
+            LogWithCom(EventLogEntryType.Information, DefaultCom, format, args);
+        }
+
+        public static void Warning(string format, params object[] args)
+        {
+            LogWithCom(EventLogEntryType.Warning, DefaultCom, format, args);
+        }
+
+        public static void Error(string format, params object[] args)
+        {
+            LogWithCom(EventLogEntryType.Error, DefaultCom, format, args);
+        }
     }
-
-    public static void LogWithCom(EventLogEntryType type, string com, string format, params object[] args)
-    {
-      // Add the date to any log message sent to COM1.
-      if (DEFAULT_COM == com)
-      {
-        format = string.Format("{0} UTC: {1}", DateTime.UtcNow, format);
-      }
-
-      string entry = string.Format(format, args);
-
-      // Write to the event log
-      log.WriteEntry(entry, type);
-
-      // Also write to the COM port.
-      using (SerialPort port = new SerialPort(com))
-      {
-        Log(port, entry);
-      }
-    }
-
-    public static void Info(string format, params object[] args)
-    {
-      LogWithCom(EventLogEntryType.Information, DEFAULT_COM, format, args);
-    }
-
-    public static void Warning(string format, params object[] args)
-    {
-      LogWithCom(EventLogEntryType.Warning, DEFAULT_COM, format, args);
-    }
-
-    public static void Error(string format, params object[] args)
-    {
-      LogWithCom(EventLogEntryType.Error, DEFAULT_COM, format, args);
-    }
-  }
 }

@@ -14,55 +14,55 @@
  * limitations under the License.
  */
 
-using Common;
 using System;
 using System.Collections.Generic;
 using System.Net;
+using Google.ComputeEngine.Common;
 
-namespace GCEAgent
+namespace Google.ComputeEngine.Agent
 {
-  public class Manager<T>
-  {
-    private T metadata;
-    private AgentReader<T> reader;
-    private AgentWriter<T> writer;
-
-    public Manager(AgentReader<T> reader, AgentWriter<T> writer)
+    public class Manager<T>
     {
-      this.metadata = Activator.CreateInstance<T>();
-      this.reader = reader;
-      this.writer = writer;
-      MetadataWatcher.MetadataUpdateEvent += new MetadataWatcher.EventHandler(Synchronize);
+        private T metadata;
+        private readonly IAgentReader<T> reader;
+        private readonly IAgentWriter<T> writer;
+
+        public Manager(IAgentReader<T> reader, IAgentWriter<T> writer)
+        {
+            this.metadata = Activator.CreateInstance<T>();
+            this.reader = reader;
+            this.writer = writer;
+            MetadataWatcher.MetadataUpdateEvent += new MetadataWatcher.EventHandler(Synchronize);
+        }
+
+        private void Synchronize(object sender, MetadataUpdateEventArgs e)
+        {
+            if (reader.IsEnabled(e.Metadata))
+            {
+                try
+                {
+                    T metadata = (T)reader.GetMetadata(e.Metadata);
+                    if (!reader.CompareMetadata(this.metadata, metadata))
+                    {
+                        this.metadata = metadata;
+                        this.writer.SetMetadata(this.metadata);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Caught top level exception. {0}\r\n{1}", ex.Message, ex.StackTrace);
+                }
+            }
+        }
     }
 
-    private void Synchronize(object sender, MetadataUpdateEventArgs e)
+    public sealed class AccountsManager : Manager<List<WindowsKey>>
     {
-      if (reader.IsEnabled(e.metadata))
-      {
-        try
-        {
-          T metadata = (T)reader.GetMetadata(e.metadata);
-          if (!reader.CompareMetadata(this.metadata, metadata))
-          {
-            this.metadata = metadata;
-            this.writer.SetMetadata(this.metadata);
-          }
-        }
-        catch (Exception ex)
-        {
-          Logger.Error("Caught top level exception. {0}\r\n{1}", ex.Message, ex.StackTrace);
-        }
-      }
+        public AccountsManager() : base(new AccountsReader(), new AccountsWriter()) { }
     }
-  }
 
-  public class AccountsManager : Manager<List<WindowsKey>>
-  {
-    public AccountsManager() : base(new AccountsReader(), new AccountsWriter()) { }
-  }
-
-  public class AddressManager : Manager<List<IPAddress>>
-  {
-    public AddressManager() : base(new AddressReader(), new AddressWriter()) { }
-  }
+    public sealed class AddressManager : Manager<List<IPAddress>>
+    {
+        public AddressManager() : base(new AddressReader(), new AddressWriter()) { }
+    }
 }

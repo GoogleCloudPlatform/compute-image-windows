@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-namespace GCEAgent
+namespace Google.ComputeEngine.Agent
 {
-  public interface AgentWriter<T>
-  {
-    /// <summary>
-    /// Change system settings using the new metadata server content.
-    /// </summary>
-    void SetMetadata(T metadata);
-  }
+    public interface IAgentWriter<T>
+    {
+        /// <summary>
+        /// Change system settings using the new metadata server content.
+        /// </summary>
+        void SetMetadata(T metadata);
+    }
 }

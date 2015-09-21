@@ -14,66 +14,66 @@
  * limitations under the License.
  */
 
-using Common;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Google.ComputeEngine.Common;
 
-namespace GCEMetadataScripts
+namespace Google.ComputeEngine.MetadataScripts
 {
-  public class ScriptManager
-  {
-    private List<MetadataScript> metadata;
-    private ScriptReader reader;
-    private ScriptWriter writer;
-    private string scriptType;
-
-    public ScriptManager(string scriptType)
+    public sealed class ScriptManager
     {
-      this.scriptType = scriptType;
-      this.reader = new ScriptReader(scriptType);
-      this.writer = new ScriptWriter(scriptType);
-      RunScripts();
-    }
+        private List<MetadataScript> metadata;
+        private readonly ScriptReader reader;
+        private readonly ScriptWriter writer;
+        private readonly string scriptType;
 
-    private void RunScripts()
-    {
-      string version = "unknown";
-      try
-      {
-        version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
-      }
-      catch (Exception e)
-      {
-        Logger.Warning("Exception caught reading version number. {0}", e);
-      }
+        public ScriptManager(string scriptType)
+        {
+            this.scriptType = scriptType;
+            this.reader = new ScriptReader(scriptType);
+            this.writer = new ScriptWriter(scriptType);
+            RunScripts();
+        }
 
-      Logger.Info("Starting {0} scripts (version {1}).", this.scriptType, version);
-      MetadataJson metadata = MetadataWatcher.GetMetadata();
-      this.metadata = reader.GetScripts(metadata);
-      this.writer.SetScripts(this.metadata);
-      Logger.Info("Finished running {0} scripts.", this.scriptType);
-    }
+        private void RunScripts()
+        {
+            string version = "unknown";
+            try
+            {
+                version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+            }
+            catch (Exception e)
+            {
+                Logger.Warning("Exception caught reading version number. {0}", e);
+            }
 
-    private static string ValidateArguments(string[] args)
-    {
-      if (args == null || args.Length == 0)
-      {
-        return null;
-      }
-      string scriptKey = args[0].ToLower();
-      return MetadataScript.ScriptTypes.Contains(scriptKey) ? scriptKey : null;
-    }
+            Logger.Info("Starting {0} scripts (version {1}).", this.scriptType, version);
+            MetadataJson metadata = MetadataWatcher.GetMetadata();
+            this.metadata = reader.GetScripts(metadata);
+            this.writer.SetScripts(this.metadata);
+            Logger.Info("Finished running {0} scripts.", this.scriptType);
+        }
 
-    static void Main(string[] args)
-    {
-      string scriptType = ValidateArguments(args);
-      if (string.IsNullOrEmpty(scriptType))
-      {
-        string validOptions = string.Join(", ", MetadataScript.ScriptTypes);
-        throw new Exception(string.Format("No valid arguments specified. Options: [{0}]", validOptions));
-      }
-      ScriptManager manager = new ScriptManager(scriptType);
+        private static string ValidateArguments(string[] args)
+        {
+            if (args == null || args.Length == 0)
+            {
+                return null;
+            }
+            string scriptKey = args[0].ToLower();
+            return MetadataScript.ScriptTypes.Contains(scriptKey) ? scriptKey : null;
+        }
+
+        public static void Main(string[] args)
+        {
+            string scriptType = ValidateArguments(args);
+            if (string.IsNullOrEmpty(scriptType))
+            {
+                string validOptions = string.Join(", ", MetadataScript.ScriptTypes);
+                throw new Exception(string.Format("No valid arguments specified. Options: [{0}]", validOptions));
+            }
+            ScriptManager manager = new ScriptManager(scriptType);
+        }
     }
-  }
 }
