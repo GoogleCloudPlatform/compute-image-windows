@@ -17,69 +17,70 @@
 using System.Collections.Generic;
 using System.Globalization;
 
-namespace GCEMetadataScripts
+namespace Google.ComputeEngine.MetadataScripts
 {
-  public class MetadataScript
-  {
-    public static List<string> ScriptTypes = new List<string> { "shutdown", "specialize", "startup" };
-    public static List<string> Suffixes = new List<string> { "ps1", "cmd", "bat", "url" };
-    public string Suffix { get; private set; }
-    public string Script { get; private set; }
-
-    public MetadataScript(string suffix, string script)
+    public sealed class MetadataScript
     {
-      this.Suffix = suffix;
-      this.Script = script;
+        public static List<string> ScriptTypes = new List<string> { "shutdown", "specialize", "startup" };
+        public static List<string> Suffixes = new List<string> { "ps1", "cmd", "bat", "url" };
+        public string Suffix { get; private set; }
+        public string Script { get; private set; }
+
+        public MetadataScript(string suffix, string script)
+        {
+            this.Suffix = suffix;
+            this.Script = script;
+        }
+
+        private static readonly Dictionary<string, string> ScriptTypesDict = new Dictionary<string, string>()
+        {
+            { "shutdown", "windows shutdown script" },
+            { "specialize", "sysprep specialize script" },
+            { "startup", "windows startup script" },
+        };
+
+        /// <summary>
+        /// Converts script type and script suffix into a space separated
+        /// string.
+        /// </summary>
+        /// <param name="scriptType">The script type e.g. "specialize".</param>
+        /// <param name="suffix">The script suffix e.g. "ps1".</param>
+        /// <returns>
+        /// Space separated key e.g. "sysprep specialize script ps1".
+        /// </returns>
+        public static string GetMetadataTypeString(string scriptType, string suffix)
+        {
+            string scriptTypeString = string.Empty;
+            if (ScriptTypesDict.TryGetValue(scriptType, out scriptTypeString))
+            {
+                scriptTypeString = string.Format("{0} {1}", scriptTypeString, suffix);
+            }
+            return scriptTypeString;
+        }
+
+        /// <summary>
+        /// Converts script type and suffix into a metadata key in title case.
+        /// </summary>
+        /// <returns>
+        /// The metadata key e.g. "SysprepSpecializeScriptPs1".
+        /// </returns>
+        public static string GetMetadataKeyTitle(string scriptType, string suffix)
+        {
+            TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
+            string scriptTypeString = textInfo.ToTitleCase(GetMetadataTypeString(scriptType, suffix));
+            return string.Join(null, scriptTypeString.Split(new char[] { ' ' }));
+        }
+
+        /// <summary>
+        /// Converts script type and suffix into a metadata key in hyphen case.
+        /// </summary>
+        /// <returns>
+        /// The metadata key e.g. "sysprep-specialize-script-ps1".
+        /// </returns>
+        public static string GetMetadataKeyHyphen(string scriptType, string suffix)
+        {
+            string scriptTypeString = GetMetadataTypeString(scriptType, suffix);
+            return string.Join("-", scriptTypeString.Split(new char[] { ' ' }));
+        }
     }
-
-    private static Dictionary<string, string> ScriptTypesDict = new Dictionary<string, string>()
-    {
-      { "shutdown", "windows shutdown script" },
-      { "specialize", "sysprep specialize script" },
-      { "startup", "windows startup script" },
-    };
-
-    /// <summary>
-    /// Converts script type and script suffix into a space separated string.
-    /// </summary>
-    /// <param name="scriptType">The script type e.g. "specialize".</param>
-    /// <param name="suffix">The script suffix e.g. "ps1".</param>
-    /// <returns>
-    /// Space separated key e.g. "sysprep specialize script ps1".
-    /// </returns>
-    public static string GetMetadataTypeString(string scriptType, string suffix)
-    {
-      string scriptTypeString = "";
-      if (ScriptTypesDict.TryGetValue(scriptType, out scriptTypeString))
-      {
-        scriptTypeString = string.Format("{0} {1}", scriptTypeString, suffix);
-      }
-      return scriptTypeString;
-    }
-
-    /// <summary>
-    /// Converts script type and suffix into a metadata key in title case.
-    /// </summary>
-    /// <returns>
-    /// The metadata key e.g. "SysprepSpecializeScriptPs1".
-    /// </returns>
-    public static string GetMetadataKeyTitle(string scriptType, string suffix)
-    {
-      TextInfo textInfo = new CultureInfo("en-US", false).TextInfo;
-      string scriptTypeString = textInfo.ToTitleCase(GetMetadataTypeString(scriptType, suffix));
-      return string.Join(null, scriptTypeString.Split(new char[] { ' ' }));
-    }
-
-    /// <summary>
-    /// Converts script type and suffix into a metadata key in hyphen case.
-    /// </summary>
-    /// <returns>
-    /// The metadata key e.g. "sysprep-specialize-script-ps1".
-    /// </returns>
-    public static string GetMetadataKeyHyphen(string scriptType, string suffix)
-    {
-      string scriptTypeString = GetMetadataTypeString(scriptType, suffix);
-      return string.Join("-", scriptTypeString.Split(new char[] { ' ' }));
-    }
-  }
 }

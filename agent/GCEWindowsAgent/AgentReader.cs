@@ -14,26 +14,26 @@
  * limitations under the License.
  */
 
-using Common;
+using Google.ComputeEngine.Common;
 
-namespace GCEAgent
+namespace Google.ComputeEngine.Agent
 {
-  public interface AgentReader<T>
-  {
-    /// <summary>
-    /// Parses the response from the metadata server.
-    /// Creates an object storing the relevant metadata content.
-    /// </summary>
-    T GetMetadata(MetadataJson metadata);
+    public interface IAgentReader<T>
+    {
+        /// <summary>
+        /// Parses the response from the metadata server.
+        /// Creates an object storing the relevant metadata content.
+        /// </summary>
+        T GetMetadata(MetadataJson metadata);
 
-    /// <summary>
-    /// A comparator for the metadata object.
-    /// </summary>
-    bool CompareMetadata(T oldMetadata, T newMetadata);
+        /// <summary>
+        /// A comparator for the metadata object.
+        /// </summary>
+        bool CompareMetadata(T oldMetadata, T newMetadata);
 
-    /// <summary>
-    /// Check whether the component is enabled in the metadata server.
-    /// </summary>
-    bool IsEnabled(MetadataJson metadata);
-  }
+        /// <summary>
+        /// Check whether the component is enabled in the metadata server.
+        /// </summary>
+        bool IsEnabled(MetadataJson metadata);
+    }
 }

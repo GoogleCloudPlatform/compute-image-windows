@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright 2015 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,85 +14,85 @@
  * limitations under the License.
  */
 
-using Microsoft.Win32;
 using System.Collections.Generic;
+using Microsoft.Win32;
 
-namespace Common
+namespace Google.ComputeEngine.Common
 {
-  public class RegistryWriter
-  {
-    private readonly string registryKeyPath;
-
-    public RegistryWriter(string registryKeyPath)
+    public sealed class RegistryWriter
     {
-      ArgumentValidator.ThrowIfNullOrEmpty(registryKeyPath, "registryKeyPath");
-      this.registryKeyPath = registryKeyPath;
-    }
+        private readonly string registryKeyPath;
 
-    /// <summary>
-    /// Get the list of values of a MultiString value entry.
-    /// </summary>
-    public List<string> GetMultiStringValue(string registryKeyName)
-    {
-      ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
-
-      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(this.registryKeyPath, true))
-      {
-        string[] values = new string[] { };
-        if (key != null)
+        public RegistryWriter(string registryKeyPath)
         {
-          values = (string[])key.GetValue(registryKeyName, new string[] { });
+            ArgumentValidator.ThrowIfNullOrEmpty(registryKeyPath, "registryKeyPath");
+            this.registryKeyPath = registryKeyPath;
         }
-        return new List<string>(values);
-      }
-    }
 
-    /// <summary>
-    /// Add a value key to the MultiString value entry.
-    /// </summary>
-    public void AddMultiStringValue(string registryKeyName, string registryValue)
-    {
-      ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
-
-      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(this.registryKeyPath, true) ??
-          Registry.LocalMachine.CreateSubKey(this.registryKeyPath))
-      {
-        List<string> registryValues = GetMultiStringValue(registryKeyName);
-        registryValues.Add(registryValue);
-        registryValues.RemoveAll(value => value == null);
-        key.SetValue(registryKeyName, registryValues.ToArray(), RegistryValueKind.MultiString);
-      }
-    }
-
-    /// <summary>
-    /// Remove a value from a MultiString value entry.
-    /// </summary>
-    private void RemoveMultiStringValue(string registryKeyName, string registryValue)
-    {
-      ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
-
-      List<string> registryValues = GetMultiStringValue(registryKeyName);
-      using (RegistryKey key = Registry.LocalMachine.OpenSubKey(this.registryKeyPath, true))
-      {
-        if (key != null && registryValues.Contains(registryValue))
+        /// <summary>
+        /// Get the list of values of a MultiString value entry.
+        /// </summary>
+        public List<string> GetMultiStringValue(string registryKeyName)
         {
-          registryValues.Remove(registryValue);
-          key.SetValue(registryKeyName, registryValues.ToArray(), RegistryValueKind.MultiString);
+            ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
+
+            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(this.registryKeyPath, true))
+            {
+                string[] values = new string[] { };
+                if (key != null)
+                {
+                    values = (string[])key.GetValue(registryKeyName, new string[] { });
+                }
+                return new List<string>(values);
+            }
         }
-      }
-    }
 
-    /// <summary>
-    /// Remove a list of values from a MultiString value entry.
-    /// </summary>
-    public void RemoveMultiStringValues(string registryKeyName, List<string> registryValues)
-    {
-      ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
+        /// <summary>
+        /// Add a value key to the MultiString value entry.
+        /// </summary>
+        public void AddMultiStringValue(string registryKeyName, string registryValue)
+        {
+            ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
 
-      foreach (string registryValue in registryValues ?? new List<string>())
-      {
-        RemoveMultiStringValue(registryKeyName, registryValue);
-      }
+            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(this.registryKeyPath, true) ??
+                Registry.LocalMachine.CreateSubKey(this.registryKeyPath))
+            {
+                List<string> registryValues = GetMultiStringValue(registryKeyName);
+                registryValues.Add(registryValue);
+                registryValues.RemoveAll(value => value == null);
+                key.SetValue(registryKeyName, registryValues.ToArray(), RegistryValueKind.MultiString);
+            }
+        }
+
+        /// <summary>
+        /// Remove a value from a MultiString value entry.
+        /// </summary>
+        private void RemoveMultiStringValue(string registryKeyName, string registryValue)
+        {
+            ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
+
+            List<string> registryValues = GetMultiStringValue(registryKeyName);
+            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(this.registryKeyPath, true))
+            {
+                if (key != null && registryValues.Contains(registryValue))
+                {
+                    registryValues.Remove(registryValue);
+                    key.SetValue(registryKeyName, registryValues.ToArray(), RegistryValueKind.MultiString);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Remove a list of values from a MultiString value entry.
+        /// </summary>
+        public void RemoveMultiStringValues(string registryKeyName, List<string> registryValues)
+        {
+            ArgumentValidator.ThrowIfNullOrEmpty(registryKeyName, "registryKeyName");
+
+            foreach (string registryValue in registryValues ?? new List<string>())
+            {
+                RemoveMultiStringValue(registryKeyName, registryValue);
+            }
+        }
     }
-  }
 }

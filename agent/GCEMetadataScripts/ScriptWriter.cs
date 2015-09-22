@@ -14,93 +14,93 @@
  * limitations under the License.
  */
 
-using Common;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
+using Google.ComputeEngine.Common;
 
-namespace GCEMetadataScripts
+namespace Google.ComputeEngine.MetadataScripts
 {
-  public class ScriptWriter
-  {
-    private string scriptType;
-
-    public ScriptWriter(string scriptType)
+    public sealed class ScriptWriter
     {
-      this.scriptType = scriptType;
-    }
+        private readonly string scriptType;
 
-    private ProcessStartInfo getProcStartInfo(string filename, string arguments = "")
-    {
-      ProcessStartInfo startInfo = new ProcessStartInfo();
-      startInfo.FileName = filename;
-      startInfo.Arguments = arguments;
-      startInfo.RedirectStandardOutput = true;
-      startInfo.RedirectStandardError = true;
-      startInfo.UseShellExecute = false;
-      startInfo.CreateNoWindow = true;
-      return startInfo;
-    }
-
-    private ProcessStartInfo RunPowershell(string script)
-    {
-      string arguments = string.Format("-ExecutionPolicy ByPass -File {0}", script);
-      return getProcStartInfo(@"C:\Windows\sysnative\WindowsPowerShell\v1.0\powershell.exe", arguments);
-    }
-
-    private void LogScriptOutput(string suffix, string message)
-    {
-      string script = MetadataScript.GetMetadataKeyHyphen(this.scriptType, suffix);
-      if (!string.IsNullOrEmpty(message))
-      {
-        Logger.Info("{0}: {1}", script, message);
-      }
-    }
-
-    private async Task LogStream(string suffix, StreamReader reader)
-    {
-      string readText;
-      using (reader)
-      {
-        while ((readText = await reader.ReadLineAsync()) != null)
+        public ScriptWriter(string scriptType)
         {
-          LogScriptOutput(suffix, readText);
+            this.scriptType = scriptType;
         }
-      }
-    }
 
-    public async Task RunScript(MetadataScript metadataScript)
-    {
-      ProcessStartInfo startInfo;
-
-      if ("ps1" == metadataScript.Suffix)
-      {
-        startInfo = RunPowershell(metadataScript.Script);
-      }
-      else
-      {
-        startInfo = getProcStartInfo(metadataScript.Script);
-      }
-
-      using (Process process = Process.Start(startInfo))
-      {
-        Task outputFinished = LogStream(metadataScript.Suffix, process.StandardOutput);
-        await LogStream(metadataScript.Suffix, process.StandardError);
-        await outputFinished;
-      }
-      File.Delete(metadataScript.Script);
-    }
-
-    public void SetScripts(List<MetadataScript> metadata)
-    {
-      foreach (MetadataScript metadataScript in metadata)
-      {
-        if (metadataScript != null)
+        private ProcessStartInfo GetProcStartInfo(string filename, string arguments = "")
         {
-          RunScript(metadataScript).Wait();
+            ProcessStartInfo startInfo = new ProcessStartInfo();
+            startInfo.FileName = filename;
+            startInfo.Arguments = arguments;
+            startInfo.RedirectStandardOutput = true;
+            startInfo.RedirectStandardError = true;
+            startInfo.UseShellExecute = false;
+            startInfo.CreateNoWindow = true;
+            return startInfo;
         }
-      }
+
+        private ProcessStartInfo RunPowershell(string script)
+        {
+            string arguments = string.Format("-ExecutionPolicy ByPass -File {0}", script);
+            return GetProcStartInfo(@"C:\Windows\sysnative\WindowsPowerShell\v1.0\powershell.exe", arguments);
+        }
+
+        private void LogScriptOutput(string suffix, string message)
+        {
+            string script = MetadataScript.GetMetadataKeyHyphen(this.scriptType, suffix);
+            if (!string.IsNullOrEmpty(message))
+            {
+                Logger.Info("{0}: {1}", script, message);
+            }
+        }
+
+        private async Task LogStream(string suffix, StreamReader reader)
+        {
+            string readText;
+            using (reader)
+            {
+                while ((readText = await reader.ReadLineAsync()) != null)
+                {
+                    LogScriptOutput(suffix, readText);
+                }
+            }
+        }
+
+        public async Task RunScript(MetadataScript metadataScript)
+        {
+            ProcessStartInfo startInfo;
+
+            if ("ps1" == metadataScript.Suffix)
+            {
+                startInfo = RunPowershell(metadataScript.Script);
+            }
+            else
+            {
+                startInfo = GetProcStartInfo(metadataScript.Script);
+            }
+
+            using (Process process = Process.Start(startInfo))
+            {
+                Task outputFinished = LogStream(metadataScript.Suffix, process.StandardOutput);
+                await LogStream(metadataScript.Suffix, process.StandardError);
+                await outputFinished;
+            }
+            File.Delete(metadataScript.Script);
+        }
+
+        public void SetScripts(List<MetadataScript> metadata)
+        {
+            foreach (MetadataScript metadataScript in metadata)
+            {
+                if (metadataScript != null)
+                {
+                    RunScript(metadataScript).Wait();
+                }
+            }
+        }
     }
-  }
 }
