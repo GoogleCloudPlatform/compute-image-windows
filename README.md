@@ -16,7 +16,7 @@ To install or update the Windows agent and metadata scripts on your virtual mach
 
     # Restart the instance with the startup script
     $ gcloud compute instances create NEW-INSTANCE --disk name=DISK boot=yes \
-    --metadata windows-startup-script-url=https://raw.githubusercontent.com/GoogleCloudPlatform/compute-image-windows/master/agent/install_agent.ps1
+    --metadata windows-startup-script-url=https://raw.githubusercontent.com/GoogleCloudPlatform/compute-image-windows/master/gce/install_agent.ps1
 
 Alternatively, if you prefer not to recreate your instance, you can run the script from within the Windows virtual machine:
 
