@@ -66,6 +66,8 @@
         <Compile Include="..\Common\Properties\VersionInfo.cs">
             <Link>Properties\VersionInfo.cs</Link>
         </Compile>
+        <Compile Include="UpdatesReader.cs" />
+        <Compile Include="UpdatesWriter.cs" />
         <Compile Include="WindowsKey.cs" />
         <Compile Include="AccountsWriter.cs" />
         <Compile Include="AccountsReader.cs" />
