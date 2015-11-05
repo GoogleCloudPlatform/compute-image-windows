@@ -15,6 +15,8 @@
  */
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Google.ComputeEngine.Common
 {
@@ -32,12 +34,36 @@ namespace Google.ComputeEngine.Common
         }
 
         /// <summary>
-        /// Throw ArgumentExceiption if argument is null or an empty string.
+        /// Throw ArgumentException if argument is null or an empty string.
         /// </summary>
         public static void ThrowIfNullOrEmpty(string argument, string paramName)
         {
             ThrowIfNull(argument, paramName);
             if (argument.Equals(string.Empty))
+            {
+                throw new ArgumentException(string.Format("The argument {0} is empty", paramName));
+            }
+        }
+
+        /// <summary>
+        /// Throw ArgumentException if argument is null or empty.
+        /// </summary>
+        public static void ThrowIfNullOrEmpty<T>(IEnumerable<T> argument, string paramName)
+        {
+            ThrowIfNull(argument, paramName);
+            if (!argument.Any())
+            {
+                throw new ArgumentException(string.Format("The argument {0} is empty", paramName));
+            }
+        }
+
+        /// <summary>
+        /// Throw ArgumentException if argument is null or an empty Guid.
+        /// </summary>
+        public static void ThrowIfNullOrEmpty(Guid argument, string paramName)
+        {
+            ThrowIfNull(argument, paramName);
+            if (argument.Equals(Guid.Empty))
             {
                 throw new ArgumentException(string.Format("The argument {0} is empty", paramName));
             }

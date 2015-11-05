@@ -32,7 +32,10 @@
     <ItemGroup>
         <Reference Include="System" />
         <Reference Include="System.Core" />
+        <Reference Include="System.IO.Compression.FileSystem" />
+        <Reference Include="System.Management" />
         <Reference Include="System.Runtime.Serialization" />
+        <Reference Include="System.ServiceProcess" />
         <Reference Include="System.Xml.Linq" />
         <Reference Include="System.Data.DataSetExtensions" />
         <Reference Include="Microsoft.CSharp" />
@@ -41,6 +44,7 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="ArgumentValidator.cs" />
+        <Compile Include="InstallerUtils.cs" />
         <Compile Include="Logger.cs" />
         <Compile Include="MetadataJson.cs" />
         <Compile Include="MetadataWatcher.cs" />
@@ -49,4 +53,13 @@
         <Compile Include="RegistryWriter.cs" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+    <PropertyGroup>
+        <PostBuildEvent>
+            SET DROP_DIR="$(ProjectDir)bin"
+            IF NOT EXIST %25DROP_DIR%25 (
+            mkdir %25DROP_DIR%25
+            )
+            copy "$(TargetPath)" "%25DROP_DIR%25\$(TargetFileName)" /y
+        </PostBuildEvent>
+    </PropertyGroup>
 </Project>

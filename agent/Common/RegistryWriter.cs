@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Win32;
 
@@ -108,6 +109,30 @@ namespace Google.ComputeEngine.Common
             foreach (string registryValue in registryValues ?? new List<string>())
             {
                 RemoveMultiStringValue(registryKeyName, registryValue);
+            }
+        }
+
+        /// <summary>
+        /// Write a list of values to the sub key.
+        /// </summary>
+        /// <param name="subKey">Name of the sub-key.</param>
+        /// <param name="registryValues">
+        /// A list of registry values. Each value is a 3-tuple: entry name,
+        /// entry value and entry type.
+        /// </param>
+        public void AddValueEntries(string subKey, IEnumerable<Tuple<string, object, RegistryValueKind>> registryValues)
+        {
+            ArgumentValidator.ThrowIfNullOrEmpty(subKey, "subKey");
+            ArgumentValidator.ThrowIfNullOrEmpty(registryValues, "registryValues");
+
+            string registrykey = string.Format(@"{0}\{1}", this.registryKeyPath, subKey);
+            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registrykey, true) ??
+                Registry.LocalMachine.CreateSubKey(registrykey))
+            {
+                foreach (Tuple<string, object, RegistryValueKind> registryValue in registryValues)
+                {
+                    key.SetValue(registryValue.Item1, registryValue.Item2, registryValue.Item3);
+                }
             }
         }
     }
