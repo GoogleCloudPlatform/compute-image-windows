@@ -72,6 +72,9 @@ namespace Google.ComputeEngine.Common
 
         [DataMember(Name = AttributeKeys.DisableAccountManager)]
         public bool DisableAccountManager { get; set; }
+
+        [DataMember(Name = AttributeKeys.DisableAgentUpdates)]
+        public bool DisableAgentUpdate { get; set; }
         #endregion
 
         #region Startup Scripts
@@ -162,6 +165,7 @@ namespace Google.ComputeEngine.Common
     {
         public const string DisableAccountManager = "disable-account-manager";
         public const string DisableAddressManager = "disable-address-manager";
+        public const string DisableAgentUpdates = "disable-agent-updates";
         public const string SysprepOobeScriptBat = "sysprep-oobe-script-bat";
         public const string SysprepOobeScriptCmd = "sysprep-oobe-script-cmd";
         public const string SysprepOobeScriptPs1 = "sysprep-oobe-script-ps1";
