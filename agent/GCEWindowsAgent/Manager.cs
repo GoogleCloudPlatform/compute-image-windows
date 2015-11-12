@@ -65,4 +65,9 @@ namespace Google.ComputeEngine.Agent
     {
         public AddressManager() : base(new AddressReader(), new AddressWriter()) { }
     }
+
+    public class UpdatesManager : Manager<Dictionary<string, bool>>
+    {
+        public UpdatesManager() : base(new UpdatesReader(), new UpdatesWriter()) { }
+    }
 }
