@@ -23,13 +23,17 @@ namespace Google.ComputeEngine.Agent
 {
     public class Manager<T>
     {
+        private bool enabled;
         private T metadata;
+        private string name;
         private readonly IAgentReader<T> reader;
         private readonly IAgentWriter<T> writer;
 
-        public Manager(IAgentReader<T> reader, IAgentWriter<T> writer)
+        public Manager(string name, IAgentReader<T> reader, IAgentWriter<T> writer)
         {
+            this.enabled = true;
             this.metadata = Activator.CreateInstance<T>();
+            this.name = name;
             this.reader = reader;
             this.writer = writer;
             MetadataWatcher.MetadataUpdateEvent += new MetadataWatcher.EventHandler(Synchronize);
@@ -37,7 +41,13 @@ namespace Google.ComputeEngine.Agent
 
         private void Synchronize(object sender, MetadataUpdateEventArgs e)
         {
-            if (reader.IsEnabled(e.Metadata))
+            bool enabled = this.reader.IsEnabled(e.Metadata);
+            if (this.enabled != enabled) {
+                this.enabled = enabled;
+                Logger.Info("{0} status: {1}.", this.name, enabled ? "enabled" : "disabled");
+            }
+
+            if (enabled)
             {
                 try
                 {
@@ -58,16 +68,16 @@ namespace Google.ComputeEngine.Agent
 
     public sealed class AccountsManager : Manager<List<WindowsKey>>
     {
-        public AccountsManager() : base(new AccountsReader(), new AccountsWriter()) { }
+        public AccountsManager() : base("GCE account manager", new AccountsReader(), new AccountsWriter()) { }
     }
 
     public sealed class AddressManager : Manager<List<IPAddress>>
     {
-        public AddressManager() : base(new AddressReader(), new AddressWriter()) { }
+        public AddressManager() : base("GCE address manager", new AddressReader(), new AddressWriter()) { }
     }
 
     public class UpdatesManager : Manager<Dictionary<string, bool>>
     {
-        public UpdatesManager() : base(new UpdatesReader(), new UpdatesWriter()) { }
+        public UpdatesManager() : base("GCE agent updates", new UpdatesReader(), new UpdatesWriter()) { }
     }
 }
