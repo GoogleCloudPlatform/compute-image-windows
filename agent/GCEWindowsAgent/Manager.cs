@@ -39,9 +39,9 @@ namespace Google.ComputeEngine.Agent
             MetadataWatcher.MetadataUpdateEvent += new MetadataWatcher.EventHandler(Synchronize);
         }
 
-        private void Synchronize(object sender, MetadataUpdateEventArgs e)
+        private void Synchronize(object sender, MetadataUpdateEventArgs update)
         {
-            bool enabled = this.reader.IsEnabled(e.Metadata);
+            bool enabled = this.reader.IsEnabled(update.Metadata);
             if (this.enabled != enabled) {
                 this.enabled = enabled;
                 Logger.Info("{0} status: {1}.", this.name, enabled ? "enabled" : "disabled");
@@ -51,16 +51,16 @@ namespace Google.ComputeEngine.Agent
             {
                 try
                 {
-                    T metadata = (T)reader.GetMetadata(e.Metadata);
+                    T metadata = (T)reader.GetMetadata(update.Metadata);
                     if (!reader.CompareMetadata(this.metadata, metadata))
                     {
                         this.metadata = metadata;
                         this.writer.SetMetadata(this.metadata);
                     }
                 }
-                catch (Exception ex)
+                catch (Exception e)
                 {
-                    Logger.Error("Caught top level exception. {0}\r\n{1}", ex.Message, ex.StackTrace);
+                    Logger.Error("Caught top level exception. {0}\r\n{1}", e.Message, e.StackTrace);
                 }
             }
         }
