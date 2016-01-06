@@ -113,12 +113,12 @@ namespace Google.ComputeEngine.Agent.Installer
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
                 Logger.Error(
                     "Failed to install GCE Agent (version {0}). Exception: {1}.",
                     ReleaseVersion,
-                    ex.ToString());
+                    e.ToString());
                 return false;
             }
 
@@ -147,12 +147,12 @@ namespace Google.ComputeEngine.Agent.Installer
                     destination,
                     suffix: string.Empty);
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
                 Logger.Error(
                     "Failed to install Sysprep (version {0}). Exception: {1}.",
                     ReleaseVersion,
-                    ex.ToString());
+                    e.ToString());
                 InstallerUtils.Rollback(sysprepFiles, destination);
                 return false;
             }
@@ -169,13 +169,13 @@ namespace Google.ComputeEngine.Agent.Installer
                 InstallerUtils.WriteUpdateStatsKey(ApplicationId);
                 InstallerUtils.WriteUpdateKey(ApplicationId, ReleaseVersion, ApplicationName);
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
                 // This branch should never happen when the installer is
                 // executed by Omaha client.
                 // However, if a user run the installer manually and does not
                 // have access to HKLM, this step will fail.
-                Logger.Error("Failed to write registry. Exception: {0}.", ex.ToString());
+                Logger.Error("Failed to write registry. Exception: {0}.", e.ToString());
             }
         }
     }

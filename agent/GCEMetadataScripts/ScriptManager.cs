@@ -49,9 +49,16 @@ namespace Google.ComputeEngine.MetadataScripts
             }
 
             Logger.Info("Starting {0} scripts (version {1}).", this.scriptType, version);
-            MetadataJson metadata = MetadataWatcher.GetMetadata();
-            this.metadata = reader.GetScripts(metadata);
-            this.writer.SetScripts(this.metadata);
+            try
+            {
+                MetadataJson metadata = MetadataWatcher.GetMetadata();
+                this.metadata = reader.GetScripts(metadata);
+                this.writer.SetScripts(this.metadata);
+            }
+            catch (Exception e)
+            {
+                Logger.Error("Caught top level exception. {0}\r\n{1}", e.Message, e.StackTrace);
+            }
             Logger.Info("Finished running {0} scripts.", this.scriptType);
         }
 
