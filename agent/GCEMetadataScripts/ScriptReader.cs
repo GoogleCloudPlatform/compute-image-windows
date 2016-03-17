@@ -280,39 +280,49 @@ namespace Google.ComputeEngine.MetadataScripts
             }
         }
 
-        public List<MetadataScript> GetScripts(MetadataJson metadata)
+        public List<MetadataScript> GetAttributeScripts(AttributesJson attributesJson)
         {
-            AttributesJson instanceAttributesJson;
-            AttributesJson projectAttributesJson;
-            try
-            {
-                instanceAttributesJson = metadata.Instance.Attributes;
-            }
-            catch (NullReferenceException)
-            {
-                instanceAttributesJson = null;
-            }
-
-            try
-            {
-                projectAttributesJson = metadata.Project.Attributes;
-            }
-            catch (NullReferenceException)
-            {
-                projectAttributesJson = null;
-            }
-
             List<MetadataScript> scripts = new List<MetadataScript>();
             foreach (string suffix in MetadataScript.Suffixes)
             {
                 string scriptKey = MetadataScript.GetMetadataKeyTitle(this.scriptType, suffix);
-                string script = GetPropertyValue(instanceAttributesJson, scriptKey) ??
-                    GetPropertyValue(projectAttributesJson, scriptKey);
+                string script = GetPropertyValue(attributesJson, scriptKey);
                 if (!string.IsNullOrEmpty(script))
                 {
                     Logger.Info("Found {0} in metadata.", MetadataScript.GetMetadataKeyHyphen(this.scriptType, suffix));
                     scripts.Add(FetchScript(suffix, script));
                 }
+            }
+
+            return scripts;
+        }
+
+        public List<MetadataScript> GetScripts(MetadataJson metadata)
+        {
+            AttributesJson attributesJson;
+            List<MetadataScript> scripts = new List<MetadataScript>();
+            try
+            {
+                attributesJson = metadata.Instance.Attributes;
+            }
+            catch (NullReferenceException)
+            {
+                attributesJson = null;
+            }
+
+            scripts = GetAttributeScripts(attributesJson);
+            if (scripts.Count > 0)
+            {
+                return scripts;
+            }
+
+            try
+            {
+                attributesJson = metadata.Project.Attributes;
+            }
+            catch (NullReferenceException)
+            {
+                attributesJson = null;
             }
 
             return scripts;
