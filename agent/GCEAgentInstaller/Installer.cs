@@ -86,6 +86,7 @@ namespace Google.ComputeEngine.Agent.Installer
         private static bool TryInstallAgent()
         {
             Logger.Info("Installing GCE Agent (version {0}).", ReleaseVersion);
+            string backupPath = InstallerUtils.GetTempDirName();
 
             try
             {
@@ -96,11 +97,21 @@ namespace Google.ComputeEngine.Agent.Installer
                     x.ServiceName.Equals(ServiceName, StringComparison.InvariantCultureIgnoreCase)
                     || x.DisplayName.Equals(ServiceName, StringComparison.InvariantCultureIgnoreCase)))
                 {
-                    InstallerUtils.InstallBinaries(ReleaseVersion, AgentBinaries, AgentPath, ServiceName);
+                    InstallerUtils.InstallBinaries(
+                        ReleaseVersion,
+                        AgentBinaries,
+                        AgentPath,
+                        backupPath,
+                        service: ServiceName);
                 }
                 else
                 {
-                    InstallerUtils.InstallBinaries(ReleaseVersion, AgentBinaries, AgentPath);
+                    InstallerUtils.InstallBinaries(
+                        ReleaseVersion,
+                        AgentBinaries,
+                        AgentPath,
+                        backupPath,
+                        service: null);
                     InstallerUtils.RegisterService(
                         string.Format(@"{0}\{1}", AgentPath, AgentBinaries[0]),
                         ServiceName,
@@ -121,6 +132,10 @@ namespace Google.ComputeEngine.Agent.Installer
                     e.ToString());
                 return false;
             }
+            finally
+            {
+                InstallerUtils.DeleteDir(backupPath);
+            }
 
             Logger.Info("GCE Agent (version {0}) installation completed.", ReleaseVersion);
             return true;
@@ -136,15 +151,17 @@ namespace Google.ComputeEngine.Agent.Installer
                 string.Format(@"compute-image-windows-{0}", ReleaseVersion),
                 "gce",
                 SysprepDirectory);
-            string destination = Path.Combine(ComputeEnginePath, SysprepDirectory);
-            string[] sysprepFiles = Directory.GetFiles(sysprepSource).Select(Path.GetFileName).ToArray();
+            string[] sysprepFileNames = Directory.GetFiles(sysprepSource).Select(Path.GetFileName).ToArray();
+            string destPath = Path.Combine(ComputeEnginePath, SysprepDirectory);
+            string backupPath = InstallerUtils.GetTempDirName();
 
             try
             {
                 InstallerUtils.ReplaceFiles(
-                    sysprepFiles,
+                    sysprepFileNames,
                     sysprepSource,
-                    destination,
+                    destPath,
+                    backupPath,
                     suffix: string.Empty);
             }
             catch (Exception e)
@@ -153,12 +170,15 @@ namespace Google.ComputeEngine.Agent.Installer
                     "Failed to install Sysprep (version {0}). Exception: {1}.",
                     ReleaseVersion,
                     e.ToString());
-                InstallerUtils.Rollback(sysprepFiles, destination);
+                InstallerUtils.Rollback(sysprepFileNames, destPath, backupPath, service: null);
                 return false;
             }
-
-            InstallerUtils.CleanUp(sysprepFiles, destination);
-            Directory.Delete(sourcePath, recursive: true);
+            finally
+            {
+                InstallerUtils.CleanUp(sysprepFileNames, destPath);
+                InstallerUtils.DeleteDir(sourcePath);
+                InstallerUtils.DeleteDir(backupPath);
+            }
             return true;
         }
 

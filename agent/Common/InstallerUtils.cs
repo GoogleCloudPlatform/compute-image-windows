@@ -58,99 +58,86 @@ namespace Google.ComputeEngine.Common
         /// </summary>
         private const string OmahaClientState = @"SOFTWARE\Google\Update\ClientState";
 
-        private const string BackupFileExtension = @".backup";
-
         private const string TempFileExtension = @".temp";
 
-
         /// <summary>
-        /// Fetch GitHub releases and install them on local machine.
+        /// Download source from GitHub to a provided file location.
         /// </summary>
-        /// <param name="version">Release version.</param>
-        /// <param name="filenames">List of binary names.</param>
-        /// <param name="localPath">Destination to install the binaries.</param>
-        /// <param name="service">
-        /// Service that need to be stopped before binary
-        /// replacement.
-        /// </param>
-        public static void InstallBinaries(
-            Version version,
-            IEnumerable<string> filenames,
-            string localPath,
-            string service = null)
+        private static void FetchGitHubFiles(
+            string gitHubPath,
+            IEnumerable<string> fileNames,
+            string destPath)
         {
-            ArgumentValidator.ThrowIfNull(version, "version");
-            ArgumentValidator.ThrowIfNullOrEmpty(filenames, "filenames");
-            ArgumentValidator.ThrowIfNullOrEmpty(localPath, "localPath");
-
-            FetchGitHubFiles(ReleaseUrl + version, filenames, localPath);
-
-            try
+            if (!Directory.Exists(destPath))
             {
-                if (!string.IsNullOrWhiteSpace(service))
-                {
-                    using (ServiceController serviceController = new ServiceController(service))
-                    {
-                        if (serviceController.Status != ServiceControllerStatus.Stopped)
-                        {
-                            serviceController.Stop();
-                            serviceController.WaitForStatus(ServiceControllerStatus.Stopped);
-                        }
-
-                        ReplaceFiles(filenames, localPath, localPath, suffix: ".temp");
-                        serviceController.Start();
-                        serviceController.WaitForStatus(ServiceControllerStatus.Running);
-                    }
-                }
-                else
-                {
-                    ReplaceFiles(filenames, localPath, localPath, suffix: ".temp");
-                }
-            }
-            catch
-            {
-                Rollback(filenames, localPath, service);
-                throw;
+                Directory.CreateDirectory(destPath);
             }
 
-            CleanUp(filenames, localPath);
+            WebClient client = new WebClient();
+            foreach (string fileName in fileNames)
+            {
+                string fileUrl = string.Format("{0}/{1}/{2}", GitHubUrl, gitHubPath, fileName);
+                client.DownloadFile(fileUrl, string.Format(@"{0}\{1}{2}", destPath, fileName, TempFileExtension));
+            }
         }
 
         /// <summary>
         /// Download source from GitHub.
         /// </summary>
-        public static void GetSources(Version version, string localPath)
+        public static void GetSources(Version version, string destPath)
         {
-            string[] filenames = { string.Format("{0}.zip", version) };
-            FetchGitHubFiles(SourceUrl, filenames, localPath);
-
-            string destination = Path.Combine(localPath, SourcePath);
+            string destination = Path.Combine(destPath, SourcePath);
+            string fileName = string.Format("{0}.zip", version);
+            string[] fileNames = { fileName };
+            FetchGitHubFiles(SourceUrl, fileNames, destPath);
 
             if (Directory.Exists(destination))
             {
                 Directory.Delete(destination, recursive: true);
             }
 
-            string zipFile = Path.Combine(localPath, filenames[0] + TempFileExtension);
+            string zipFile = Path.Combine(destPath, fileName + TempFileExtension);
             ZipFile.ExtractToDirectory(zipFile, destination);
             File.Delete(zipFile);
         }
 
-        private static void FetchGitHubFiles(
-            string githubPath,
-            IEnumerable<string> filenames,
-            string localPath)
+        /// <summary>
+        /// Clean up temporary files.
+        /// </summary>
+        public static void CleanUp(IEnumerable<string> fileNames, string path)
         {
-            if (!Directory.Exists(localPath))
+            foreach (string fileName in fileNames)
             {
-                Directory.CreateDirectory(localPath);
+                if (File.Exists(Path.Combine(path, fileName + TempFileExtension)))
+                {
+                    File.Delete(Path.Combine(path, fileName + TempFileExtension));
+                }
             }
+        }
 
-            WebClient client = new WebClient();
-            foreach (string filename in filenames)
+        /// <summary>
+        /// Generate a new temporary directory name to store existing binaries.
+        /// </summary>
+        public static string GetTempDirName()
+        {
+            string dirName;
+            do
             {
-                string fileUrl = string.Format("{0}/{1}/{2}", GitHubUrl, githubPath, filename);
-                client.DownloadFile(fileUrl, string.Format(@"{0}\{1}{2}", localPath, filename, TempFileExtension));
+                dirName = string.Format("{0}{1}", Path.GetTempPath(), Guid.NewGuid());
+            }
+            while (Directory.Exists(dirName));
+            return dirName;
+        }
+
+        public static void DeleteDir(string path)
+        {
+            try
+            {
+                Directory.Delete(path, recursive: true);
+            }
+            catch
+            {
+                Logger.Warning("Failed to delete directory: {0}.", path);
             }
         }
 
@@ -158,46 +145,50 @@ namespace Google.ComputeEngine.Common
         /// Replace files in the destination directory.
         /// </summary>
         public static void ReplaceFiles(
-            IEnumerable<string> filenames,
-            string original,
-            string destination,
+            IEnumerable<string> fileNames,
+            string sourcePath,
+            string destPath,
+            string backupPath,
             string suffix)
         {
-            // Backup previous version
-            foreach (string filename in filenames)
+            if (!Directory.Exists(backupPath))
             {
-                if (File.Exists(Path.Combine(destination, filename)))
+                Directory.CreateDirectory(backupPath);
+            }
+
+            // Backup previous version
+            foreach (string fileName in fileNames)
+            {
+                if (File.Exists(Path.Combine(destPath, fileName)))
                 {
-                    File.Copy(
-                        Path.Combine(destination, filename),
-                        Path.Combine(destination, filename + BackupFileExtension),
-                        overwrite: true);
+                    File.Move(Path.Combine(destPath, fileName), Path.Combine(backupPath, fileName));
                 }
             }
 
-            foreach (string filename in filenames)
+            foreach (string fileName in fileNames)
             {
-                File.Copy(
-                    Path.Combine(original, filename + suffix),
-                    Path.Combine(destination, filename),
-                    overwrite: true);
+                if (File.Exists(Path.Combine(destPath, fileName + suffix)))
+                {
+                    File.Move(Path.Combine(sourcePath, fileName + suffix), Path.Combine(destPath, fileName));
+                }
             }
         }
 
         /// <summary>
         /// Rollback files from previous version.
         /// </summary>
-        public static void Rollback(IEnumerable<string> filenames, string path, string service = null)
+        public static void Rollback(
+            IEnumerable<string> fileNames,
+            string destPath,
+            string backupPath,
+            string service = null)
         {
-            // recover previous binaries
-            foreach (string filename in filenames)
+            // Recover previous binaries.
+            foreach (string fileName in fileNames)
             {
-                if (File.Exists(Path.Combine(path, filename + BackupFileExtension)))
+                if (File.Exists(Path.Combine(backupPath, fileName)))
                 {
-                    File.Copy(
-                        Path.Combine(path, filename + BackupFileExtension),
-                        Path.Combine(path, filename),
-                        overwrite: true);
+                    File.Move(Path.Combine(backupPath, fileName), Path.Combine(destPath, fileName));
                 }
             }
 
@@ -215,24 +206,57 @@ namespace Google.ComputeEngine.Common
         }
 
         /// <summary>
-        /// Clean up backup files and temp files.
+        /// Fetch GitHub releases and install them on local machine.
         /// </summary>
-        public static void CleanUp(IEnumerable<string> filenames, string path)
+        /// <param name="version">Release version.</param>
+        /// <param name="fileNames">List of binary names.</param>
+        /// <param name="destPath">Destination to install the binaries.</param>
+        /// <param name="service">
+        /// Service that need to be stopped before binary replacement.
+        /// </param>
+        public static void InstallBinaries(
+            Version version,
+            IEnumerable<string> fileNames,
+            string destPath,
+            string backupPath,
+            string service = null)
         {
-            foreach (string filename in filenames)
-            {
-                string tempFile = Path.Combine(path, filename + BackupFileExtension);
-                if (File.Exists(tempFile))
-                {
-                    File.Delete(tempFile);
-                }
+            ArgumentValidator.ThrowIfNull(version, "version");
+            ArgumentValidator.ThrowIfNullOrEmpty(fileNames, "fileNames");
+            ArgumentValidator.ThrowIfNullOrEmpty(destPath, "destPath");
+            ArgumentValidator.ThrowIfNullOrEmpty(destPath, "backupPath");
 
-                tempFile = Path.Combine(path, filename + TempFileExtension);
-                if (File.Exists(tempFile))
+            FetchGitHubFiles(ReleaseUrl + version, fileNames, destPath);
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(service))
                 {
-                    File.Delete(tempFile);
+                    using (ServiceController serviceController = new ServiceController(service))
+                    {
+                        if (serviceController.Status != ServiceControllerStatus.Stopped)
+                        {
+                            serviceController.Stop();
+                            serviceController.WaitForStatus(ServiceControllerStatus.Stopped);
+                        }
+
+                        ReplaceFiles(fileNames, destPath, destPath, backupPath, suffix: TempFileExtension);
+                        serviceController.Start();
+                        serviceController.WaitForStatus(ServiceControllerStatus.Running);
+                    }
+                }
+                else
+                {
+                    ReplaceFiles(fileNames, destPath, destPath, backupPath, suffix: TempFileExtension);
                 }
             }
+            catch
+            {
+                Rollback(fileNames, destPath, backupPath, service: service);
+                throw;
+            }
+
+            CleanUp(fileNames, destPath);
         }
 
         /// <summary>
