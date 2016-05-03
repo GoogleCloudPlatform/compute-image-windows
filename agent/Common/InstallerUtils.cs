@@ -156,7 +156,7 @@ namespace Google.ComputeEngine.Common
                 Directory.CreateDirectory(backupPath);
             }
 
-            // Backup previous version
+            // Backup the previous version of the files.
             foreach (string fileName in fileNames)
             {
                 if (File.Exists(Path.Combine(destPath, fileName)))
@@ -165,9 +165,15 @@ namespace Google.ComputeEngine.Common
                 }
             }
 
+            if (!Directory.Exists(destPath))
+            {
+                Directory.CreateDirectory(destPath);
+            }
+
+            // Copy the files into the destination location.
             foreach (string fileName in fileNames)
             {
-                if (File.Exists(Path.Combine(destPath, fileName + suffix)))
+                if (File.Exists(Path.Combine(sourcePath, fileName + suffix)))
                 {
                     File.Move(Path.Combine(sourcePath, fileName + suffix), Path.Combine(destPath, fileName));
                 }
