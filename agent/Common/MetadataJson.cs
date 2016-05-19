@@ -106,15 +106,6 @@ namespace Google.ComputeEngine.Common
         #endregion
 
         #region Sysprep Startup Scripts
-        [DataMember(Name = AttributeKeys.SysprepOobeScriptPs1)]
-        public string SysprepOobeScriptPs1 { get; set; }
-
-        [DataMember(Name = AttributeKeys.SysprepOobeScriptCmd)]
-        public string SysprepOobeScriptCmd { get; set; }
-
-        [DataMember(Name = AttributeKeys.SysprepOobeScriptBat)]
-        public string SysprepOobeScriptBat { get; set; }
-
         [DataMember(Name = AttributeKeys.SysprepSpecializeScriptPs1)]
         public string SysprepSpecializeScriptPs1 { get; set; }
 
@@ -166,9 +157,6 @@ namespace Google.ComputeEngine.Common
         public const string DisableAccountManager = "disable-account-manager";
         public const string DisableAddressManager = "disable-address-manager";
         public const string DisableAgentUpdates = "disable-agent-updates";
-        public const string SysprepOobeScriptBat = "sysprep-oobe-script-bat";
-        public const string SysprepOobeScriptCmd = "sysprep-oobe-script-cmd";
-        public const string SysprepOobeScriptPs1 = "sysprep-oobe-script-ps1";
         public const string SysprepSpecializeScriptBat = "sysprep-specialize-script-bat";
         public const string SysprepSpecializeScriptCmd = "sysprep-specialize-script-cmd";
         public const string SysprepSpecializeScriptPs1 = "sysprep-specialize-script-ps1";
