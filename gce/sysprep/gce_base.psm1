@@ -15,10 +15,8 @@
 <#
   .SYNOPSIS
     GCE Base Modules.
-
   .DESCRIPTION
     Base modules needed for GCE Powershell scripts to run scripts to run.
-
   .NOTES
     LastModifiedDate: $Date: 2015/05/18 $
     Version: $Revision: #26 $
@@ -37,7 +35,6 @@ function _AddToPath {
  <#
     .SYNOPSIS
       Adds GCE tool dir to SYSTEM PATH
-
     .DESCRIPTION
       This is a helper function which adds location to path
   #>
@@ -85,11 +82,9 @@ function _ClearEventLogs {
   <#
     .SYNOPSIS
       Clear all eventlog enteries.
-
     .DESCRIPTION
       This uses the Get-Eventlog and Clear-EventLog powershell functions to
       clean the eventlogs for a machine.
-
     .EXAMPLE
       _ClearEventLogs
   #>
@@ -113,12 +108,10 @@ function _ClearTempFolders {
   <#
     .SYNOPSIS
       Delete all files from temp folder location.
-
     .DESCRIPTION
       This function calls an array variable which contain location of all the
       temp files and folder which needs to be cleared out. We use the
       Remove-Item routine to delete the files in the temp directorys.
-
     .EXAMPLE
       _ClearTempFolders
   #>
@@ -139,14 +132,11 @@ function _DeleteFiles {
   <#
     .SYNOPSIS
       Filenames that need to be deleted.
-
     .DESCRIPTION
       This function can take multiple filenames as argument. If the file(s)
       exist they are deleted.
-
     .PARAMETER filenames
       filenames to be deleted.
-
     .EXAMPLE
       _DeleteFiles foo.txt
   #>
@@ -171,16 +161,12 @@ function _FetchFromMetaData {
   <#
     .SYNOPSIS
       Get attributes from GCE instances metadata.
-
     .DESCRIPTION
       Use Net.WebClient to fetch data from metadata server.
-
     .PARAMETER property
       Name of instance metadata property we want to fetch.
-
     .PARAMETER filename
       Name of file to save metadata contents to.  If left out, returns contents.
-
     .EXAMPLE
       $hostname = _FetchFromMetaData -property 'hostname'
       _FetchFromMetaData -property 'startup-script' -file 'script.bat'
@@ -232,14 +218,11 @@ function _GenerateRandomPassword {
   <#
     .SYNOPSIS
       Generates random password which meet windows complexity requirements.
-
     .DESCRIPTION
       This function generates a password to be set on built-in account before
       it is disabled.
-
     .OUTPUTS
       Returns String
-
     .EXAMPLE
       _GeneratePassword
   #>
@@ -270,16 +253,12 @@ function _GetCOMPorts  {
   <#
     .SYNOPSIS
       Get available serial ports. Check if a port exists, if yes returns $true
-
     .DESCRIPTION
       This function is used to check if a port exists on this machine.
-
     .PARAMETER $portname
       Name of the port you want to check if it exists.
-
     .OUTPUTS
       [boolean]
-
     .EXAMPLE
       _GetCOMPorts
   #>
@@ -308,10 +287,8 @@ function _GetWebClient {
   <#
     .SYNOPSIS
       Get Net.WebClient object.
-
     .DESCRIPTION
       Generata Webclient object for clients to use.
-
     .EXAMPLE
       $hostname = _GetWebClient
   #>
@@ -328,45 +305,14 @@ function _GetWebClient {
 }
 
 
-function _PingComputer {
-  <#
-    .SYNOPSIS
-      Checks if a computer is reachable
-
-    .DESCRIPTION
-      Checks if a computer is reachable using the ping command.
-
-    .PARAMETER $computername
-      Name of the computer to which you want to test the connection.
-
-    .OUTPUTS
-      [bool]
-  #>
-  param (
-    [parameter(Mandatory=$true, ValueFromPipeline=$true)]
-      [String]$computername
-  )
-
-  $reachable = $false
-  # Use in-built Test-Connection module to check if a computer is reachable.
-  if (Test-Connection -ComputerName $computername -Count 1 -ErrorAction SilentlyContinue) {
-    $reachable = $true
-  }
-  return $reachable
-}
-
-
 function _PrintError {
   <#
     .SYNOPSIS
       Prints Error Messages
-
     .DESCRIPTION
       This is a helper function which prints out error messages in catch
-
     .OUTPUTS
       Error message found during execution is printed out to the console.
-
     .EXAMPLE
       _PrintError
   #>
@@ -406,19 +352,14 @@ function _RunExternalCMD {
   <#
     .SYNOPSIS
       Run External Command.
-
     .DESCRIPTION
       This function calls an external command outside of the powershell script.
-
     .PARAMETER executable
       Executable that needs to be run.
-
     .PARAMETER arguments
       Arguments for the executable. Default is NULL.
-
     .RETURNS
       $result: The resulting output if any for the command which was run.
-
     .EXAMPLE
       _RunExternalCMD dir c:\
   #>
@@ -452,17 +393,14 @@ function _RunMetadataScript {
   <#
     .SYNOPSIS
       Runs a script from the metadata server.
-
     .DESCRIPTION
       Downloads scripts of supported extensions and executes them.  Requires
       a base name, e.g. startup-script, from which it will look for metadata
       attributes of the form startup-script-cmd, startup-script-ps1, and any
       other supported extensions.
-
     .PARAMETER base
       Base name of script you wish to run.  Will run a set of scripts with
       attribute names of the form base-extension.
-
     .EXAMPLE
       _RunMetadataScript -base windows-startup-script
   #>
@@ -476,7 +414,7 @@ function _RunMetadataScript {
   Remove-Item $filename
 
   # If metadata server is reachable.
-  if (_PingComputer $global:metadata_server) {
+  if (Test-Connection $global:metadata_server -Count 1 -ErrorAction SilentlyContinue) {
     foreach ($ext in $exts) {
       $renamed = $filename -replace 'tmp$', $ext
 
@@ -492,151 +430,6 @@ function _RunMetadataScript {
       }
     }
   }
-}
-
-
-function _SetPassword {
-  <#
-    .SYNOPSIS
-      Set password for administrator account
-
-    .DESCRIPTION
-      Fetch password from metadata server.
-
-    .PARAMETER user_obj
-      ADSI object on which the password needs to be set.
-
-    .PARAMETER credential
-      PSCredential object containing the password.
-  #>
-  param (
-    [parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true)]
-    [ValidateNotNullOrEmpty()]
-    [ADSI]$user_obj,
-    [parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true)]
-    [ValidateNotNullOrEmpty()]
-    $credential
-  )
-
-  try {
-    # Use the passed user object and credential to set password.
-    $user_obj.SetPassword($credential.GetNetworkCredential().Password)
-    $user_obj.SetInfo()
-
-    # Write to console log that password has been set.
-    Write-Log '---------------------------------------------------------'
-    Write-Log 'Password from gce-initial-windows-password key applied.'
-    Write-Log '---------------------------------------------------------'
-  }
-  catch [System.Management.Automation.MethodInvocationException] {
-    _ShutdownInstance -msg ('Value set in key gce-initial-windows-password ' +
-      'does not meet Windows password complexity requirements.')
-  }
-  catch {
-    _PrintError
-    _ShutdownInstance -msg "Unable to set password on $global:hostname"
-  }
-}
-
-
-function _GetUserCredential {
-  <#
-    .SYNOPSIS
-      Gets PsCredential for administrator account
-
-    .DESCRIPTION
-      Fetch username and password from metadata server.
-  #>
-  $password = $null
-  $user = $null
-
-  # Get initial password from metadata server.
-  try {
-    $raw_password = (_FetchFromMetaData -instance_only `
-      'attributes/gce-initial-windows-password')
-    if ($raw_password) {
-      $password = $raw_password | ConvertTo-SecureString -AsPlainText -Force
-    }
-    else {
-      return $null
-    }
-    $user = (_FetchFromMetaData 'attributes/gce-initial-windows-user')
-  }
-  catch {
-   _PrintError
-    # Shutting the instance down as nothing can be done if initial password is not set.
-    return $null
-  }
-
-  if (!($user)) {
-    Write-Log 'User is not set in metadata.'
-    return $null
-  }
-  if ($user -eq 'Administrator' -or $user -eq 'Guest') {
-    # This can't be supported as it will conflict with built-in accounts.
-    Write-Log "User name '$user' is not supported."
-    return $null
-  }
-  $credential = New-Object System.Management.Automation.PSCredential($user,
-                                                                     $password)
-  return $credential
-}
-
-
-function _TestUserCredential {
-  <#
-    .SYNOPSIS
-      Tests if a credential is valid on this system.
-
-    .DESCRIPTION
-      Attempt to run a program with the provided username an password,
-      returning $True if successful.
-
-    .PARAMETER credential
-      PsCredential object giving username and password.
-  #>
-  param (
-    [parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true)]
-    [ValidateNotNullOrEmpty()]
-    $credential
-  )
-
-  try {
-    Start-Process -Credential $credential cmd.exe -ArgumentList @('/c', 'exit')
-    return $true
-  }
-  catch [System.InvalidOperationException] {
-    return $false
-  }
-}
-
-
-function _ShutdownInstance {
-  <#
-    .SYNOPSIS
-      Shutdown instance.
-
-    .DESCRIPTION
-      Call Stop-Computer to shutdown instance. Sometime used for critical
-      errors.
-
-    .PARAMETER message
-      Message to be logged.
-
-    .EXAMPLE
-      _DeleteFiles foo.txt
-  #>
-  param (
-    [Alias('msg')]
-      $message
-  )
-  if ($message) {
-    Write-Log $message
-  }
-
-  Write-Log 'Shutting down instance.'
-  Stop-Computer -Force
-  exit # Used in testing.
 }
 
 
@@ -665,23 +458,17 @@ function _TestTCPPort {
   <#
     .SYNOPSIS
       Test TCP port on remote server
-
     .DESCRIPTION
       Use .Net Socket connection to connect to remote host and check if port is
       open.
-
     .PARAMETER remote_host
       Remote host you want to check TCP port for.
-
     .PARAMETER port_number
       TCP port number you want to check.
-
     .PARAMETER timeout
       Time you want to wait for.
-
     .RETURNS
       Return bool. $true if server is reachable at tcp port $false is not.
-
     .EXAMPLE
       _TestTCPPort -host 127.0.0.1 -port 80
   #>
@@ -724,97 +511,41 @@ function _TestTCPPort {
 }
 
 
-function _ReadFromRegistry {
-  <#
-    .SYNOPSIS
-      Read a registry key.
-
-    .DESCRIPTION
-      Check registry for a existing entry. If one does not exist return
-      specified default, otherwise return value in registry.
-
-    .PARAMETER key
-      Write to a key path.
-
-    .PARAMETER keyname
-      Write to a key.
-
-    .PARAMETER default
-      Value to return if the key is not in the registry.
-
-    .RETURNS
-      $result: The value in the registry, or default.
-  #>
-  param (
-    [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
-      [string] $key,
-    [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
-      [string] $keyname,
-    [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
-      $default = $null
-  )
-  try {
-    $reg_path = "Registry::$key"
-    if (Test-Path($reg_path)) {
-      return (Get-Item -path $reg_path).GetValue($reg_key_name, $default)
-    }
-  }
-  catch {
-    _PrintError
-  }
-  return $default
-}
-
-
 function _WriteToSerialPort {
   <#
     .SYNOPSIS
       Sending data to serial port.
-
     .DESCRIPTION
       Use this function to send data to serial port.
-
     .PARAMETER portname
       Name of port. The port to use (for example, COM1).
-
     .PARAMETER baud_rate
       The baud rate.
-
     .PARAMETER parity
       Specifies the parity bit for a SerialPort object.
-
       None: No parity check occurs (default).
       Odd: Sets the parity bit so that the count of bits set is an odd number.
       Even: Sets the parity bit so that the count of bits set is an even number.
       Mark: Leaves the parity bit set to 1.
       Space: Leaves the parity bit set to 0.
-
     .PARAMETER data_bits
       The data bits value.
-
     .PARAMETER stop_bits
       Specifies the number of stop bits used on the SerialPort object.
-
       None: No stop bits are used. This value is Currently not supported by the
             stop_bits.
       One:  One stop bit is used (default).
       Two:  Two stop bits are used.
       OnePointFive: 1.5 stop bits are used.
-
     .PARAMETER data
       Data to be sent to serial port.
-
     .PARAMETER wait_for_respond
       Wait for result of data sent.
-
     .PARAMETER close
       Remote close connection.
-
     .EXAMPLE
       Send data to serial port and exit.
-
       _WriteToSerialPort -portname COM1 -data 'Hello World'
-
     .EXAMPLE
       Send data to serial port and wait for respond.
       _WriteToSerialPort -portname COM1 -data 'dir C:\' -wait_for_respond
@@ -864,19 +595,14 @@ function Write-Log {
   <#
     .SYNOPSIS
       Generate Log for the script.
-
     .DESCRIPTION
       Generate log messages, if COM1 port found write output to COM1 also.
-
     .PARAMETER $msg
       Message that needs to be logged
-
     .PARAMETER $is_important
       Surround the message with a line of hyphens.
-
     .PARAMETER $is_error
       Mark messages as Error in red text.
-
     .PARAMETER $is_warning
       Mark messages as Warning in yellow text.
   #>

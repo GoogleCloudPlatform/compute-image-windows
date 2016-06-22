@@ -25,19 +25,12 @@
       Cleanup temp files
       Activate the GCE instance
       Set up the administrative username and password
-
   .EXAMPLE
     instance_setup.ps1
-
   .EXAMPLE
     instance_setup.ps1 -specialize
-
   .EXAMPLE
     instance_setup.ps1 -test
-
-  .NOTES
-    LastModifiedDate: $Date: 2015/06/01 $
-    Version: $Revision: #37 $
 
   #requires -version 3.0
 #>
@@ -78,7 +71,6 @@ function Activate-Instance {
   <#
     .SYNOPSIS
       Activate instance via a KMS SERVER.
-
     .DESCRIPTION
       Tries to Activate Instance with a KMS server. This function checks if the
       instance is already activated and if Yes skips. This Function can be uses
@@ -88,63 +80,60 @@ function Activate-Instance {
 
   # Variables
   [string]$license_key = $null
-  [int]$retry_count = 2 # Try activation twice.
+  [int]$retry_count = 3 # Try activation three times.
 
   Write-Log 'Checking instance license activation status.'
   if (Verify-ActivationStatus) {
     Write-Log "$global:hostname is already licensed and activated."
+    return
   }
-  else {
-    Write-Log "$global:hostname needs to be activated by a KMS Server."
-    # Get the LicenseKey.
-    $license_key = Get-ProductKmsClientKey
-    if ($license_key) {
-      # Set the KMS server.
-      _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /skms $script:kms_server
-      # Apply the license key to the host.
-      _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /ipk $license_key
+  Write-Log "$global:hostname needs to be activated by a KMS Server."
+  # Get the LicenseKey.
+  $license_key = Get-ProductKmsClientKey
+  if (-not $license_key) {
+    Write-Log 'Could not get the License Key for the instance. Activation skipped.'
+    return
+  }
+  # Set the KMS server.
+  _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /skms $script:kms_server
+  # Apply the license key to the host.
+  _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /ipk $license_key
 
-      # Check if the product can be activated.
-      $reg_query = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
-      $get_product_details = (Get-ItemProperty -Path $reg_query -Name ProductName).ProductName
-      $known_editions_regex = "Windows (Web )?Server (2008 R2|2012|2012 R2)"
-      if ($get_product_details -notmatch $known_editions_regex) {
-        Write-Log ("$get_product_details activations are currently not " +
-            'supported on GCE. Activation request will be skipped.')
-        return
-      }
+  # Check if the product can be activated.
+  $reg_query = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
+  $get_product_details = (Get-ItemProperty -Path $reg_query -Name ProductName).ProductName
+  $known_editions_regex = "Windows (Web )?Server (2008 R2|2012|2012 R2)"
+  if ($get_product_details -notmatch $known_editions_regex) {
+    Write-Log ("$get_product_details activations are currently not " +
+        'supported on GCE. Activation request will be skipped.')
+    return
+  }
 
-      # Check if the KMS server is reachable.
-      if (_TestTCPPort -host $script:kms_server -port $script:kms_server_port) {
-        # KMS Server is reachable try to activate the server.
-        while ($retry_count -gt 0) {
-          # Activate the instance.
-          Write-Log 'Activating instance ...'
-          _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /ato
-          # Helps to avoid activation failures.
-          Write-Log 'Sleep for 5 Seconds'
-          Start-Sleep -Seconds 5
-          # Check activation status.
-          if (Verify-ActivationStatus) {
-            Write-Log 'Activation successful.' -important
-            $retry_count = 0
-          }
-          else {
-            Write-Log 'Activation failed.'
-            $retry_count = $retry_count - 1
-          }
-          if ($retry_count -gt 0) {
-            Write-Log "Retrying activation. Will try $retry_count more time(s)"
-          }
-        }
+  # Check if the KMS server is reachable.
+  if (_TestTCPPort -host $script:kms_server -port $script:kms_server_port) {
+    # KMS Server is reachable try to activate the server.
+    while ($retry_count -lt 0) {
+      # Activate the instance.
+      Write-Log 'Activating instance ...'
+      _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /ato
+      # Helps to avoid activation failures.
+      Start-Sleep -Seconds 1
+      # Check activation status.
+      if (Verify-ActivationStatus) {
+        Write-Log 'Activation successful.' -important
+        break
       }
       else {
-        Write-Log 'Could not contact activation server. Will retry activation later.'
+        Write-Log 'Activation failed.'
+        $retry_count = $retry_count - 1
+      }
+      if ($retry_count -gt 0) {
+        Write-Log "Retrying activation. Will try $retry_count more time(s)"
       }
     }
-    else {
-      Write-Log 'Could not get the License Key for the instance. Activation skipped.'
-    }
+  }
+  else {
+    Write-Log 'Could not contact activation server. Will retry activation later.'
   }
 }
 
@@ -153,7 +142,6 @@ function Change-InstanceName {
   <#
     .SYNOPSIS
       Changes the machine name for GCE Instance
-
     .DESCRIPTION
       If metadata server is reachable get the instance name for the machine and
       rename.
@@ -179,12 +167,13 @@ function Change-InstanceName {
     }
   }
   while ($hostname_parts.Length -le 1)
+  
   $new_hostname = $hostname_parts[0]
+  Write-Log "Changing hostname from $global:hostname to $new_hostname."
   # Change computer name to match GCE hostname.
   # This will take effect after reboot.
   try {
-    $computer_wmi = Get-WmiObject Win32_ComputerSystem
-    $computer_wmi.Rename($new_hostname)
+    (Get-WmiObject Win32_ComputerSystem).Rename($new_hostname)
     Write-Log "Renamed from $global:hostname to $new_hostname."
     $global:hostname = $new_hostname
   }
@@ -199,7 +188,6 @@ function Change-InstanceProperties {
   <#
     .SYNOPSIS
       Apply GCE specific changes.
-
     .DESCRIPTION
       Apply GCE specific changes to this instance.
   #>
@@ -211,7 +199,7 @@ function Change-InstanceProperties {
     $nic.SetDNSServerSearchOrder()
   }
 
-  $netkvm = Get-WmiObject win32_networkadapter -filter "ServiceName = 'netkvm'"
+  $netkvm = Get-WmiObject Win32_NetworkAdapter -filter "ServiceName = 'netkvm'"
 
   # Set MTU to 1430.
   _RunExternalCMD netsh interface ipv4 set interface $netkvm.NetConnectionID mtu=1430
@@ -238,41 +226,6 @@ function Change-InstanceProperties {
   # Enable access to Windows administrative file share.
   Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
       -Name 'LocalAccountTokenFilterPolicy' -Value 1 -Force
-
-  # Schedule startup script.
-  Write-Log 'Adding startup scripts from metadata server.'
-  $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
-  _RunExternalCMD schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
-  Write-Log 'Sleep for 5 seconds.'
-  Start-Sleep -Seconds 5
-}
-
-
-function Configure-Addons {
-  <#
-    .SYNOPSIS
-      Install Software on GCE Instance.
-
-    .DESCRIPTION
-      Install various software on GCE Instance
-
-    .Notes
-      Break this into seprate script.
-  #>
-
-  # Set BGinfo to startup.
-  $bginfo_lnk = $env:ProgramData + '\Microsoft\Windows\Start Menu\Programs\Startup\BGInfo.lnk'
-  $bginfo_exe = "$script:gce_install_dir\tools\BGInfo.exe"
-  try {
-    $ws_shell = New-Object -COM WScript.Shell
-    $shortcut = $ws_shell.CreateShortcut($bginfo_lnk)
-    $shortcut.TargetPath = $bginfo_exe
-    $shortcut.Arguments = '/accepteula /timer:0 /silent'
-    $shortcut.Save()
-  }
-  catch {
-    _PrintError
-  }
 }
 
 
@@ -280,15 +233,17 @@ function Enable-RemoteDesktop {
   <#
     .SYNOPSIS
       Enable RDP on the instance.
-
     .DESCRIPTION
       Modify the Terminal Server registry properties and restart Terminal
       services.
   #>
 
+  $ts_path = 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server'
+  if (-not (Test-Path $ts_path)) {
+    return
+  }
   # Enable remote desktop.
-  Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' `
-      -Name 'fDenyTSConnections' -Value 0 -Force
+  Set-ItemProperty -Path $ts_path -Name 'fDenyTSConnections' -Value 0 -Force
   Write-Log 'Enabled remote desktop.'
 
   # Disable Ctrl + Alt + Del.
@@ -314,20 +269,52 @@ function Enable-RemoteDesktop {
 }
 
 
+function Configure-WinRM {
+  <#
+    .SYNOPSIS
+      Setup WinRM on the instance.
+    .DESCRIPTION
+      Create a self signed cert to use with a HTTPS WinRM endpoint and restart the WinRM service.
+  #>
+
+  Write-Log 'Configuring WinRM...'
+  # We're using makecert here because New-SelfSignedCertificate isn't full featured in anything 
+  # less than Win10/Server 2016, makecert is installed during imaging on non 2016 machines.
+  if (Test-Path $env:windir\makecert.exe) {
+    # SHA1 self signed cert using hostname as the SubjectKey and name installed to LocalMachine\My store
+    # with enhanced key usage object identifiers of Server Authentication and Client Authentication.
+    # https://msdn.microsoft.com/en-us/library/windows/desktop/aa386968(v=vs.85).aspx
+    $eku = "1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2"
+    _RunExternalCMD $env:windir\makecert.exe -r -a SHA1 -sk "$(hostname)" -n "CN=$(hostname)" -ss My -sr LocalMachine -eku $eku
+    $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=$(hostname)"}
+  }
+  else {
+    $cert = New-SelfSignedCertificate -DnsName "$(hostname)" -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddYears(5)
+  }
+  
+  # Configure winrm HTTPS transport using the created cert.
+  $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";port="5986"}'
+  _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config
+  # Open the firewall.
+  $rule = "Windows Remote Management (HTTPS-In)"
+  _RunExternalCMD netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
+  
+  Restart-Service WinRM
+  Write-Log 'Setup of WinRM complete.'
+}
+
+
 function Get-ProductKmsClientKey {
   <#
     .SYNOPSIS
       Gets the correct KMS Client license Key for the OS.
-
     .DESCRIPTION
       Queries registry to get the correct product name and applies the correct
       KMS client key to it.
-
     .NOTES
       Please add new license keys as we support more product versions.
       https://technet.microsoft.com/en-us/library/jj612867.aspx has all the
       details.
-
     .RETURNS
       License Key.
   #>
@@ -419,24 +406,20 @@ function Disable-Administrator {
   <#
     .SYNOPSIS
       Disables the default Administrator user.
-
     .DESCRIPTION
       This function gives the built-in "Administrator" account a random password
       and disables it.
   #>
   try {
-    [String]$administrator = (Get-WMiObject -Class Win32_Account -computername `
-      $global:hostname | ? { $_.SID -like ('S-1-5-*-500')}).Name
-    [ADSI]$built_in_usr_obj = "WinNT://$global:hostname/$administrator,user"
-    Write-Log "Setting random password for $administrator user account."
-    $built_in_usr_obj.SetPassword((_GenerateRandomPassword))
-    $built_in_usr_obj.UserFlags = 2 # 2 is for disable account.
-    $built_in_usr_obj.SetInfo()
-    Write-Log "Disabled $administrator user account."
+    Write-Log "Setting random password for Administrator account."
+    $password = _GenerateRandomPassword
+    _RunExternalCMD net user Administrator $password
+    _RunExternalCMD net user Administrator /ACTIVE:NO
+    Write-Log "Disabled Administrator account."
   }
   catch {
     _PrintError
-    Write-Log "Failed to disable $administrator." -error
+    Write-Log "Failed to disable Administrator account." -error
   }
 }
 
@@ -445,10 +428,8 @@ function Verify-ActivationStatus {
   <#
     .SYNOPSIS
       Check if the instance in activated.
-
     .DESCRIPTION
       Checks if the localcomputer license is active and activated
-
     .OUTPUTS
       [bool]
   #>
@@ -476,8 +457,6 @@ function Verify-ActivationStatus {
 }
 
 
-# Main
-
 # Check if COM1 exists.
 if (-not ($global:write_to_serial)) {
   Write-Log 'COM1 does not exist on this machine. Logs will not be written to GCE console.' -warning
@@ -487,8 +466,8 @@ if (-not ($global:write_to_serial)) {
 if ($specialize) {
   Write-Log 'Starting sysprep specialize phase.'
 
-  # Change computer name.
   Change-InstanceName
+  Change-InstanceProperties
 
   # Create setupcomplete.cmd to launch second half of instance setup.
   # When Windows setup completes (after the sysprep OOBE phase), it looks
@@ -513,20 +492,17 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
   Write-Log 'Finished with sysprep specialize phase, restarting...'
 }
 else {
-  # Calling function in a sequence.
-  Change-InstanceProperties
-  Configure-Addons
   Disable-Administrator
   Activate-Instance
   Enable-RemoteDesktop
-
-  try {
-    # Kick off first run of windows-startup-script.
-    _RunExternalCMD schtasks /run /tn GCEStartup
-  }
-  catch {
-    _PrintError
-  }
+  Configure-WinRM
+  
+  # Schedule startup script.
+  Write-Log 'Adding startup scripts from metadata server.'
+  $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
+  _RunExternalCMD schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
+  _RunExternalCMD schtasks /run /tn GCEStartup
+  
   Write-Log "Instance setup finished. $global:hostname is ready to use." -important
 
   if (Test-Path $script:setupcomplete_loc) {

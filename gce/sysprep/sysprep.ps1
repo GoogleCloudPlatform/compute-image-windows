@@ -15,7 +15,6 @@
 <#
   .SYNOPSIS
     Sysprep a Windows Image to be used as a GCE Instance.
-
   .DESCRIPTION
     This powershell script runs some cleanup routines and goes through a
     checklist before performing a sysprep on a windows host the script is being
@@ -30,36 +29,27 @@
     IMPORTANT : Any execution changes in this script should be reflected in the
     appropriate test cases. This script should only be run from the command
     prompt.
-
   .PARAMETER ans_file
     sysprep answer file.
     Alias unattended
-
   .PARAMETER scripts_location
     Location of scripts from where they will be executed. This is local to the
     GCE image and scripts are called from this location during sysprep
     operation, the default is c:\. If you change this location make sure you
     also change the <ans_file>.xml file to reflect these changes.
     Alias destination
-
   .PARAMETER help
     Print help message which is derived from the script definition.
-
   .EXAMPLE
     powershell -ExecutionPolicy Unrestricted -File sysprep.ps1
-
   .EXAMPLE
     powershell -ExecutionPolicy Unrestricted -File sysprep.ps1
-
   .EXAMPLE
     powershell -File sysprep.ps1 -unattended <file>.xml
-
   .EXAMPLE
     sysprep.ps1 -unattended unattended.xml
-
   .EXAMPLE
     powershell -ExecutionPolicy Unrestricted -File sysprep.ps1 -help
-
   .NOTES
     LastModifiedDate: $Date: 2015/06/01 $
     Version: $Revision: #19 $
@@ -171,10 +161,9 @@ try {
   _RunExternalCMD C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /quit /unattend:$ans_file
 
   Write-Log 'Waiting for sysprep to complete.'
-  do {
+  while (-not (Test-Path $script:sysprep_tag)) {
     Start-Sleep -Seconds 15
   }
-  until (Test-Path $script:sysprep_tag)
 
   Write-Log 'Setting new startup command.'
   Set-ItemProperty -Path HKLM:\SYSTEM\Setup -Name CmdLine -Value "`"$PSScriptRoot\windeploy.cmd`""
