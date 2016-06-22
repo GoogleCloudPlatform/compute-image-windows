@@ -314,6 +314,30 @@ function Enable-RemoteDesktop {
 }
 
 
+function Configure-WinRM {
+  <#
+    .SYNOPSIS
+      Setup WinRM on the instance.
+
+    .DESCRIPTION
+      Create a self signed cert to use with a HTTPS WinRM endpoint and restart the WinRM service.
+  #>
+
+  if (-not (Get-Command New-SelfSignedCertificate -ErrorAction SilentlyContinue)) {
+    Write-Log 'Not configuring WinRM because New-SelfSignedCertificate does not exist'
+  }
+  Write-Log 'Configuring WinRM...'
+
+  $cert = New-SelfSignedCertificate -DnsName $(hostname) -CertStoreLocation 'Cert:\LocalMachine\My'
+  $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";port="5986"}'
+  winrm create winrm/config/listener?Address=*+Transport=HTTPS $config
+  New-NetFirewallRule -DisplayName "Windows Remote Management (HTTPS-In)" -Name "Windows Remote Management (HTTPS-In)" -LocalPort 5986 -Protocol TCP -Profile Any
+
+  Restart-Service WinRM
+  Write-Log 'Setup WinRM.'
+}
+
+
 function Get-ProductKmsClientKey {
   <#
     .SYNOPSIS
@@ -519,6 +543,7 @@ else {
   Disable-Administrator
   Activate-Instance
   Enable-RemoteDesktop
+  Configure-WinRM
 
   try {
     # Kick off first run of windows-startup-script.
