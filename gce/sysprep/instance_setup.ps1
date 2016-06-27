@@ -323,18 +323,25 @@ function Configure-WinRM {
       Create a self signed cert to use with a HTTPS WinRM endpoint and restart the WinRM service.
   #>
 
-  if (-not (Get-Command New-SelfSignedCertificate -ErrorAction SilentlyContinue)) {
-    Write-Log 'Not configuring WinRM because New-SelfSignedCertificate does not exist'
-  }
   Write-Log 'Configuring WinRM...'
-
-  $cert = New-SelfSignedCertificate -DnsName $(hostname) -CertStoreLocation 'Cert:\LocalMachine\My'
+  # We're using makecert here because New-SelfSignedCertificate isn't full featured in anything 
+  # less than Win10/Server 2016.
+  # Server Authentication, Client Authentication
+  $eku = "1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2"
+  _RunExternalCMD makecert.exe -sk "$(hostname)" -ss My -sr LocalMachine -r -n "CN=$(hostname)" -eku $eku -a SHA1
+  $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq 'CN=instance-1'}
   $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";port="5986"}'
-  winrm create winrm/config/listener?Address=*+Transport=HTTPS $config
-  New-NetFirewallRule -DisplayName "Windows Remote Management (HTTPS-In)" -Name "Windows Remote Management (HTTPS-In)" -LocalPort 5986 -Protocol TCP -Profile Any
-
+  _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config
+  $rule = "Windows Remote Management (HTTPS-In)"
+  if (Get-Command New-NetFirewallRule -ErrorAction SilentlyContinue) {
+    New-NetFirewallRule -DisplayName $rule -Name $rule -LocalPort 5986 -Protocol TCP -Profile Any
+  }
+  else {
+    _RunExternalCMD netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
+  }
+  }
   Restart-Service WinRM
-  Write-Log 'Setup WinRM.'
+  Write-Log 'Setup of WinRM complete.'
 }
 
 
