@@ -290,12 +290,17 @@ function Configure-WinRM {
   #>
 
   Write-Log 'Configuring WinRM...'
-  # We're using makecert here because New-SelfSignedCertificate isn't full featured in anything 
-  # less than Win10/Server 2016.
-  # Server Authentication, Client Authentication
-  $eku = "1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2"
-  _RunExternalCMD $env:windir\makecert.exe -sk "$(hostname)" -ss My -sr LocalMachine -r -n "CN=$(hostname)" -eku $eku -a SHA1
-  $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq 'CN=instance-1'}
+  if (Test-Path $env:windir\makecert.exe) {
+    # We're using makecert here because New-SelfSignedCertificate isn't full featured in anything 
+    # less than Win10/Server 2016.
+    # Server Authentication, Client Authentication
+    $eku = "1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2"
+    _RunExternalCMD $env:windir\makecert.exe -sk "$(hostname)" -ss My -sr LocalMachine -r -n "CN=$(hostname)" -eku $eku -a SHA1
+    $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=$(hostname)"}
+  }
+  else {
+    $cert = New-SelfSignedCertificate -DnsName "$(hostname)" -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddYears(5)
+  }
   $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";port="5986"}'
   _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config
   $rule = "Windows Remote Management (HTTPS-In)"
