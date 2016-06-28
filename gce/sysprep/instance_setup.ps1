@@ -239,31 +239,6 @@ function Change-InstanceProperties {
 }
 
 
-function Configure-BGInfo {
-  <#
-    .SYNOPSIS
-      Configures BGInfo
-  #>
-
-  # Set BGinfo to startup.
-  $bginfo_lnk = $env:ProgramData + '\Microsoft\Windows\Start Menu\Programs\Startup\BGInfo.lnk'
-  $bginfo_exe = "$script:gce_install_dir\tools\BGInfo.exe"
-  if (-not (Test-Path $bginfo_exe)) {
-    return
-  }
-  try {
-    $ws_shell = New-Object -COM WScript.Shell
-    $shortcut = $ws_shell.CreateShortcut($bginfo_lnk)
-    $shortcut.TargetPath = $bginfo_exe
-    $shortcut.Arguments = '/accepteula /timer:0 /silent'
-    $shortcut.Save()
-  }
-  catch {
-    _PrintError
-  }
-}
-
-
 function Enable-RemoteDesktop {
   <#
     .SYNOPSIS
@@ -526,7 +501,6 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
 else {
   # Calling function in a sequence.
   Change-InstanceProperties
-  Configure-BGInfo
   Disable-Administrator
   Activate-Instance
   Enable-RemoteDesktop
