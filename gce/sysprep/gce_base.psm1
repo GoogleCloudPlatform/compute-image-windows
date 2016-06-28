@@ -33,54 +33,6 @@ $global:hostname = [System.Net.Dns]::GetHostName()
 $global:log_file = $null
 
 # Functions
-function _AddToPath {
- <#
-    .SYNOPSIS
-      Adds GCE tool dir to SYSTEM PATH
-
-    .DESCRIPTION
-      This is a helper function which adds location to path
-  #>
-  param (
-    [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
-    [Alias('path')]
-      $path_to_add
-  )
-
-  # Check if folder exists on the file system.
-  if (!(Test-Path $path_to_add)) {
-    Write-Log "$path_to_add does not exist, cannot be added to $env:PATH."
-    return
-  }
-
-  try {
-    $path_reg_key = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
-    $current_path = (Get-ItemProperty $path_reg_key).Path
-    $check_path = ($current_path).split(';') | ? {$_ -like $path_to_add}
-  }
-  catch {
-    Write-Log 'Could not read path from the registry.'
-    _PrintError
-  }
-  # See if the folder is already in the path.
-  if ($check_path) {
-    Write-Log 'Folder already in system path.'
-  }
-  else {
-    try {
-      Write-Log "Adding $path_to_add to SYSTEM path."
-      $new_path = $current_path + ';' + $path_to_add
-      $env:Path = $new_path
-      Set-ItemProperty $path_reg_key -name 'Path' -value $new_path
-    }
-    catch {
-      Write-Log 'Failed to add to SYSTEM path.'
-      _PrintError
-    }
-  }
-}
-
-
 function _ClearEventLogs {
   <#
     .SYNOPSIS
@@ -270,16 +222,12 @@ function _GetCOMPorts  {
   <#
     .SYNOPSIS
       Get available serial ports. Check if a port exists, if yes returns $true
-
     .DESCRIPTION
       This function is used to check if a port exists on this machine.
-
     .PARAMETER $portname
       Name of the port you want to check if it exists.
-
     .OUTPUTS
       [boolean]
-
     .EXAMPLE
       _GetCOMPorts
   #>
@@ -495,63 +443,6 @@ function _RunMetadataScript {
 }
 
 
-function _TestUserCredential {
-  <#
-    .SYNOPSIS
-      Tests if a credential is valid on this system.
-
-    .DESCRIPTION
-      Attempt to run a program with the provided username an password,
-      returning $True if successful.
-
-    .PARAMETER credential
-      PsCredential object giving username and password.
-  #>
-  param (
-    [parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true)]
-    [ValidateNotNullOrEmpty()]
-    $credential
-  )
-
-  try {
-    Start-Process -Credential $credential cmd.exe -ArgumentList @('/c', 'exit')
-    return $true
-  }
-  catch [System.InvalidOperationException] {
-    return $false
-  }
-}
-
-
-function _ShutdownInstance {
-  <#
-    .SYNOPSIS
-      Shutdown instance.
-
-    .DESCRIPTION
-      Call Stop-Computer to shutdown instance. Sometime used for critical
-      errors.
-
-    .PARAMETER message
-      Message to be logged.
-
-    .EXAMPLE
-      _DeleteFiles foo.txt
-  #>
-  param (
-    [Alias('msg')]
-      $message
-  )
-  if ($message) {
-    Write-Log $message
-  }
-
-  Write-Log 'Shutting down instance.'
-  Stop-Computer -Force
-  exit # Used in testing.
-}
-
-
 function _TestAdmin {
   <#
     .SYNOPSIS
@@ -633,142 +524,6 @@ function _TestTCPPort {
     _PrintError
   }
   return $status
-}
-
-
-function _ReadFromRegistry {
-  <#
-    .SYNOPSIS
-      Read a registry key.
-
-    .DESCRIPTION
-      Check registry for a existing entry. If one does not exist return
-      specified default, otherwise return value in registry.
-
-    .PARAMETER key
-      Write to a key path.
-
-    .PARAMETER keyname
-      Write to a key.
-
-    .PARAMETER default
-      Value to return if the key is not in the registry.
-
-    .RETURNS
-      $result: The value in the registry, or default.
-  #>
-  param (
-    [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
-      [string] $key,
-    [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
-      [string] $keyname,
-    [Parameter(Mandatory=$false, ValueFromPipelineByPropertyName=$true)]
-      $default = $null
-  )
-  try {
-    $reg_path = "Registry::$key"
-    if (Test-Path($reg_path)) {
-      return (Get-Item -path $reg_path).GetValue($reg_key_name, $default)
-    }
-  }
-  catch {
-    _PrintError
-  }
-  return $default
-}
-
-
-function _WriteToSerialPort {
-  <#
-    .SYNOPSIS
-      Sending data to serial port.
-
-    .DESCRIPTION
-      Use this function to send data to serial port.
-
-    .PARAMETER portname
-      Name of port. The port to use (for example, COM1).
-
-    .PARAMETER baud_rate
-      The baud rate.
-
-    .PARAMETER parity
-      Specifies the parity bit for a SerialPort object.
-
-      None: No parity check occurs (default).
-      Odd: Sets the parity bit so that the count of bits set is an odd number.
-      Even: Sets the parity bit so that the count of bits set is an even number.
-      Mark: Leaves the parity bit set to 1.
-      Space: Leaves the parity bit set to 0.
-
-    .PARAMETER data_bits
-      The data bits value.
-
-    .PARAMETER stop_bits
-      Specifies the number of stop bits used on the SerialPort object.
-
-      None: No stop bits are used. This value is Currently not supported by the
-            stop_bits.
-      One:  One stop bit is used (default).
-      Two:  Two stop bits are used.
-      OnePointFive: 1.5 stop bits are used.
-
-    .PARAMETER data
-      Data to be sent to serial port.
-
-    .PARAMETER wait_for_respond
-      Wait for result of data sent.
-
-    .PARAMETER close
-      Remote close connection.
-
-    .EXAMPLE
-      Send data to serial port and exit.
-
-      _WriteToSerialPort -portname COM1 -data 'Hello World'
-
-    .EXAMPLE
-      Send data to serial port and wait for respond.
-      _WriteToSerialPort -portname COM1 -data 'dir C:\' -wait_for_respond
-  #>
-  [CmdletBinding(supportsshouldprocess=$true)]
-  param (
-    [parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true)]
-      [string]$portname,
-    [Int]$baud_rate = 9600,
-    [ValidateSet('None', 'Odd', 'Even', 'Mark', 'Space')]
-      [string]$parity = 'None',
-    [int]$data_bits = 8,
-    [ValidateSet('None', 'One', 'Even', 'Two', 'OnePointFive')]
-      [string]$stop_bits = 'One',
-    [string]$data,
-    [Switch]$wait_for_respond,
-    [Switch]$close
-  )
-
-  if ($psCmdlet.shouldProcess($portname , 'Write data to local serial port')) {
-    if ($close) {
-      $data = 'close'
-      $wait_for_respond = $false
-    }
-    try {
-      # Define a new object to read serial ports.
-      $port = New-Object System.IO.Ports.SerialPort $portname, $baud_rate, `
-                          $parity, $data_bits, $stop_bits
-      $port.Open()
-      # Write to the serial port.
-      $port.WriteLine($data)
-      # If wait_for_resond is specified.
-      if ($wait_for_respond) {
-        $result = $port.ReadLine()
-        $result.Replace("#^#","`n")
-      }
-      $port.Close()
-    }
-    catch {
-      _PrintError
-    }
-  }
 }
 
 
