@@ -93,58 +93,55 @@ function Activate-Instance {
   Write-Log 'Checking instance license activation status.'
   if (Verify-ActivationStatus) {
     Write-Log "$global:hostname is already licensed and activated."
+    return
   }
-  else {
-    Write-Log "$global:hostname needs to be activated by a KMS Server."
-    # Get the LicenseKey.
-    $license_key = Get-ProductKmsClientKey
-    if ($license_key) {
-      # Set the KMS server.
-      _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /skms $script:kms_server
-      # Apply the license key to the host.
-      _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /ipk $license_key
+  Write-Log "$global:hostname needs to be activated by a KMS Server."
+  # Get the LicenseKey.
+  $license_key = Get-ProductKmsClientKey
+  if (-not $license_key) {
+    Write-Log 'Could not get the License Key for the instance. Activation skipped.'
+    return
+  }
+  # Set the KMS server.
+  _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /skms $script:kms_server
+  # Apply the license key to the host.
+  _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /ipk $license_key
 
-      # Check if the product can be activated.
-      $reg_query = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
-      $get_product_details = (Get-ItemProperty -Path $reg_query -Name ProductName).ProductName
-      $known_editions_regex = "Windows (Web )?Server (2008 R2|2012|2012 R2)"
-      if ($get_product_details -notmatch $known_editions_regex) {
-        Write-Log ("$get_product_details activations are currently not " +
-            'supported on GCE. Activation request will be skipped.')
-        return
-      }
+  # Check if the product can be activated.
+  $reg_query = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
+  $get_product_details = (Get-ItemProperty -Path $reg_query -Name ProductName).ProductName
+  $known_editions_regex = "Windows (Web )?Server (2008 R2|2012|2012 R2)"
+  if ($get_product_details -notmatch $known_editions_regex) {
+    Write-Log ("$get_product_details activations are currently not " +
+        'supported on GCE. Activation request will be skipped.')
+    return
+  }
 
-      # Check if the KMS server is reachable.
-      if (_TestTCPPort -host $script:kms_server -port $script:kms_server_port) {
-        # KMS Server is reachable try to activate the server.
-        while ($retry_count -gt 0) {
-          # Activate the instance.
-          Write-Log 'Activating instance ...'
-          _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /ato
-          # Helps to avoid activation failures.
-          Write-Log 'Sleep for 5 Seconds'
-          Start-Sleep -Seconds 5
-          # Check activation status.
-          if (Verify-ActivationStatus) {
-            Write-Log 'Activation successful.' -important
-            $retry_count = 0
-          }
-          else {
-            Write-Log 'Activation failed.'
-            $retry_count = $retry_count - 1
-          }
-          if ($retry_count -gt 0) {
-            Write-Log "Retrying activation. Will try $retry_count more time(s)"
-          }
-        }
+  # Check if the KMS server is reachable.
+  if (_TestTCPPort -host $script:kms_server -port $script:kms_server_port) {
+    # KMS Server is reachable try to activate the server.
+    while ($retry_count -lt 0) {
+      # Activate the instance.
+      Write-Log 'Activating instance ...'
+      _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /ato
+      # Helps to avoid activation failures.
+      Start-Sleep -Seconds 1
+      # Check activation status.
+      if (Verify-ActivationStatus) {
+        Write-Log 'Activation successful.' -important
+        break
       }
       else {
-        Write-Log 'Could not contact activation server. Will retry activation later.'
+        Write-Log 'Activation failed.'
+        $retry_count = $retry_count - 1
+      }
+      if ($retry_count -gt 0) {
+        Write-Log "Retrying activation. Will try $retry_count more time(s)"
       }
     }
-    else {
-      Write-Log 'Could not get the License Key for the instance. Activation skipped.'
-    }
+  }
+  else {
+    Write-Log 'Could not contact activation server. Will retry activation later.'
   }
 }
 
@@ -211,7 +208,7 @@ function Change-InstanceProperties {
     $nic.SetDNSServerSearchOrder()
   }
 
-  $netkvm = Get-WmiObject win32_networkadapter -filter "ServiceName = 'netkvm'"
+  $netkvm = Get-WmiObject Win32_NetworkAdapter -filter "ServiceName = 'netkvm'"
 
   # Set MTU to 1430.
   _RunExternalCMD netsh interface ipv4 set interface $netkvm.NetConnectionID mtu=1430
@@ -243,8 +240,6 @@ function Change-InstanceProperties {
   Write-Log 'Adding startup scripts from metadata server.'
   $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
   _RunExternalCMD schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
-  Write-Log 'Sleep for 5 seconds.'
-  Start-Sleep -Seconds 5
 }
 
 
