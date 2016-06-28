@@ -35,10 +35,6 @@
   .EXAMPLE
     instance_setup.ps1 -test
 
-  .NOTES
-    LastModifiedDate: $Date: 2015/06/01 $
-    Version: $Revision: #37 $
-
   #requires -version 3.0
 #>
 [CmdletBinding()]
@@ -243,21 +239,18 @@ function Change-InstanceProperties {
 }
 
 
-function Configure-Addons {
+function Configure-BGInfo {
   <#
     .SYNOPSIS
-      Install Software on GCE Instance.
-
-    .DESCRIPTION
-      Install various software on GCE Instance
-
-    .Notes
-      Break this into seprate script.
+      Configures BGInfo
   #>
 
   # Set BGinfo to startup.
   $bginfo_lnk = $env:ProgramData + '\Microsoft\Windows\Start Menu\Programs\Startup\BGInfo.lnk'
   $bginfo_exe = "$script:gce_install_dir\tools\BGInfo.exe"
+  if (-not (Test-Path $bginfo_exe)) {
+    return
+  }
   try {
     $ws_shell = New-Object -COM WScript.Shell
     $shortcut = $ws_shell.CreateShortcut($bginfo_lnk)
@@ -281,9 +274,12 @@ function Enable-RemoteDesktop {
       services.
   #>
 
+  $ts_path = 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server'
+  if (-not (Test-Path $ts_path)) {
+    return
+  }
   # Enable remote desktop.
-  Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' `
-      -Name 'fDenyTSConnections' -Value 0 -Force
+  Set-ItemProperty -Path $ts_path -Name 'fDenyTSConnections' -Value 0 -Force
   Write-Log 'Enabled remote desktop.'
 
   # Disable Ctrl + Alt + Del.
@@ -323,18 +319,12 @@ function Configure-WinRM {
   # less than Win10/Server 2016.
   # Server Authentication, Client Authentication
   $eku = "1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2"
-  _RunExternalCMD makecert.exe -sk "$(hostname)" -ss My -sr LocalMachine -r -n "CN=$(hostname)" -eku $eku -a SHA1
+  _RunExternalCMD $env:windir\makecert.exe -sk "$(hostname)" -ss My -sr LocalMachine -r -n "CN=$(hostname)" -eku $eku -a SHA1
   $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq 'CN=instance-1'}
   $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";port="5986"}'
   _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config
   $rule = "Windows Remote Management (HTTPS-In)"
-  if (Get-Command New-NetFirewallRule -ErrorAction SilentlyContinue) {
-    New-NetFirewallRule -DisplayName $rule -Name $rule -LocalPort 5986 -Protocol TCP -Profile Any
-  }
-  else {
-    _RunExternalCMD netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
-  }
-  }
+  _RunExternalCMD netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
   Restart-Service WinRM
   Write-Log 'Setup of WinRM complete.'
 }
@@ -451,18 +441,15 @@ function Disable-Administrator {
       and disables it.
   #>
   try {
-    [String]$administrator = (Get-WMiObject -Class Win32_Account -computername `
-      $global:hostname | ? { $_.SID -like ('S-1-5-*-500')}).Name
-    [ADSI]$built_in_usr_obj = "WinNT://$global:hostname/$administrator,user"
-    Write-Log "Setting random password for $administrator user account."
-    $built_in_usr_obj.SetPassword((_GenerateRandomPassword))
-    $built_in_usr_obj.UserFlags = 2 # 2 is for disable account.
-    $built_in_usr_obj.SetInfo()
-    Write-Log "Disabled $administrator user account."
+    Write-Log "Setting random password for Administrator account."
+    $password = _GenerateRandomPassword
+    _RunExternalCMD net user Administrator $password
+    _RunExternalCMD net user Administrator /ACTIVE:NO
+    Write-Log "Disabled Administrator account."
   }
   catch {
     _PrintError
-    Write-Log "Failed to disable $administrator." -error
+    Write-Log "Failed to disable Administrator account." -error
   }
 }
 
@@ -502,8 +489,6 @@ function Verify-ActivationStatus {
 }
 
 
-# Main
-
 # Check if COM1 exists.
 if (-not ($global:write_to_serial)) {
   Write-Log 'COM1 does not exist on this machine. Logs will not be written to GCE console.' -warning
@@ -530,7 +515,7 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
 
   try {
     # Call startup script during sysprep specialize phase.
-    _RunExternalCMD $script:metadata_script_loc 'specialize'
+    _RunExternalCMD $script:metadata_script_loc 'specialize'
   }
   catch {
     _PrintError
@@ -541,7 +526,7 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
 else {
   # Calling function in a sequence.
   Change-InstanceProperties
-  Configure-Addons
+  Configure-BGInfo
   Disable-Administrator
   Activate-Instance
   Enable-RemoteDesktop
