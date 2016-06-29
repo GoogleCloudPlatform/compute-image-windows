@@ -84,7 +84,7 @@ function Activate-Instance {
 
   # Variables
   [string]$license_key = $null
-  [int]$retry_count = 2 # Try activation twice.
+  [int]$retry_count = 3 # Try activation three times.
 
   Write-Log 'Checking instance license activation status.'
   if (Verify-ActivationStatus) {
@@ -171,20 +171,19 @@ function Change-InstanceName {
       return
     }
   }
-  while ($hostname_parts.Length -le 1)
+  
   $new_hostname = $hostname_parts[0]
   # Change computer name to match GCE hostname.
   # This will take effect after reboot.
   try {
-    $computer_wmi = Get-WmiObject Win32_ComputerSystem
-    $computer_wmi.Rename($new_hostname)
-    Write-Log "Renamed from $global:hostname to $new_hostname."
-    $global:hostname = $new_hostname
+    Rename-Computer -NewName $new_hostname
   }
   catch {
     Write-Log 'Unable to change hostname.'
     _PrintError
   }
+  Write-Log "Renamed from $global:hostname to $new_hostname."
+  $global:hostname = $new_hostname
 }
 
 
