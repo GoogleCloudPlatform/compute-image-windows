@@ -171,10 +171,9 @@ try {
   _RunExternalCMD C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /quit /unattend:$ans_file
 
   Write-Log 'Waiting for sysprep to complete.'
-  do {
+  until (Test-Path $script:sysprep_tag) {
     Start-Sleep -Seconds 15
   }
-  until (Test-Path $script:sysprep_tag)
 
   Write-Log 'Setting new startup command.'
   Set-ItemProperty -Path HKLM:\SYSTEM\Setup -Name CmdLine -Value "`"$PSScriptRoot\windeploy.cmd`""
