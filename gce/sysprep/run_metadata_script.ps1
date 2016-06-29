@@ -22,11 +22,6 @@
     attributes of the form startup-script-cmd, startup-script-ps1, and any
     other supported extensions.
 
-
-  .Notes
-    Last modified: $Date$
-    Version: $Revision$
-
   .EXAMPLE
     run_metadata_script.ps1 -base windows-startup-script
 #>
