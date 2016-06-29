@@ -160,7 +160,7 @@ function Change-InstanceName {
   }
 
   $count = 1
-  do {
+  while ($hostname_parts.Length -le 1) {
     $hostname_parts = (_FetchFromMetaData -property 'hostname') -split '\.'
     if ($hostname_parts.Length -le 1) {
       Write-Log "Waiting for metadata server, attempt $count."
