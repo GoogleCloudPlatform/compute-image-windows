@@ -276,34 +276,6 @@ function _GetWebClient {
 }
 
 
-function _PingComputer {
-  <#
-    .SYNOPSIS
-      Checks if a computer is reachable
-
-    .DESCRIPTION
-      Checks if a computer is reachable using the ping command.
-
-    .PARAMETER $computername
-      Name of the computer to which you want to test the connection.
-
-    .OUTPUTS
-      [bool]
-  #>
-  param (
-    [parameter(Mandatory=$true, ValueFromPipeline=$true)]
-      [String]$computername
-  )
-
-  $reachable = $false
-  # Use in-built Test-Connection module to check if a computer is reachable.
-  if (Test-Connection -ComputerName $computername -Count 1 -ErrorAction SilentlyContinue) {
-    $reachable = $true
-  }
-  return $reachable
-}
-
-
 function _PrintError {
   <#
     .SYNOPSIS
@@ -424,7 +396,7 @@ function _RunMetadataScript {
   Remove-Item $filename
 
   # If metadata server is reachable.
-  if (_PingComputer $global:metadata_server) {
+  if (Test-Connection $global:metadata_server -Count 1 -ErrorAction SilentlyContinue) {
     foreach ($ext in $exts) {
       $renamed = $filename -replace 'tmp$', $ext
 
@@ -524,6 +496,86 @@ function _TestTCPPort {
     _PrintError
   }
   return $status
+}
+
+
+function _WriteToSerialPort {
+  <#
+    .SYNOPSIS
+      Sending data to serial port.
+    .DESCRIPTION
+      Use this function to send data to serial port.
+    .PARAMETER portname
+      Name of port. The port to use (for example, COM1).
+    .PARAMETER baud_rate
+      The baud rate.
+    .PARAMETER parity
+      Specifies the parity bit for a SerialPort object.
+      None: No parity check occurs (default).
+      Odd: Sets the parity bit so that the count of bits set is an odd number.
+      Even: Sets the parity bit so that the count of bits set is an even number.
+      Mark: Leaves the parity bit set to 1.
+      Space: Leaves the parity bit set to 0.
+    .PARAMETER data_bits
+      The data bits value.
+    .PARAMETER stop_bits
+      Specifies the number of stop bits used on the SerialPort object.
+      None: No stop bits are used. This value is Currently not supported by the
+            stop_bits.
+      One:  One stop bit is used (default).
+      Two:  Two stop bits are used.
+      OnePointFive: 1.5 stop bits are used.
+    .PARAMETER data
+      Data to be sent to serial port.
+    .PARAMETER wait_for_respond
+      Wait for result of data sent.
+    .PARAMETER close
+      Remote close connection.
+    .EXAMPLE
+      Send data to serial port and exit.
+      _WriteToSerialPort -portname COM1 -data 'Hello World'
+    .EXAMPLE
+      Send data to serial port and wait for respond.
+      _WriteToSerialPort -portname COM1 -data 'dir C:\' -wait_for_respond
+  #>
+  [CmdletBinding(supportsshouldprocess=$true)]
+  param (
+    [parameter(Position=0, Mandatory=$true, ValueFromPipeline=$true)]
+      [string]$portname,
+    [Int]$baud_rate = 9600,
+    [ValidateSet('None', 'Odd', 'Even', 'Mark', 'Space')]
+      [string]$parity = 'None',
+    [int]$data_bits = 8,
+    [ValidateSet('None', 'One', 'Even', 'Two', 'OnePointFive')]
+      [string]$stop_bits = 'One',
+    [string]$data,
+    [Switch]$wait_for_respond,
+    [Switch]$close
+  )
+
+  if ($psCmdlet.shouldProcess($portname , 'Write data to local serial port')) {
+    if ($close) {
+      $data = 'close'
+      $wait_for_respond = $false
+    }
+    try {
+      # Define a new object to read serial ports.
+      $port = New-Object System.IO.Ports.SerialPort $portname, $baud_rate, `
+                          $parity, $data_bits, $stop_bits
+      $port.Open()
+      # Write to the serial port.
+      $port.WriteLine($data)
+      # If wait_for_resond is specified.
+      if ($wait_for_respond) {
+        $result = $port.ReadLine()
+        $result.Replace("#^#","`n")
+      }
+      $port.Close()
+    }
+    catch {
+      _PrintError
+    }
+  }
 }
 
 
