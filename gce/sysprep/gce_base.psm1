@@ -33,6 +33,53 @@ $global:hostname = [System.Net.Dns]::GetHostName()
 $global:log_file = $null
 
 # Functions
+function _AddToPath {
+ <#
+    .SYNOPSIS
+      Adds GCE tool dir to SYSTEM PATH
+    .DESCRIPTION
+      This is a helper function which adds location to path
+  #>
+  param (
+    [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
+    [Alias('path')]
+      $path_to_add
+  )
+
+  # Check if folder exists on the file system.
+  if (!(Test-Path $path_to_add)) {
+    Write-Log "$path_to_add does not exist, cannot be added to $env:PATH."
+    return
+  }
+
+  try {
+    $path_reg_key = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
+    $current_path = (Get-ItemProperty $path_reg_key).Path
+    $check_path = ($current_path).split(';') | ? {$_ -like $path_to_add}
+  }
+  catch {
+    Write-Log 'Could not read path from the registry.'
+    _PrintError
+  }
+  # See if the folder is already in the path.
+  if ($check_path) {
+    Write-Log 'Folder already in system path.'
+  }
+  else {
+    try {
+      Write-Log "Adding $path_to_add to SYSTEM path."
+      $new_path = $current_path + ';' + $path_to_add
+      $env:Path = $new_path
+      Set-ItemProperty $path_reg_key -name 'Path' -value $new_path
+    }
+    catch {
+      Write-Log 'Failed to add to SYSTEM path.'
+      _PrintError
+    }
+  }
+}
+
+
 function _ClearEventLogs {
   <#
     .SYNOPSIS
