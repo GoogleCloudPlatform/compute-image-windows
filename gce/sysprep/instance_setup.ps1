@@ -477,8 +477,8 @@ if (-not ($global:write_to_serial)) {
 if ($specialize) {
   Write-Log 'Starting sysprep specialize phase.'
 
-  # Change computer name.
   Change-InstanceName
+  Change-InstanceProperties
 
   # Create setupcomplete.cmd to launch second half of instance setup.
   # When Windows setup completes (after the sysprep OOBE phase), it looks
@@ -503,8 +503,6 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
   Write-Log 'Finished with sysprep specialize phase, restarting...'
 }
 else {
-  # Calling function in a sequence.
-  Change-InstanceProperties
   Disable-Administrator
   Activate-Instance
   Enable-RemoteDesktop
