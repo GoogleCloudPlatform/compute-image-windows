@@ -1,0 +1,20 @@
+{
+  "name": "gce-sysprep",
+  "version": "1.0.0@1",
+  "arch": "noarch",
+  "authors": "ajackura",
+  "owners": "ajackura",
+  "description": "GCE sysprep scripts",
+  "files": {
+    "sysprep": "<ProgramFiles>/Google/Compute Engine/sysprep"
+  },
+  "releaseNotes": [],
+  "sources": [{
+      "include": [
+        "sysprep/*" 
+      ]
+  }],
+  "pkgDependencies": {
+    "gce-metadata-scripts": "1.0.0@1"
+  }
+}
