@@ -169,8 +169,7 @@ function Change-InstanceName {
   while ($hostname_parts.Length -le 1)
   
   $new_hostname = $hostname_parts[0]
-  # Change computer name to match GCE hostname.
-  # This will take effect after reboot.
+  Write-Log "Changing hostname from $global:hostname to $new_hostname."
   try {
     Rename-Computer -NewName $new_hostname -ErrorAction Stop
   }
