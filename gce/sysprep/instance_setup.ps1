@@ -230,11 +230,6 @@ function Change-InstanceProperties {
   # Enable access to Windows administrative file share.
   Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
       -Name 'LocalAccountTokenFilterPolicy' -Value 1 -Force
-
-  # Schedule startup script.
-  Write-Log 'Adding startup scripts from metadata server.'
-  $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
-  _RunExternalCMD schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
 }
 
 
@@ -507,14 +502,13 @@ else {
   Activate-Instance
   Enable-RemoteDesktop
   Configure-WinRM
-
-  try {
-    # Kick off first run of windows-startup-script.
-    _RunExternalCMD schtasks /run /tn GCEStartup
-  }
-  catch {
-    _PrintError
-  }
+  
+  # Schedule startup script.
+  Write-Log 'Adding startup scripts from metadata server.'
+  $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
+  _RunExternalCMD schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
+  _RunExternalCMD schtasks /run /tn GCEStartup
+  
   Write-Log "Instance setup finished. $global:hostname is ready to use." -important
 
   if (Test-Path $script:setupcomplete_loc) {
