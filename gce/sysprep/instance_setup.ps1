@@ -155,7 +155,7 @@ function Change-InstanceName {
   }
 
   $count = 1
-  while ($hostname_parts.Length -le 1) {
+  do {
     $hostname_parts = (_FetchFromMetaData -property 'hostname') -split '\.'
     if ($hostname_parts.Length -le 1) {
       Write-Log "Waiting for metadata server, attempt $count."
@@ -166,6 +166,7 @@ function Change-InstanceName {
       return
     }
   }
+  while ($hostname_parts.Length -le 1)
   
   $new_hostname = $hostname_parts[0]
   # Change computer name to match GCE hostname.
