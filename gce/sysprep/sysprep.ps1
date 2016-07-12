@@ -171,7 +171,7 @@ try {
   _RunExternalCMD C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /quit /unattend:$ans_file
 
   Write-Log 'Waiting for sysprep to complete.'
-  while (-not Test-Path $script:sysprep_tag) {
+  while (-not (Test-Path $script:sysprep_tag)) {
     Start-Sleep -Seconds 15
   }
 
