@@ -25,13 +25,10 @@
       Cleanup temp files
       Activate the GCE instance
       Set up the administrative username and password
-
   .EXAMPLE
     instance_setup.ps1
-
   .EXAMPLE
     instance_setup.ps1 -specialize
-
   .EXAMPLE
     instance_setup.ps1 -test
 
@@ -74,7 +71,6 @@ function Activate-Instance {
   <#
     .SYNOPSIS
       Activate instance via a KMS SERVER.
-
     .DESCRIPTION
       Tries to Activate Instance with a KMS server. This function checks if the
       instance is already activated and if Yes skips. This Function can be uses
@@ -146,7 +142,6 @@ function Change-InstanceName {
   <#
     .SYNOPSIS
       Changes the machine name for GCE Instance
-
     .DESCRIPTION
       If metadata server is reachable get the instance name for the machine and
       rename.
@@ -191,7 +186,6 @@ function Change-InstanceProperties {
   <#
     .SYNOPSIS
       Apply GCE specific changes.
-
     .DESCRIPTION
       Apply GCE specific changes to this instance.
   #>
@@ -237,7 +231,6 @@ function Enable-RemoteDesktop {
   <#
     .SYNOPSIS
       Enable RDP on the instance.
-
     .DESCRIPTION
       Modify the Terminal Server registry properties and restart Terminal
       services.
@@ -278,7 +271,6 @@ function Configure-WinRM {
   <#
     .SYNOPSIS
       Setup WinRM on the instance.
-
     .DESCRIPTION
       Create a self signed cert to use with a HTTPS WinRM endpoint and restart the WinRM service.
   #>
@@ -314,16 +306,13 @@ function Get-ProductKmsClientKey {
   <#
     .SYNOPSIS
       Gets the correct KMS Client license Key for the OS.
-
     .DESCRIPTION
       Queries registry to get the correct product name and applies the correct
       KMS client key to it.
-
     .NOTES
       Please add new license keys as we support more product versions.
       https://technet.microsoft.com/en-us/library/jj612867.aspx has all the
       details.
-
     .RETURNS
       License Key.
   #>
@@ -415,7 +404,6 @@ function Disable-Administrator {
   <#
     .SYNOPSIS
       Disables the default Administrator user.
-
     .DESCRIPTION
       This function gives the built-in "Administrator" account a random password
       and disables it.
@@ -438,10 +426,8 @@ function Verify-ActivationStatus {
   <#
     .SYNOPSIS
       Check if the instance in activated.
-
     .DESCRIPTION
       Checks if the localcomputer license is active and activated
-
     .OUTPUTS
       [bool]
   #>
