@@ -15,18 +15,11 @@
 <#
   .SYNOPSIS
     Runs a script from the metadata server.
-
   .DESCRIPTION
     Downloads scripts of supported extensions and executes them.  Requires
     a base name, e.g. startup-script, from which it will look for metadata
     attributes of the form startup-script-cmd, startup-script-ps1, and any
     other supported extensions.
-
-
-  .Notes
-    Last modified: $Date$
-    Version: $Revision$
-
   .EXAMPLE
     run_metadata_script.ps1 -base windows-startup-script
 #>
