@@ -279,19 +279,18 @@ function Configure-WinRM {
 
   Write-Log 'Configuring WinRM...'
   # We're using makecert here because New-SelfSignedCertificate isn't full featured in anything 
-  # less than Win10/Server 2016, makecert is installed during imaging on non 2016 machines.
-  if (Test-Path $env:windir\makecert.exe) {
+  # less than Win10/Server 2016.
+  try {
+    $cert = New-SelfSignedCertificate -DnsName "$(hostname)" -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddYears(5)
+  }
+  catch {
     # SHA1 self signed cert using hostname as the SubjectKey and name installed to LocalMachine\My store
     # with enhanced key usage object identifiers of Server Authentication and Client Authentication.
     # https://msdn.microsoft.com/en-us/library/windows/desktop/aa386968(v=vs.85).aspx
     $eku = "1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2"
-    _RunExternalCMD $env:windir\makecert.exe -r -a SHA1 -sk "$(hostname)" -n "CN=$(hostname)" -ss My -sr LocalMachine -eku $eku
+    _RunExternalCMD $script:gce_install_dir\tools\makecert.exe -r -a SHA1 -sk "$(hostname)" -n "CN=$(hostname)" -ss My -sr LocalMachine -eku $eku
     $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=$(hostname)"}
   }
-  else {
-    $cert = New-SelfSignedCertificate -DnsName "$(hostname)" -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddYears(5)
-  }
-  
   # Configure winrm HTTPS transport using the created cert.
   $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";port="5986"}'
   _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config
