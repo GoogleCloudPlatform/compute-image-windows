@@ -112,6 +112,7 @@ function Activate-Instance {
   # Check if the KMS server is reachable.
   if (-not (_TestTCPPort -host $script:kms_server -port $script:kms_server_port)) {
     Write-Log 'Could not contact activation server. Will retry activation later.'
+    return
   }
   # KMS Server is reachable try to activate the server.
   while ($retry_count -gt 0) {
