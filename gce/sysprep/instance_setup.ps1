@@ -102,7 +102,7 @@ function Activate-Instance {
   # Check if the product can be activated.
   $reg_query = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
   $get_product_details = (Get-ItemProperty -Path $reg_query -Name ProductName).ProductName
-  $known_editions_regex = "Windows (Web )?Server (2008 R2|2012|2012 R2)"
+  $known_editions_regex = 'Windows (Web )?Server (2008 R2|2012|2012 R2)'
   if ($get_product_details -notmatch $known_editions_regex) {
     Write-Log ("$get_product_details activations are currently not " +
         'supported on GCE. Activation request will be skipped.')
@@ -110,30 +110,28 @@ function Activate-Instance {
   }
 
   # Check if the KMS server is reachable.
-  if (_TestTCPPort -host $script:kms_server -port $script:kms_server_port) {
-    # KMS Server is reachable try to activate the server.
-    while ($retry_count -lt 0) {
-      # Activate the instance.
-      Write-Log 'Activating instance ...'
-      _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /ato
-      # Helps to avoid activation failures.
-      Start-Sleep -Seconds 1
-      # Check activation status.
-      if (Verify-ActivationStatus) {
-        Write-Log 'Activation successful.' -important
-        break
-      }
-      else {
-        Write-Log 'Activation failed.'
-        $retry_count = $retry_count - 1
-      }
-      if ($retry_count -gt 0) {
-        Write-Log "Retrying activation. Will try $retry_count more time(s)"
-      }
-    }
-  }
-  else {
+  if (-not (_TestTCPPort -host $script:kms_server -port $script:kms_server_port)) {
     Write-Log 'Could not contact activation server. Will retry activation later.'
+  }
+  # KMS Server is reachable try to activate the server.
+  while ($retry_count -gt 0) {
+    # Activate the instance.
+    Write-Log 'Activating instance...'
+    _RunExternalCMD cscript //nologo $env:windir\system32\slmgr.vbs /ato
+    # Helps to avoid activation failures.
+    Start-Sleep -Seconds 1
+    # Check activation status.
+    if (Verify-ActivationStatus) {
+      Write-Log 'Activation successful.' -important
+      break
+    }
+    else {
+      Write-Log 'Activation failed.'
+      $retry_count = $retry_count - 1
+    }
+    if ($retry_count -gt 0) {
+      Write-Log "Retrying activation. Will try $retry_count more time(s)"
+    }
   }
 }
 
@@ -167,7 +165,7 @@ function Change-InstanceName {
     }
   }
   while ($hostname_parts.Length -le 1)
-  
+
   $new_hostname = $hostname_parts[0]
   Write-Log "Changing hostname from $global:hostname to $new_hostname."
   # Change computer name to match GCE hostname.
@@ -193,7 +191,7 @@ function Change-InstanceProperties {
   #>
 
   # Set all Adapters to get IP from DHCP.
-  $nics = Get-WMIObject Win32_NetworkAdapterConfiguration | where{$_.IPEnabled -eq "TRUE"}
+  $nics = Get-WMIObject Win32_NetworkAdapterConfiguration | Where-Object {$_.IPEnabled -eq 'TRUE'}
   foreach($nic in $nics) {
     $nic.EnableDHCP()
     $nic.SetDNSServerSearchOrder()
@@ -255,7 +253,7 @@ function Enable-RemoteDesktop {
   try {
     # Enable firewall rule.
     Write-Log 'Enable RDP firewall rules.'
-    _RunExternalCMD netsh advfirewall firewall set rule group="remote desktop" new enable=Yes
+    _RunExternalCMD netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
     # Restart services.
     Write-Log 'Restarting Terminal Service services, to enable RDP.'
     Restart-Service UmRdpService,TermService -Force | Out-Null
@@ -278,7 +276,7 @@ function Configure-WinRM {
   #>
 
   Write-Log 'Configuring WinRM...'
-  # We're using makecert here because New-SelfSignedCertificate isn't full featured in anything 
+  # We're using makecert here because New-SelfSignedCertificate isn't full featured in anything
   # less than Win10/Server 2016, makecert is installed during imaging on non 2016 machines.
   try {
     $cert = New-SelfSignedCertificate -DnsName "$(hostname)" -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddYears(5)
@@ -287,7 +285,7 @@ function Configure-WinRM {
     # SHA1 self signed cert using hostname as the SubjectKey and name installed to LocalMachine\My store
     # with enhanced key usage object identifiers of Server Authentication and Client Authentication.
     # https://msdn.microsoft.com/en-us/library/windows/desktop/aa386968(v=vs.85).aspx
-    $eku = "1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2"
+    $eku = '1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2'
     & $script:gce_install_dir\tools\makecert.exe -r -a SHA1 -sk "$(hostname)" -n "CN=$(hostname)" -ss My -sr LocalMachine -eku $eku
     $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=$(hostname)"}
   }
@@ -295,9 +293,9 @@ function Configure-WinRM {
   $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";port="5986"}'
   _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config
   # Open the firewall.
-  $rule = "Windows Remote Management (HTTPS-In)"
+  $rule = 'Windows Remote Management (HTTPS-In)'
   _RunExternalCMD netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
-  
+
   Restart-Service WinRM
   Write-Log 'Setup of WinRM complete.'
 }
@@ -410,15 +408,15 @@ function Disable-Administrator {
       and disables it.
   #>
   try {
-    Write-Log "Setting random password for Administrator account."
+    Write-Log 'Setting random password for Administrator account.'
     $password = _GenerateRandomPassword
     _RunExternalCMD net user Administrator $password
     _RunExternalCMD net user Administrator /ACTIVE:NO
-    Write-Log "Disabled Administrator account."
+    Write-Log 'Disabled Administrator account.'
   }
   catch {
     _PrintError
-    Write-Log "Failed to disable Administrator account." -error
+    Write-Log 'Failed to disable Administrator account.' -error
   }
 }
 
@@ -449,7 +447,7 @@ function Verify-ActivationStatus {
   # Check the output.
   $status = $slmgr_status.Split("`n") | Select-String -Pattern '^License Status:'
   Write-Log "Activation status - $status"
-  if ($status -match "Licensed") {
+  if ($status -match 'Licensed') {
     $active = $true
   }
   return $active
@@ -495,13 +493,13 @@ else {
   Activate-Instance
   Enable-RemoteDesktop
   Configure-WinRM
-  
+
   # Schedule startup script.
   Write-Log 'Adding startup scripts from metadata server.'
   $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
   _RunExternalCMD schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
   _RunExternalCMD schtasks /run /tn GCEStartup
-  
+
   Write-Log "Instance setup finished. $global:hostname is ready to use." -important
 
   if (Test-Path $script:setupcomplete_loc) {
