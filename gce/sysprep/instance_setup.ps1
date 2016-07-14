@@ -288,7 +288,7 @@ function Configure-WinRM {
     # with enhanced key usage object identifiers of Server Authentication and Client Authentication.
     # https://msdn.microsoft.com/en-us/library/windows/desktop/aa386968(v=vs.85).aspx
     $eku = "1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2"
-    _RunExternalCMD $script:gce_install_dir\tools\makecert.exe -r -a SHA1 -sk "$(hostname)" -n "CN=$(hostname)" -ss My -sr LocalMachine -eku $eku
+    & $script:gce_install_dir\tools\makecert.exe -r -a SHA1 -sk "$(hostname)" -n "CN=$(hostname)" -ss My -sr LocalMachine -eku $eku
     $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=$(hostname)"}
   }
   # Configure winrm HTTPS transport using the created cert.
