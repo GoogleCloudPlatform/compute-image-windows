@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<instrumentationManifest xsi:schemaLocation="http://schemas.microsoft.com/win/2004/08/events eventman.xsd" xmlns="http://schemas.microsoft.com/win/2004/08/events" xmlns:win="http://manifests.microsoft.com/win/2004/08/windows/events" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:trace="http://schemas.microsoft.com/win/2004/08/events/trace">
+  <instrumentation>
+    <events>
+      <provider name="GCE-VSS-Provider" guid="{014E3DF6-C2AE-46EE-8257-C0BE62CDBA04}" symbol="ProviderGuid" resourceFileName="C:\Program Files\Google\Compute Engine\vss\GoogleVssProvider.dll" messageFileName="C:\Program Files\Google\Compute Engine\vss\GoogleVssProvider.dll">
+        <events>
+          <event symbol="DBG_INFO" value="0" version="0" channel="GCE-VSS-Provider/Debug" level="win:Informational" template="OneStringParamTemplate" message="$(string.GCE-VSS-Provider.event.0.message)">
+          </event>
+          <event symbol="OP_INFO" value="1" version="0" channel="GCE-VSS-Provider/Operational" level="win:Informational" template="OneStringParamTemplate" message="$(string.GCE-VSS-Provider.event.0.message)">
+          </event>
+          <event symbol="OP_ERR" value="2" version="0" channel="GCE-VSS-Provider/Operational" level="win:Error" template="OneStringParamTemplate" message="$(string.GCE-VSS-Provider.event.2.message)">
+          </event>
+        </events>
+        <levels>
+        </levels>
+        <channels>
+          <channel name="GCE-VSS-Provider/Debug" chid="GCE-VSS-Provider/Debug" symbol="GCE_VSS_ProviderEventProvider_Debug" type="Debug" enabled="false">
+          </channel>
+          <channel name="GCE-VSS-Provider/Operational" chid="GCE-VSS-Provider/Operational" symbol="GCE_VSS_ProviderEventProvider_Operational" type="Operational" enabled="true">
+          </channel>
+        </channels>
+        <templates>
+          <template tid="OneStringParamTemplate">
+            <data name="param" inType="win:UnicodeString" outType="xs:string">
+            </data>
+          </template>
+        </templates>
+      </provider>
+    </events>
+  </instrumentation>
+  <localization>
+    <resources culture="en-US">
+      <stringTable>
+        <string id="level.Informational" value="Information">
+        </string>
+        <string id="level.Error" value="Error">
+        </string>
+        <string id="GCE-VSS-Provider.event.0.message" value="%1">
+        </string>
+        <string id="GCE-VSS-Provider.event.2.message" value="%1">
+        </string>
+      </stringTable>
+    </resources>
+  </localization>
+</instrumentationManifest>

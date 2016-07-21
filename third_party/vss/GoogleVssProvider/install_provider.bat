@@ -1,0 +1,1 @@
+cscript.exe "c:\Program Files\Google\Compute Engine\vss\register_app.vbs" -register "Google Vss Provider" "C:\Program Files\Google\Compute Engine\vss\GoogleVssProvider.dll" "Google Vss Hardware Provider"

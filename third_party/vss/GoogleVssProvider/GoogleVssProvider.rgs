@@ -1,0 +1,8 @@
+HKCR {
+  NoRemove AppID {
+    '%APPID%' = s 'GoogleVssProvider'
+    'GoogleVssProvider.DLL' {
+      val AppID = s '%APPID%'
+    }
+  }
+}
