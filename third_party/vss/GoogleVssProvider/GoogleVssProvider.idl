@@ -1,0 +1,31 @@
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+  object,
+  uuid(C1EA69F7-1026-4969-A5FB-727E601515BF),
+  helpstring("IHwProvider Interface"),
+  pointer_default(unique)
+]
+
+interface IHwProvider : IUnknown{
+};
+
+[
+  uuid(F6DDBFFA-4D54-40AC-BBBB-7BCEFEA4779B),
+  version(1.0),
+  helpstring("GoogleVssProvider 1.0 Type Library")
+]
+
+library GoogleVssProviderLib
+{
+  importlib("stdole2.tlb");
+  [
+    uuid(423BBCAA-9B20-4BBE-A967-B63EC43BC7CC),
+    helpstring("HwProvider Class")
+  ]
+  coclass HwProvider
+  {
+    [default] interface IHwProvider;
+  };
+};

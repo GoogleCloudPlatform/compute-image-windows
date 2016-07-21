@@ -1,0 +1,22 @@
+#include <windows.h>
+#include <ntverp.h>
+
+#undef  VER_PRODUCTNAME_STR
+#define VER_PRODUCTNAME_STR       "GoogleVssAgent"
+#define VER_FILETYPE              VFT_APP
+#define VER_FILESUBTYPE           VFT2_UNKNOWN
+#define VER_FILEDESCRIPTION_STR   "Google Volume Shadow Copy Service Agent"
+#define VER_INTERNALNAME_STR      "GoogleVssAgent.exe"
+#define VER_ORIGINALFILENAME_STR  VER_INTERNALNAME_STR
+
+#undef  VER_PRODUCTBUILD
+#undef  VER_PRODUCTBUILD_QFE
+#undef  VER_PRODUCTMAJORVERSION
+#undef  VER_PRODUCTMINORVERSION
+
+#define VER_PRODUCTBUILD            _MAJORVERSION_
+#define VER_PRODUCTBUILD_QFE        _MINORVERSION_
+#define VER_PRODUCTMAJORVERSION     _NT_TARGET_MAJ
+#define VER_PRODUCTMINORVERSION     _NT_TARGET_MIN
+
+#include "common.ver"

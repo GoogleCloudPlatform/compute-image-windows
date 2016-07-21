@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<instrumentationManifest xsi:schemaLocation="http://schemas.microsoft.com/win/2004/08/events eventman.xsd" xmlns="http://schemas.microsoft.com/win/2004/08/events" xmlns:win="http://manifests.microsoft.com/win/2004/08/windows/events" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:trace="http://schemas.microsoft.com/win/2004/08/events/trace">
+  <instrumentation>
+    <events>
+      <provider name="GCE-VSS-Agent" guid="{87D232FE-649D-401C-B713-DF9CB7E70258}" symbol="ProviderGuid" resourceFileName="C:\Program Files\Google\Compute Engine\vss\GoogleVssAgent.exe" messageFileName="C:\Program Files\Google\Compute Engine\vss\GoogleVssAgent.exe">
+        <events>
+          <event symbol="DBG_INFO" value="0" version="0" channel="GCE-VSS-Agent/Debug" level="win:Informational" template="OneStringParamTemplate" message="$(string.GCE-VSS-Agent.event.0.message)">
+          </event>
+          <event symbol="OP_INFO" value="1" version="0" channel="GCE-VSS-Agent/Operational" level="win:Informational" template="OneStringParamTemplate" message="$(string.GCE-VSS-Agent.event.0.message)">
+          </event>
+          <event symbol="SNAPSHOT_SUCCEED" value="2" version="0" channel="GCE-VSS-Agent/Operational" level="win:Informational" template="target" message="$(string.GCE-VSS-Agent.event.2.message)">
+          </event>
+          <event symbol="SNAPSHOT_FAILED" value="3" version="0" channel="GCE-VSS-Agent/Operational" level="win:Error" template="target" message="$(string.GCE-VSS-Agent.event.3.message)">
+          </event>
+          <event symbol="OP_ERR" value="4" version="0" channel="GCE-VSS-Agent/Operational" level="win:Error" template="OneStringParamTemplate" message="$(string.GCE-VSS-Agent.event.4.message)">
+          </event>
+        </events>
+        <levels>
+        </levels>
+        <channels>
+          <channel name="GCE-VSS-Agent/Debug" chid="GCE-VSS-Agent/Debug" symbol="GCE_VSS_AgentEventProvider_Debug" type="Debug" enabled="false">
+          </channel>
+          <channel name="GCE-VSS-Agent/Operational" chid="GCE-VSS-Agent/Operational" symbol="GCE_VSS_AgentEventProvider_Operational" type="Operational" enabled="true">
+          </channel>
+        </channels>
+        <templates>
+          <template tid="OneStringParamTemplate">
+            <data name="param" inType="win:UnicodeString" outType="xs:string">
+            </data>
+          </template>
+          <template tid="target">
+            <data name="Target" inType="win:UInt8" outType="xs:unsignedByte">
+            </data>
+            <data name="Lun" inType="win:UInt8" outType="xs:unsignedByte">
+            </data>
+            <data name="VolumeCount" inType="win:UInt32" outType="xs:unsignedInt">
+            </data>
+            <data name="Volumes" inType="win:UnicodeString" outType="xs:string" count="VolumeCount">
+            </data>
+          </template>
+        </templates>
+      </provider>
+    </events>
+  </instrumentation>
+  <localization>
+    <resources culture="en-US">
+      <stringTable>
+        <string id="level.Informational" value="Information">
+        </string>
+        <string id="level.Error" value="Error">
+        </string>
+        <string id="GCE-VSS-Agent.event.4.message" value="%1">
+        </string>
+        <string id="GCE-VSS-Agent.event.3.message" value="Failed to create the snapshot for the persistent disk (target:%1, lun:%2).">
+        </string>
+        <string id="GCE-VSS-Agent.event.2.message" value="A snapshot for persistent disk (target:%1, lun:%2) has been successfully created.">
+        </string>
+        <string id="GCE-VSS-Agent.event.0.message" value="%1">
+        </string>
+      </stringTable>
+    </resources>
+  </localization>
+</instrumentationManifest>
