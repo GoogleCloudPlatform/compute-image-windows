@@ -18,6 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using Google.ComputeEngine.Common;
+using System.Net.NetworkInformation;
 
 namespace Google.ComputeEngine.Agent
 {
@@ -71,7 +72,7 @@ namespace Google.ComputeEngine.Agent
         public AccountsManager() : base("GCE account manager", new AccountsReader(), new AccountsWriter()) { }
     }
 
-    public sealed class AddressManager : Manager<List<IPAddress>>
+    public sealed class AddressManager : Manager<Dictionary<PhysicalAddress, List<IPAddress>>>
     {
         public AddressManager() : base("GCE address manager", new AddressReader(), new AddressWriter()) { }
     }

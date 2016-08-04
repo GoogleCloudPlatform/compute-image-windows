@@ -24,32 +24,32 @@ using Google.ComputeEngine.Common;
 
 namespace Google.ComputeEngine.Agent
 {
-    public sealed class AddressWriter : IAgentWriter<List<IPAddress>>
+    public sealed class AddressWriter : IAgentWriter<Dictionary<PhysicalAddress, List<IPAddress>>>
     {
-        private const string RegistryKeyPath = @"SOFTWARE\Google\ComputeEngine";
-        private const string RegistryKey = "ForwardedIps";
+        private const string RegistryKeyPath = @"SOFTWARE\Google\ComputeEngine\ForwardedIps";
         private readonly RegistryWriter registryWriter = new RegistryWriter(RegistryKeyPath);
 
-        private static int GetPrimaryInterfaceIndex()
+        private static int GetInterfaceIndex(PhysicalAddress mac)
         {
             foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces())
             {
                 if ((networkInterface.NetworkInterfaceType == NetworkInterfaceType.Ethernet)
-                    && networkInterface.Supports(NetworkInterfaceComponent.IPv4))
+                    && networkInterface.Supports(NetworkInterfaceComponent.IPv4)
+                    && (networkInterface.GetPhysicalAddress() == mac))
                 {
                     return networkInterface.GetIPProperties().GetIPv4Properties().Index;
                 }
             }
 
-            throw new InvalidOperationException("Unable to find primary network interface.");
+            throw new InvalidOperationException("Unable to find network interface with address of " + mac.ToString());
         }
 
-        private static void AddAddress(IPAddress addressToAdd)
+        private static void AddAddress(IPAddress addressToAdd, PhysicalAddress mac)
         {
             int myNteContext = 0;
             int myNteInstance = 0;
 
-            int interfaceIndex = GetPrimaryInterfaceIndex();
+            int interfaceIndex = GetInterfaceIndex(mac);
             IntPtr ptrMyNTEContext = new IntPtr(myNteContext);
             IntPtr ptrMyNTEInstance = new IntPtr(myNteInstance);
             int address = BitConverter.ToInt32(addressToAdd.GetAddressBytes(), 0);
@@ -72,12 +72,12 @@ namespace Google.ComputeEngine.Agent
             }
         }
 
-        private void AddAddresses(IEnumerable<IPAddress> toAdd)
+        private void AddAddresses(IEnumerable<IPAddress> toAdd, PhysicalAddress mac)
         {
             foreach (IPAddress address in toAdd)
             {
-                AddAddress(address);
-                registryWriter.AddMultiStringValue(RegistryKey, address.ToString());
+                AddAddress(address, mac);
+                registryWriter.AddMultiStringValue(mac.ToString(), address.ToString());
             }
         }
 
@@ -164,9 +164,9 @@ namespace Google.ComputeEngine.Agent
             }
         }
 
-        private static void RemoveAddress(IPAddress addressToRemove)
+        private static void RemoveAddress(IPAddress addressToRemove, PhysicalAddress mac)
         {
-            int interfaceIndex = GetPrimaryInterfaceIndex();
+            int interfaceIndex = GetInterfaceIndex(mac);
 
             // The Net Table Entry context for the IP address.
             IntPtr nteContext = FindAddressContext(addressToRemove);
@@ -178,11 +178,11 @@ namespace Google.ComputeEngine.Agent
             }
         }
 
-        private void RemoveAddresses(IEnumerable<IPAddress> toRemove)
+        private void RemoveAddresses(IEnumerable<IPAddress> toRemove, PhysicalAddress mac)
         {
             foreach (IPAddress address in toRemove)
             {
-                RemoveAddress(address);
+                RemoveAddress(address, mac);
             }
         }
 
@@ -197,6 +197,7 @@ namespace Google.ComputeEngine.Agent
         }
 
         private void LogForwardedIpsChanges(
+            PhysicalAddress mac,
             List<IPAddress> configured,
             List<IPAddress> desired,
             List<IPAddress> toAdd,
@@ -208,7 +209,8 @@ namespace Google.ComputeEngine.Agent
             }
 
             Logger.Info(
-                "Changing forwarded IPs from {0} to {1} by adding {2} and removing {3}",
+                "Changing forwarded IPs for {0} from {1} to {2} by adding {3} and removing {4}",
+                mac.ToString(),
                 GetJoinStringOrNone(configured),
                 GetJoinStringOrNone(desired),
                 GetJoinStringOrNone(toAdd),
@@ -228,19 +230,26 @@ namespace Google.ComputeEngine.Agent
             }
         }
 
-        public void SetMetadata(List<IPAddress> metadata)
+        public void SetMetadata(Dictionary<PhysicalAddress, List<IPAddress>> metadata)
         {
-            List<string> registryKeys = registryWriter.GetMultiStringValue(RegistryKey);
-            List<IPAddress> registryForwardedIps = registryKeys.ConvertAll<IPAddress>(ConvertStringToIpAddress);
-            List<IPAddress> addressesConfigured = AddressSystemReader.GetAddresses();
-            List<IPAddress> toAdd = new List<IPAddress>(metadata.Except(addressesConfigured));
-            List<IPAddress> toRemove = new List<IPAddress>(registryForwardedIps.Except(metadata));
-            List<string> metadataStrings = metadata.ConvertAll<string>(ip => ip.ToString());
-            List<string> toRemoveFromRegistry = new List<string>(registryKeys.Except(metadataStrings));
-            LogForwardedIpsChanges(addressesConfigured, metadata, toAdd, toRemove);
-            AddAddresses(toAdd);
-            RemoveAddresses(toRemove);
-            registryWriter.RemoveMultiStringValues(RegistryKey, toRemoveFromRegistry);
+            foreach (KeyValuePair<PhysicalAddress, List<IPAddress>> entry in metadata)
+            {
+                List<IPAddress> addresses = entry.Value;
+                PhysicalAddress mac = entry.Key;
+                string registryKey = mac.ToString();
+
+                List<string> registryKeys = registryWriter.GetMultiStringValue(registryKey);
+                List<IPAddress> registryForwardedIps = registryKeys.ConvertAll<IPAddress>(ConvertStringToIpAddress);
+                List<IPAddress> addressesConfigured = AddressSystemReader.GetAddresses();
+                List<IPAddress> toAdd = new List<IPAddress>(addresses.Except(addressesConfigured));
+                List<IPAddress> toRemove = new List<IPAddress>(registryForwardedIps.Except(addresses));
+                List<string> metadataStrings = addresses.ConvertAll<string>(ip => ip.ToString());
+                List<string> toRemoveFromRegistry = new List<string>(registryKeys.Except(metadataStrings));
+                LogForwardedIpsChanges(mac, addressesConfigured, addresses, toAdd, toRemove);
+                AddAddresses(toAdd, mac);
+                RemoveAddresses(toRemove, mac);
+                registryWriter.RemoveMultiStringValues(registryKey, toRemoveFromRegistry);
+            }
         }
     }
 }
