@@ -292,7 +292,7 @@ function Configure-WinRM {
   }
   # Configure winrm HTTPS transport using the created cert.
   $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";port="5986"}'
-    _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config -ErrorAction SilentlyContinue
+  _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config -ErrorAction SilentlyContinue
   if ($LASTEXITCODE -ne 0) {
     # Listener has already been setup, we need to edit it in place.
     _RunExternalCMD winrm set winrm/config/listener?Address=*+Transport=HTTPS $config
