@@ -205,7 +205,7 @@ function Change-InstanceProperties {
   Write-Log 'MTU set to 1430.'
 
   # Adding persistent route to metadata netblock via netkvm adapter.
-  _RunExternalCMD route /p add 169.254.0.0 mask 255.255.0.0 0.0.0.0 if $netkvm.InterfaceIndex metric 1
+  _RunExternalCMD route /p add 169.254.0.0 mask 255.255.0.0 0.0.0.0 if $netkvm.InterfaceIndex metric 1 -ErrorAction SilentlyContinue
   Write-Log 'Added persistent route to metadata netblock via netkvm adapter.'
 
   # Set minimum password length.
@@ -288,11 +288,15 @@ function Configure-WinRM {
     # https://msdn.microsoft.com/en-us/library/windows/desktop/aa386968(v=vs.85).aspx
     $eku = '1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2'
     & $script:gce_install_dir\tools\makecert.exe -r -a SHA1 -sk "$(hostname)" -n "CN=$(hostname)" -ss My -sr LocalMachine -eku $eku
-    $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=$(hostname)"}
+    $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=$(hostname)"} | Select-Object -First 1
   }
   # Configure winrm HTTPS transport using the created cert.
   $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";port="5986"}'
-  _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config
+    _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config -ErrorAction SilentlyContinue
+  if ($LASTEXITCODE -ne 0) {
+    # Listener has already been setup, we need to edit it in place.
+    _RunExternalCMD winrm set winrm/config/listener?Address=*+Transport=HTTPS $config
+  }
   # Open the firewall.
   $rule = 'Windows Remote Management (HTTPS-In)'
   _RunExternalCMD netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
