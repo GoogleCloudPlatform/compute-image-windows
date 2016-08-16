@@ -66,7 +66,7 @@ namespace Google.ComputeEngine.Agent
             {
                 return oldMetadata == null && newMetadata == null;
             }
-            return oldMetadata.Count == newMetadata.Count && !oldMetadata.Except(newMetadata).Any(); ;
+            return oldMetadata.Count == newMetadata.Count && !oldMetadata.Except(newMetadata).Any(); 
         }
 
         public bool IsEnabled(MetadataJson metadata)
