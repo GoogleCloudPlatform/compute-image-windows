@@ -18,13 +18,15 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using Google.ComputeEngine.Common;
+using System.Net.NetworkInformation;
+using System.Linq;
 
 namespace Google.ComputeEngine.Agent
 {
     /// <summary>
     /// Reads and parses address information from GCE's metadata service.
     /// </summary>
-    public sealed class AddressReader : IAgentReader<List<IPAddress>>
+    public sealed class AddressReader : IAgentReader<Dictionary<PhysicalAddress, List<IPAddress>>>
     {
         private List<IPAddress> ParseForwardIpsResult(string[] forwardedIps)
         {
@@ -46,26 +48,27 @@ namespace Google.ComputeEngine.Agent
             return addresses;
         }
 
-        public List<IPAddress> GetMetadata(MetadataJson metadata)
+        public Dictionary<PhysicalAddress, List<IPAddress>> GetMetadata(MetadataJson metadata)
         {
-            try
+            Dictionary<PhysicalAddress, List<IPAddress>> data = new Dictionary<PhysicalAddress, List<IPAddress>>();
+
+            foreach (NetworkInterfacesJson entry in metadata.Instance.NetworkInterfaces)
             {
-                string[] forwardedIps = metadata.Instance.NetworkInterfaces[0].ForwardedIps;
-                return ParseForwardIpsResult(forwardedIps);
+                PhysicalAddress mac = PhysicalAddress.Parse(entry.MAC);
+                data.Add(mac, ParseForwardIpsResult(entry.ForwardedIps));
             }
-            catch (NullReferenceException)
-            {
-                return null;
-            }
+            return data;
         }
 
-        public bool CompareMetadata(List<IPAddress> oldMetadata, List<IPAddress> newMetadata)
+        public bool CompareMetadata(
+            Dictionary<PhysicalAddress, List<IPAddress>> oldMetadata, 
+            Dictionary<PhysicalAddress, List<IPAddress>> newMetadata)
         {
             if (oldMetadata == null || newMetadata == null)
             {
                 return oldMetadata == null && newMetadata == null;
             }
-            return new HashSet<IPAddress>(oldMetadata).SetEquals(newMetadata);
+            return oldMetadata.Count == newMetadata.Count && !oldMetadata.Except(newMetadata).Any(); 
         }
 
         public bool IsEnabled(MetadataJson metadata)

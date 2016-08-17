@@ -51,6 +51,9 @@ namespace Google.ComputeEngine.Common
     {
         [DataMember(Name = "forwardedIps")]
         public string[] ForwardedIps { get; set; }
+
+        [DataMember(Name = "mac")]
+        public string MAC { get; set; }
     }
 
     [DataContract]

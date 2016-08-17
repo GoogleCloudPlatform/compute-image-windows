@@ -59,6 +59,10 @@ namespace Google.ComputeEngine.Common
                 Registry.LocalMachine.CreateSubKey(this.registryKeyPath))
             {
                 List<string> registryValues = GetMultiStringValue(registryKeyName);
+                if (registryValues.Contains(registryValue))
+                {
+                    return;
+                }
                 registryValues.Add(registryValue);
                 registryValues.RemoveAll(value => value == null);
                 key.SetValue(registryKeyName, registryValues.ToArray(), RegistryValueKind.MultiString);
