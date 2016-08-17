@@ -54,8 +54,14 @@ namespace Google.ComputeEngine.Agent
 
             foreach (NetworkInterfacesJson entry in metadata.Instance.NetworkInterfaces)
             {
-                PhysicalAddress mac = PhysicalAddress.Parse(entry.MAC);
-                data.Add(mac, ParseForwardIpsResult(entry.ForwardedIps));
+                string mac = entry.MAC.ToUpper().Replace(":", "-");
+                try {
+                    data.Add(PhysicalAddress.Parse(mac), ParseForwardIpsResult(entry.ForwardedIps));
+                }
+                catch (FormatException)
+                {
+                    Logger.Info("Caught exception in PhysicalAddress.Parse. Could not parse MAC: {0}", mac);
+                }
             }
             return data;
         }
