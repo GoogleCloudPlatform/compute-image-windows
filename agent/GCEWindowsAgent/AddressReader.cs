@@ -60,7 +60,9 @@ namespace Google.ComputeEngine.Agent
             return data;
         }
 
-        public bool CompareMetadata(Dictionary<PhysicalAddress, List<IPAddress>> oldMetadata, Dictionary<PhysicalAddress, List<IPAddress>> newMetadata)
+        public bool CompareMetadata(
+            Dictionary<PhysicalAddress, List<IPAddress>> oldMetadata, 
+            Dictionary<PhysicalAddress, List<IPAddress>> newMetadata)
         {
             if (oldMetadata == null || newMetadata == null)
             {
