@@ -394,6 +394,12 @@ function Get-ProductKmsClientKey {
     'Windows Server 2012 R2 Datacenter' {
       $license_key = 'W3GGN-FT8W3-Y4M27-J84CP-Q3VJ9'
     }
+    'Windows Server 2016 Standard' {
+      $license_key = 'WC2BQ-8NRM3-FDDYY-2BFGV-KHKQY'
+    }
+    'Windows Server 2016 Datacenter' {
+      $license_key = 'CB7KF-BWN84-R7R2Y-793K2-8XDDG'
+    }
     # Default
     default {
       Write-Log ('Unable to determine the correct KMS Client Key for ' +
