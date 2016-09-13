@@ -117,6 +117,9 @@ namespace Google.ComputeEngine.Common
 
         [DataMember(Name = AttributeKeys.SysprepSpecializeScriptBat)]
         public string SysprepSpecializeScriptBat { get; set; }
+
+        [DataMember(Name = AttributeKeys.SysprepSpecializeScriptUrl)]
+        public string SysprepSpecializeScriptUrl { get; set; }
         #endregion
     }
 
@@ -163,14 +166,15 @@ namespace Google.ComputeEngine.Common
         public const string SysprepSpecializeScriptBat = "sysprep-specialize-script-bat";
         public const string SysprepSpecializeScriptCmd = "sysprep-specialize-script-cmd";
         public const string SysprepSpecializeScriptPs1 = "sysprep-specialize-script-ps1";
+        public const string SysprepSpecializeScriptUrl = "sysprep-specialize-script-url";
         public const string WindowsKeys = "windows-keys";
         public const string WindowsShutdownScriptBat = "windows-shutdown-script-bat";
         public const string WindowsShutdownScriptCmd = "windows-shutdown-script-cmd";
         public const string WindowsShutdownScriptPs1 = "windows-shutdown-script-ps1";
         public const string WindowsShutdownScriptUrl = "windows-shutdown-script-url";
-        public const string WindowsStartupScriptPs1 = "windows-startup-script-ps1";
-        public const string WindowsStartupScriptCmd = "windows-startup-script-cmd";
         public const string WindowsStartupScriptBat = "windows-startup-script-bat";
+        public const string WindowsStartupScriptCmd = "windows-startup-script-cmd";
+        public const string WindowsStartupScriptPs1 = "windows-startup-script-ps1";
         public const string WindowsStartupScriptUrl = "windows-startup-script-url";
     }
 }
