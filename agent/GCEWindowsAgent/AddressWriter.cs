@@ -35,7 +35,7 @@ namespace Google.ComputeEngine.Agent
             {
                 if ((networkInterface.NetworkInterfaceType == NetworkInterfaceType.Ethernet)
                     && networkInterface.Supports(NetworkInterfaceComponent.IPv4)
-                    && (networkInterface.GetPhysicalAddress() == mac))
+                    && (networkInterface.GetPhysicalAddress().Equals(mac))
                 {
                     return networkInterface.GetIPProperties().GetIPv4Properties().Index;
                 }
