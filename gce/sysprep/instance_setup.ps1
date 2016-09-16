@@ -102,7 +102,7 @@ function Activate-Instance {
   # Check if the product can be activated.
   $reg_query = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
   $get_product_details = (Get-ItemProperty -Path $reg_query -Name ProductName).ProductName
-  $known_editions_regex = 'Windows (Web )?Server (2008 R2|2012|2012 R2)'
+  $known_editions_regex = 'Windows (Web )?Server (2008 R2|2012|2012 R2|2016)'
   if ($get_product_details -notmatch $known_editions_regex) {
     Write-Log ("$get_product_details activations are currently not " +
         'supported on GCE. Activation request will be skipped.')
