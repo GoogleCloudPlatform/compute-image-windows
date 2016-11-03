@@ -49,7 +49,7 @@
                 <Manufacturer>Google Cloud Platform</Manufacturer>
                 <Model>Google Compute Engine Virtual Machine</Model>
                 <SupportURL>https://support.google.com/enterprisehelp/answer/142244?hl=en#cloud</SupportURL>
-                <Logo>C:\Program Files\Google Compute Engine\gcp.bmp</Logo>
+                <Logo>C:\Program Files\Google Compute Engine\sysprep\gcp.bmp</Logo>
             </OEMInformation>
         </component>
     </settings>

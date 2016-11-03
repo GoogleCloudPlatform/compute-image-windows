@@ -1,0 +1,23 @@
+{
+  "name": "google-compute-engine-windows-common",
+  "version": "3.5.0@2",
+  "arch": "x86_64",
+  "authors": "Google Inc.",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "description": "Google Compute Engine Windows agent common dll",
+  "files": {
+    "agent": "<ProgramFiles>/Google/Compute Engine/agent"
+  },
+  "releaseNotes": [
+    "3.5.0 - Pull the Windows agent common dll out into its own package"
+  ],
+  "sources": [{
+      "include": [
+        "agent/Common.dll" 
+      ]
+  }],
+  "build": {
+    "windows": "build.ps1",
+    "windowsArgs": ["./agent/Common/Common.csproj"]
+  }
+}

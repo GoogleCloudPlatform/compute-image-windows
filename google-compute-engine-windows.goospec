@@ -1,0 +1,31 @@
+{
+  "name": "google-compute-engine-windows",
+  "version": "3.5.0@2",
+  "arch": "x86_64",
+  "authors": "Google Inc.",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "description": "Google Compute Engine Windows agent",
+  "files": {
+    "agent": "<ProgramFiles>/Google/Compute Engine/agent"
+  },
+  "install": {
+    "path": "agent_install.ps1"
+  },
+  "uninstall": {
+    "path": "agent_uninstall.ps1"
+  },
+  "releaseNotes": [
+    "3.5.0 - Pull the Windows agent out into its own package"
+  ],
+  "sources": [{
+      "include": [
+        "agent_install.ps1",
+        "agent_uninstall.ps1",
+        "agent/GCEWindowsAgent.exe" 
+      ]
+  }],
+ "build": {
+    "windows": "build.ps1",
+    "windowsArgs": ["./agent/GCEWindowsAgent/GCEWindowsAgent.csproj"]
+  }
+}

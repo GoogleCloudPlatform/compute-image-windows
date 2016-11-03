@@ -76,9 +76,4 @@ namespace Google.ComputeEngine.Agent
     {
         public AddressManager() : base("GCE address manager", new AddressReader(), new AddressWriter()) { }
     }
-
-    public class UpdatesManager : Manager<Dictionary<string, bool>>
-    {
-        public UpdatesManager() : base("GCE agent updates", new UpdatesReader(), new UpdatesWriter()) { }
-    }
 }

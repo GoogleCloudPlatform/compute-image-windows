@@ -1,0 +1,23 @@
+{
+  "name": "google-compute-engine-auto-updater",
+  "version": "1.0.0@2",
+  "arch": "noarch",
+  "authors": "Google Inc.",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "description": "Google Compute Engine automatic updater for core Google packages",
+  "files": {
+    "auto_updater.ps1": "<ProgramFiles>/Google/Compute Engine/tools/auto_updater.ps1"
+  },
+  "install": {
+    "path": "auto_updater_install.ps1"
+  },
+  "releaseNotes": [
+    "1.0.0 - Initial release of google-compute-engine-auto-updater."
+  ],
+  "sources": [{
+      "include": [
+        "auto_updater.ps1",
+        "auto_updater_install.ps1"
+      ]
+  }]
+}

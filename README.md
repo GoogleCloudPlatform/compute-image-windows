@@ -6,32 +6,7 @@ This repository contains:
 + Latest Windows agent source code and binaries -- For handling user account and address management.
 + Latest version of the metadata scripts source code and binary -- For handling startup and shutdown scripts.
 + Latest sysprep scripts -- For running sysprep on new Windows virtual machines.
-
-## Installation
-
-To install or update the Windows agent and metadata scripts on your virtual machine we recommend recreating your instance with the agent installation script hosted in this repository. With [`gcloud`](https://cloud.google.com/sdk/gcloud/), you can recreate your instance as follows:
-
-    # Delete the instance
-    $ gcloud compute instances delete INSTANCE --keep-disks boot
-
-    # Restart the instance with the startup script
-    $ gcloud compute instances create NEW-INSTANCE --disk name=DISK boot=yes \
-    --metadata windows-startup-script-url=https://raw.githubusercontent.com/GoogleCloudPlatform/compute-image-windows/master/gce/install_agent.ps1
-
-Alternatively, if you prefer not to recreate your instance, you can run the script from within the Windows virtual machine:
-
-1. Log into your Windows virtual machine.
-1. Download and save the agent installation script in any directory on your Windows instance.
-1. Run powershell as administrator:
-  1. Click on the **Start** menu.
-  1. Type "powershell" and right click on the first result.
-  1. Select **Run as administrator**.
-1. In the command-line window, type `Set-ExecutionPolicy Unrestricted` and hit `y` when prompted.
-1. Run the agent install script.
-
-For installing the latest sysprep scripts, follow the same instructions above but use the sysprep installation script:
-
-[https://raw.githubusercontent.com/GoogleCloudPlatform/compute-image-windows/master/gce/install_sysprep.ps1](https://raw.githubusercontent.com/GoogleCloudPlatform/compute-image-windows/master/gce/install_sysprep.ps1)
++ Latest VSS agent -- For handling VSS on snapshots.
 
 ## Contribute
 
