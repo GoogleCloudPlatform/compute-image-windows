@@ -171,7 +171,7 @@ namespace Google.ComputeEngine.Agent
             public int Index;
             public uint Type;
             public uint DhcpEnabled;
-            public IntPtr CurrentIpAddress;
+            private IntPtr CurrentIpAddress;
             public IP_ADDR_STRING IpAddressList;
             public IP_ADDR_STRING GatewayList;
             public IP_ADDR_STRING DhcpServer;

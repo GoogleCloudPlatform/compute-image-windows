@@ -1,0 +1,26 @@
+{
+  "name": "google-compute-engine-metadata-scripts",
+  "version": "3.5.0@2",
+  "arch": "x86_64",
+  "authors": "Google Inc.",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "description": "Google Compute Engine metadata scripts",
+  "files": {
+    "metadata_scripts": "<ProgramFiles>/Google/Compute Engine/metadata_scripts"
+  },
+  "releaseNotes": [
+    "3.5.0 - Separate metadata-scripts into its own package."
+  ],
+  "sources": [{
+      "include": [
+        "metadata_scripts/run_shutdown_scripts.cmd",
+        "metadata_scripts/run_startup_scripts.cmd",
+        "metadata_scripts/GCEMetadataScripts.exe" 
+      ]
+  }],
+  "build": {
+    "windows": "build.ps1",
+    "windowsArgs": ["./metadata_scripts/GCEMetadataScripts/GCEMetadataScripts.csproj"]
+  }
+}
+

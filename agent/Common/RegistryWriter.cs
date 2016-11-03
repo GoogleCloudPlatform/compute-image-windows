@@ -86,6 +86,22 @@ namespace Google.ComputeEngine.Common
         }
 
         /// <summary>
+        /// Set a value entry in the specified subkey.
+        /// </summary>
+        public void SetDwordValue(string subKey, string name, int value)
+        {
+            ArgumentValidator.ThrowIfNullOrEmpty(subKey, "subKey");
+            ArgumentValidator.ThrowIfNullOrEmpty(name, "name");
+
+            string registrykey = string.Format(@"{0}\{1}", this.registryKeyPath, subKey);
+            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registrykey, true) ??
+                Registry.LocalMachine.CreateSubKey(registrykey))
+            {
+                key.SetValue(name, value, RegistryValueKind.DWord);
+            }
+        }
+
+        /// <summary>
         /// Remove a value from a MultiString value entry.
         /// </summary>
         private void RemoveMultiStringValue(string registryKeyName, string registryValue)

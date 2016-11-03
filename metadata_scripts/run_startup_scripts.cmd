@@ -19,5 +19,4 @@ REM A scheduled task may only run for up to three days before termination.
 REM We execute the startup script asynchronously so it may run without
 REM this three day maximum runtime limitation.
 
-cd "C:\Program Files\Google\Compute Engine\agent"
-start .\GCEMetadataScripts.exe "startup"
+start "C:\Program Files\Google\Compute Engine\metadata_scripts\GCEMetadataScripts.exe" "startup"

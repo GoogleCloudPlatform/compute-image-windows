@@ -39,7 +39,6 @@ namespace Google.ComputeEngine.Agent
     {
         private AccountsManager accountsManager = new AccountsManager();
         private AddressManager addressManager = new AddressManager();
-        private UpdatesManager updatesManager = new UpdatesManager();
         private readonly CancellationTokenSource token = new CancellationTokenSource();
 
         private static void PrintAgentStartupJson()

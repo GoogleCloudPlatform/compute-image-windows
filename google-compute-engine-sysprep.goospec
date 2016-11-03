@@ -1,0 +1,32 @@
+{
+  "name": "google-compute-engine-sysprep",
+  "version": "3.5.0@2",
+  "arch": "noarch",
+  "authors": "Google Inc.",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "description": "Google Compute Engine sysprep scripts",
+  "files": {
+    "sysprep": "<ProgramFiles>/Google/Compute Engine/sysprep"
+  },
+  "install": {
+    "path": "sysprep_install.ps1"
+  },
+  "uninstall": {
+    "path": "sysprep_uninstall.ps1"
+  },
+  "releaseNotes": [
+    "3.5.0 - Pull sysprep scripts out into their own package"
+  ],
+  "sources": [{
+      "include": [
+        "sysprep/*",
+        "sysprep_install.ps1",
+        "sysprep_uninstall.ps1" 
+      ]
+  }],
+  "pkgDependencies": {
+    "google-compute-engine-metadata-scripts": "1.0.0@1",
+    "google-compute-engine-powershell": "1.0.0@1"
+  }  
+}
+

@@ -60,7 +60,6 @@ namespace Google.ComputeEngine.Common
                         throw;
                     }
                     port.Close();
-
                     // Sleep for one second before trying again.
                     Thread.Sleep(1000);
                 }

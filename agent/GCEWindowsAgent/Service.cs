@@ -27,12 +27,12 @@ namespace Google.ComputeEngine.Agent
     public sealed class ComputeEngineService : ServiceBase
     {
         private readonly MetadataService metadataService;
-
+        
         public ComputeEngineService()
         {
             metadataService = new MetadataService();
         }
-
+        
         protected override void OnStart(string[] args)
         {
             string version = "unknown";
@@ -45,7 +45,13 @@ namespace Google.ComputeEngine.Agent
                 Logger.Warning("Exception caught reading version number. {0}", e);
             }
             Logger.Info("GCE Agent started (version {0}).", version);
-            metadataService.OnStart();
+            try {
+                metadataService.OnStart();
+            }
+            catch (Exception e)
+            {
+                 Logger.Error("Exception caught running agent: {0}", e);
+            }
         }
 
         protected override void OnStop()
@@ -56,7 +62,7 @@ namespace Google.ComputeEngine.Agent
 
         public static void Main(string[] args)
         {
-            ServiceBase.Run(new ComputeEngineService());
+            Run(new ComputeEngineService());
         }
     }
 }

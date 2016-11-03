@@ -78,7 +78,8 @@ namespace Google.ComputeEngine.MetadataScripts
             if (string.IsNullOrEmpty(scriptType))
             {
                 string validOptions = string.Join(", ", MetadataScript.ScriptTypes);
-                throw new Exception(string.Format("No valid arguments specified. Options: [{0}]", validOptions));
+                Console.Error.WriteLine("No valid arguments specified.Options: [{0}]", validOptions);
+                Environment.Exit(1);
             }
             ScriptManager manager = new ScriptManager(scriptType);
         }
