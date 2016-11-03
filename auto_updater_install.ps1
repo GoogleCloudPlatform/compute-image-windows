@@ -14,8 +14,7 @@ $action.Arguments = '-ExecutionPolicy Bypass -NonInteractive -NoProfile -File "C
 # Run task 5 minutes after boot, then every day indefinitely 
 $boot_trigger = $task.Triggers.Create(8)
 $boot_trigger.Delay = 'PT5M'
-$boot_trigger.Repetition.Interval= 'P1D'
+$boot_trigger.Repetition.Interval = 'P1D'
 
 $folder = $ScheduleService.GetFolder('\')
-$folder.RegisterTaskDefinition('Compute Engine Auto Updater',$task,6,'System',$null,5)
-
+$folder.RegisterTaskDefinition('Compute Engine Auto Updater', $task, 6, 'System', $null, 5)

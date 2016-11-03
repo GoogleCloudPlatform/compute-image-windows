@@ -4,7 +4,7 @@
   "arch": "noarch",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
-  "description": "Google Compute Engine auto updater for core packages",
+  "description": "Google Compute Engine automatic updater for core Google packages",
   "files": {
     "auto_updater.ps1": "<ProgramFiles>/Google/Compute Engine/tools/auto_updater.ps1"
   },
