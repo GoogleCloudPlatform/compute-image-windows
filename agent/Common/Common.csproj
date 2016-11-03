@@ -74,11 +74,11 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>
-            SET DROP_DIR="$(ProjectDir)bin"
-            IF NOT EXIST %25DROP_DIR%25 (
-            mkdir %25DROP_DIR%25
-            )
-            copy "$(TargetPath)" "%25DROP_DIR%25\$(TargetFileName)" /y
-        </PostBuildEvent>
+        SET DROP_DIR="$(ProjectDir)bin"
+        IF NOT EXIST %25DROP_DIR%25 (
+        mkdir %25DROP_DIR%25
+        )
+        copy "$(TargetPath)" "%25DROP_DIR%25\$(TargetFileName)" /y
+    </PostBuildEvent>
   </PropertyGroup>
 </Project>

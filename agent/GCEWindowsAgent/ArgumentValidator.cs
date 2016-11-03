@@ -41,7 +41,7 @@ namespace Google.ComputeEngine.Common
             ThrowIfNull(argument, paramName);
             if (argument.Equals(string.Empty))
             {
-                throw new ArgumentException(string.Format("The argument {0} is empty", paramName));
+                throw new ArgumentException(string.Format("The argument {0} is empty.", paramName));
             }
         }
 
@@ -53,7 +53,7 @@ namespace Google.ComputeEngine.Common
             ThrowIfNull(argument, paramName);
             if (!argument.Any())
             {
-                throw new ArgumentException(string.Format("The argument {0} is empty", paramName));
+                throw new ArgumentException(string.Format("The argument {0} is empty.", paramName));
             }
         }
 
@@ -65,7 +65,7 @@ namespace Google.ComputeEngine.Common
             ThrowIfNull(argument, paramName);
             if (argument.Equals(Guid.Empty))
             {
-                throw new ArgumentException(string.Format("The argument {0} is empty", paramName));
+                throw new ArgumentException(string.Format("The argument {0} is empty.", paramName));
             }
         }
     }

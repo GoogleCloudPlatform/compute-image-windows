@@ -32,7 +32,7 @@ namespace Google.ComputeEngine.Agent
         {
             metadataService = new MetadataService();
         }
- 
+
         protected override void OnStart(string[] args)
         {
             string version = "unknown";
