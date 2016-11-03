@@ -27,12 +27,12 @@ namespace Google.ComputeEngine.Agent
     public sealed class ComputeEngineService : ServiceBase
     {
         private readonly MetadataService metadataService;
-        
+
         public ComputeEngineService()
         {
             metadataService = new MetadataService();
         }
-        
+ 
         protected override void OnStart(string[] args)
         {
             string version = "unknown";
