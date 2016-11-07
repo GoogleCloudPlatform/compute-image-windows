@@ -465,6 +465,22 @@ function Verify-ActivationStatus {
 }
 
 
+function Set-SQLServerName {
+  <#
+    .SYNOPSIS
+      Set SQL @@SERVERNAME to match hostname
+    .DESCRIPTION
+      Set SQL @@SERVERNAME to match hostname if SQL Server is installed, otherwise return
+  #>
+
+  if (-not (Get-Command 'sqlcmd.exe' -ErrorAction SilentlyContinue)) {
+    return
+  }
+  $sql_command = "IF @@servername = '%computername%' RETURN; exec sp_dropserver @@servername; exec sp_addserver '%computername%', local"
+  _RunExternalCMD sqlcmd.exe -S. -E -Q $sql_command
+}
+
+
 # Check if COM1 exists.
 if (-not ($global:write_to_serial)) {
   Write-Log 'COM1 does not exist on this machine. Logs will not be written to GCE console.' -warning
@@ -504,6 +520,7 @@ else {
   Activate-Instance
   Enable-RemoteDesktop
   Configure-WinRM
+  Set-SQLServerName
 
   # Schedule startup script.
   Write-Log 'Adding startup scripts from metadata server.'
