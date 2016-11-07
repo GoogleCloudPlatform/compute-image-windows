@@ -52,6 +52,10 @@ namespace Google.ComputeEngine.Agent
         {
             Dictionary<PhysicalAddress, List<IPAddress>> data = new Dictionary<PhysicalAddress, List<IPAddress>>();
 
+            if (metadata == null || metadata.Instance == null || metadata.Instance.NetworkInterfaces == null)
+            {
+                return data;
+            }
             foreach (NetworkInterfacesJson entry in metadata.Instance.NetworkInterfaces)
             {
                 string mac = entry.MAC.ToUpper().Replace(":", "-");
@@ -73,8 +77,26 @@ namespace Google.ComputeEngine.Agent
             if (oldMetadata == null || newMetadata == null)
             {
                 return oldMetadata == null && newMetadata == null;
-            }
-            return oldMetadata.Count == newMetadata.Count && !oldMetadata.Except(newMetadata).Any(); 
+            };
+
+            foreach (PhysicalAddress k in oldMetadata.Keys)
+            {
+                if (!newMetadata.ContainsKey(k))
+                {
+                    return false;
+                }
+            };
+
+            foreach (PhysicalAddress k in oldMetadata.Keys)
+            {
+                if (!(new HashSet<IPAddress>(oldMetadata[k]).SetEquals(newMetadata[k])))
+                {
+                    return false;
+                }
+            };
+
+            return true;
+            //return oldMetadata.Count == newMetadata.Count && !oldMetadata.Except(newMetadata).Any(); 
         }
 
         public bool IsEnabled(MetadataJson metadata)
