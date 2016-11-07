@@ -7,7 +7,7 @@ namespace Google.ComputeEngine.Agent.Test
 {
     public class AccountsReaderTest
     {
-        private const string Email = "test@google.com";
+        private const string Email = "test";
         private const string Exponent = "test+exponent";
         private const string Modulus = "test+modulus";
         private const string Username = "testUserName";
