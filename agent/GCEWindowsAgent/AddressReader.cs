@@ -96,7 +96,6 @@ namespace Google.ComputeEngine.Agent
             };
 
             return true;
-            //return oldMetadata.Count == newMetadata.Count && !oldMetadata.Except(newMetadata).Any(); 
         }
 
         public bool IsEnabled(MetadataJson metadata)
