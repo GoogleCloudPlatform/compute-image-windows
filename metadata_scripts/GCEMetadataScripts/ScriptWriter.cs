@@ -46,7 +46,7 @@ namespace Google.ComputeEngine.MetadataScripts
         private ProcessStartInfo RunPowershell(string script)
         {
             string arguments = string.Format("-ExecutionPolicy ByPass -File {0}", script);
-            return GetProcStartInfo(@"C:\Windows\sysnative\WindowsPowerShell\v1.0\powershell.exe", arguments);
+            return GetProcStartInfo(@"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe", arguments);
         }
 
         private void LogScriptOutput(string suffix, string message)
