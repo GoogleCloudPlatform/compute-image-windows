@@ -77,7 +77,7 @@ namespace Google.ComputeEngine.Agent
             if (oldMetadata == null || newMetadata == null)
             {
                 return oldMetadata == null && newMetadata == null;
-            };
+            }
 
             foreach (PhysicalAddress k in oldMetadata.Keys)
             {
@@ -85,7 +85,7 @@ namespace Google.ComputeEngine.Agent
                 {
                     return false;
                 }
-            };
+            }
 
             foreach (PhysicalAddress k in oldMetadata.Keys)
             {
@@ -93,7 +93,7 @@ namespace Google.ComputeEngine.Agent
                 {
                     return false;
                 }
-            };
+            }
 
             return true;
         }
