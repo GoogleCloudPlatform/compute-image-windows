@@ -48,7 +48,7 @@ $script:gce_install_dir = 'C:\Program Files\Google\Compute Engine'
 $script:kms_server = 'kms.windows.googlecloud.com'
 $script:kms_server_port = 1688
 $script:instance_setup_script_loc = "$script:gce_install_dir\sysprep\instance_setup.ps1"
-$script:metadata_script_loc = "$script:gce_install_dir\agent\GCEMetadataScripts.exe"
+$script:metadata_script_loc = "$script:gce_install_dir\metadata_scripts\GCEMetadataScripts.exe"
 $script:setupscripts_dir_loc = "$env:WinDir\Setup\Scripts"
 $script:setupcomplete_loc = "$script:setupscripts_dir_loc\SetupComplete.cmd"
 $script:show_msgs = $false
@@ -490,8 +490,8 @@ if (-not ($global:write_to_serial)) {
 if ($specialize) {
   Write-Log 'Starting sysprep specialize phase.'
 
-  Change-InstanceName
   Change-InstanceProperties
+  Change-InstanceName
 
   # Create setupcomplete.cmd to launch second half of instance setup.
   # When Windows setup completes (after the sysprep OOBE phase), it looks
