@@ -211,17 +211,6 @@ function Change-InstanceProperties {
   # Set minimum password length.
   _RunExternalCMD net accounts /MINPWLEN:8
 
-  # Enable automatic update.
-  try {
-    Write-Log 'Enabling automatic updates.'
-    $updates_setting = (New-Object -com 'Microsoft.Update.AutoUpdate').Settings
-    $updates_setting.NotificationLevel = 4
-    $updates_setting.Save()
-  }
-  catch {
-    _PrintError
-  }
-
   # Enable access to Windows administrative file share.
   Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
       -Name 'LocalAccountTokenFilterPolicy' -Value 1 -Force
