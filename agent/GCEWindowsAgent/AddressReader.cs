@@ -79,16 +79,18 @@ namespace Google.ComputeEngine.Agent
                 return oldMetadata == null && newMetadata == null;
             }
 
-            foreach (PhysicalAddress k in oldMetadata.Keys)
+            if (oldMetadata.Count != newMetadata.Count)
             {
-                if (!newMetadata.ContainsKey(k))
+                return false;
+            }
+
+            foreach (PhysicalAddress k in newMetadata.Keys)
+            {
+                if (!oldMetadata.ContainsKey(k))
                 {
                     return false;
                 }
-            }
 
-            foreach (PhysicalAddress k in oldMetadata.Keys)
-            {
                 if (!(new HashSet<IPAddress>(oldMetadata[k]).SetEquals(newMetadata[k])))
                 {
                     return false;

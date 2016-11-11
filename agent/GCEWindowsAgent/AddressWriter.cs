@@ -77,7 +77,6 @@ namespace Google.ComputeEngine.Agent
             foreach (IPAddress address in toAdd)
             {
                 AddAddress(address, mac);
-                registryWriter.AddMultiStringValue(mac.ToString(), address.ToString());
             }
         }
 
@@ -245,10 +244,15 @@ namespace Google.ComputeEngine.Agent
                 List<IPAddress> toRemove = new List<IPAddress>(registryForwardedIps.Except(addresses));
                 List<string> metadataStrings = addresses.ConvertAll<string>(ip => ip.ToString());
                 List<string> toRemoveFromRegistry = new List<string>(registryKeys.Except(metadataStrings));
+                List<string> toAddToRegistry = new List<string>(metadataStrings.Except(registryKeys));
                 LogForwardedIpsChanges(mac, addressesConfigured, addresses, toAdd, toRemove);
                 AddAddresses(toAdd, mac);
                 RemoveAddresses(toRemove, mac);
                 registryWriter.RemoveMultiStringValues(registryKey, toRemoveFromRegistry);
+                foreach (string address in toAddToRegistry)
+                {
+                    registryWriter.AddMultiStringValue(mac.ToString(), address.ToString());
+                }
             }
         }
     }
