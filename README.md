@@ -2,8 +2,6 @@
 This repository stores the collection of Windows packages installed on Google 
 supported Compute Engine [images](https://cloud.google.com/compute/docs/images).
 
-[GooGet](https://github.com/google/googet) is used for Windows package management.
-
 **Table of Contents**
 
 * [Background](#background)
@@ -24,7 +22,7 @@ tooling inside of a [Google Compute Engine](https://cloud.google.com/compute/)
 (GCE) virtual machine. The
 [metadata server](https://cloud.google.com/compute/docs/metadata) is a
 communication channel for transferring information from a client into the guest.
-The Windows guest environment includes a set of scripts and binaies that read 
+The Windows guest environment includes a set of scripts and binaries that read 
 the content of the metadata server to make a virtual machine run properly on our 
 platform.
 
@@ -32,7 +30,7 @@ platform.
 
 #### Account Setup
 
-The agent handles creating user accounts, setting, and resetting passwords.
+The agent handles [creating user accounts and setting/resetting passwords](https://cloud.google.com/compute/docs/instances/windows/creating-passwords-for-windows-instances).
 
 #### IP Forwarding
 
@@ -62,7 +60,7 @@ The guest code is packaged in [GooGet](https://github.com/google/googet)
 packages and published to Google Cloud repositories, if you are creating 
 a custom image, you can also use these repositories in your image.
 
-We build the following packages for the Windows guest environment:
+We build and install the following packages for the Windows guest environment:
   
 *   `google-compute-engine-windows` 
     *   Windows agent exe
@@ -78,9 +76,9 @@ We build the following packages for the Windows guest environment:
 * `google-compute-engine-auto-updater` 
     *   Automatic updater for core Google packages
 
-The package build tools are published in this project.
+The package build specs are published in this project.
 
-**To setup GooGet and install packages un the following commands in an elevated 
+**To setup GooGet and install packages run the following commands in an elevated 
 PowerShell prompt:**
 
 Download and install GooGet:
