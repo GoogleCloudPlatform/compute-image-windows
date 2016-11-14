@@ -143,41 +143,47 @@ namespace Google.ComputeEngine.Agent.Test
         [Fact]
         public void CompareMetadataEqualityTest()
         {
-            List<IPAddress> forwardedIps = new List<IPAddress> { IPAddress.Parse("1.1.1.1"),
-                IPAddress.Parse("1.1.1.1"), IPAddress.Parse("1.1.1.1") };
             PhysicalAddress MAC = PhysicalAddress.Parse("00-11-22-33-44-55");
-            Dictionary<PhysicalAddress, List<IPAddress>> forwardedIpsDict = new Dictionary<PhysicalAddress, 
-                List<IPAddress>>();
-            forwardedIpsDict.Add(MAC, forwardedIps);
 
             // Two lists of IPs are equal if they contain the same set of unique IPs.
-            Assert.True(Reader.CompareMetadata(forwardedIpsDict, new Dictionary<PhysicalAddress, 
-                List<IPAddress>> { { MAC, forwardedIps } }));
+            Assert.True(Reader.CompareMetadata(
+                oldMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
+                    {
+                        MAC,
+                        new List<IPAddress> {
+                            IPAddress.Parse("127.127.127.120"),
+                            IPAddress.Parse("127.127.127.121"),
+                            IPAddress.Parse("127.127.127.122"),
+                        }
+                    }
+                },
+                newMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
+                    {
+                        MAC,
+                        new List<IPAddress> {
+                            IPAddress.Parse("127.127.127.122"),
+                            IPAddress.Parse("127.127.127.121"),
+                            IPAddress.Parse("127.127.127.120"),
+                        }
+                    }
+                }));
 
             // Simple IP equality.
             Assert.True(Reader.CompareMetadata(
                 oldMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
-                    { PhysicalAddress.Parse("00-11-22-33-44-55"), new List<IPAddress> {
-                        IPAddress.Parse("127.127.127.127") }
-                    }
+                    { MAC, new List<IPAddress> { IPAddress.Parse("127.127.127.127") } }
                 },
                 newMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
-                    { PhysicalAddress.Parse("00-11-22-33-44-55"), new List<IPAddress> {
-                        IPAddress.Parse("127.127.127.127") }
-                    }
+                    { MAC, new List<IPAddress> { IPAddress.Parse("127.127.127.127") } }
                 }));
 
             // Ensure parsing is done properly.
             Assert.False(Reader.CompareMetadata(
                 oldMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
-                    { PhysicalAddress.Parse("00-11-22-33-44-55"),
-                        new List<IPAddress> { IPAddress.Parse("101.1.1.1") }
-                    }
+                    { MAC, new List<IPAddress> { IPAddress.Parse("101.1.1.1") } }
                 },
                 newMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
-                    { PhysicalAddress.Parse("00-11-22-33-44-55"),
-                        new List<IPAddress> { IPAddress.Parse("10.11.1.1") }
-                    }
+                    { MAC, new List<IPAddress> { IPAddress.Parse("10.11.1.1") } }
                 }));
 
             Assert.False(Reader.CompareMetadata(
@@ -187,9 +193,31 @@ namespace Google.ComputeEngine.Agent.Test
                     }
                 },
                 newMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
-                    { PhysicalAddress.Parse("00-11-22-33-44-55"),
-                        new List<IPAddress> { IPAddress.Parse("10.1.1.1") }
-                    }
+                    { MAC, new List<IPAddress> { IPAddress.Parse("10.1.1.1") } }
+                }));
+
+            Assert.False(Reader.CompareMetadata(
+                oldMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
+                    { MAC, new List<IPAddress>() }
+                },
+                newMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
+                    { MAC, new List<IPAddress> { IPAddress.Parse("10.1.1.1") } }
+                }));
+
+            Assert.False(Reader.CompareMetadata(
+                oldMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
+                    { MAC, new List<IPAddress> { IPAddress.Parse("10.1.1.1") } }
+                },
+                newMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
+                    { MAC, new List<IPAddress>() }
+                }));
+
+            Assert.False(Reader.CompareMetadata(
+                oldMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
+                    { MAC, new List<IPAddress> { IPAddress.Parse("10.1.1.1") } }
+                },
+                newMetadata: new Dictionary<PhysicalAddress, List<IPAddress>> {
+                    { MAC, new List<IPAddress> { IPAddress.Parse("10.1.1.1"), IPAddress.Parse("10.1.1.2") } }
                 }));
         }
 

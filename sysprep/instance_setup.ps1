@@ -211,17 +211,6 @@ function Change-InstanceProperties {
   # Set minimum password length.
   _RunExternalCMD net accounts /MINPWLEN:8
 
-  # Enable automatic update.
-  try {
-    Write-Log 'Enabling automatic updates.'
-    $updates_setting = (New-Object -com 'Microsoft.Update.AutoUpdate').Settings
-    $updates_setting.NotificationLevel = 4
-    $updates_setting.Save()
-  }
-  catch {
-    _PrintError
-  }
-
   # Enable access to Windows administrative file share.
   Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
       -Name 'LocalAccountTokenFilterPolicy' -Value 1 -Force
@@ -291,7 +280,7 @@ function Configure-WinRM {
     $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=$(hostname)"} | Select-Object -First 1
   }
   # Configure winrm HTTPS transport using the created cert.
-  $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";port="5986"}'
+  $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";Port="5986"}'
   _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config -ErrorAction SilentlyContinue
   if ($LASTEXITCODE -ne 0) {
     # Listener has already been setup, we need to edit it in place.
