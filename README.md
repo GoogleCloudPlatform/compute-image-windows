@@ -17,14 +17,14 @@ supported Compute Engine [images](https://cloud.google.com/compute/docs/images).
 
 ## Background
 
-The Windows guest environment denotes the Google provided configuration and
+The Windows guest environment is the Google provided configuration and
 tooling inside of a [Google Compute Engine](https://cloud.google.com/compute/)
 (GCE) virtual machine. The
 [metadata server](https://cloud.google.com/compute/docs/metadata) is a
 communication channel for transferring information from a client into the guest.
 The Windows guest environment includes a set of scripts and binaries that read 
-the content of the metadata server to make a virtual machine run properly on our 
-platform.
+the content of the metadata server to make a virtual machine run properly on 
+Google Compute Engine.
 
 ## Agent
 
@@ -34,19 +34,19 @@ The agent handles [creating user accounts and setting/resetting passwords](https
 
 #### IP Forwarding
 
-The agent uses IP forwarding metadata to setup or remove IP routes in the guest.
+The agent uses IP forwarding metadata to setup or remove IP routes.
 
 *   Only IPv4 IP addresses are currently supported.
 
 ## Instance Setup
 
-`instance_setup.ps1` is configured by GCE sysprep to run on VM first boot. The script 
-configures the Windows guest environment by performing the following tasks.
+`instance_setup.ps1` is configured by GCE sysprep to run on VM first boot. 
+The script performs the following tasks:
 
-*   Setting Hostname
-*   Running user provided 'specialize' startup script
-*   Activating Windows
-*   Seting up RDP and WinRM
+*   Set the hostname to the the instance name.
+*   Runs user provided 'specialize' startup script.
+*   Activates Windows using a KMS server.
+*   Sets up RDP and WinRM to allow remote login.
 
 ## Metadata Scripts
 
@@ -57,8 +57,7 @@ Metadata scripts implement support for running user provided
 ## Packaging and Package Distribution
 
 The guest code is packaged in [GooGet](https://github.com/google/googet)
-packages and published to Google Cloud repositories, if you are creating 
-a custom image, you can also use these repositories in your image.
+packages and published to Google Cloud repositories.
 
 We build and install the following packages for the Windows guest environment:
   
