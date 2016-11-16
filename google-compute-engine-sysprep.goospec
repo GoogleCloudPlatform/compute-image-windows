@@ -1,6 +1,6 @@
 {
   "name": "google-compute-engine-sysprep",
-  "version": "3.5.3@1",
+  "version": "3.5.4@1",
   "arch": "noarch",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
@@ -15,6 +15,7 @@
     "path": "sysprep_uninstall.ps1"
   },
   "releaseNotes": [
+    "3.5.3 - Set GMT Standard Time in Unattend.xml",
     "3.5.1 - Set @@servername if SQL is installed",
     "3.5.0 - Pull sysprep scripts out into their own package"
   ],
