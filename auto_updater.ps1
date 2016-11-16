@@ -10,12 +10,12 @@ $args = @(
   '-noconfirm',
   'install',
   'googet', 
-  'google-compute-engine-windows-agent',
-  'google-compute-engine-windows-agent-common',
+  'google-compute-engine-windows',
+  'google-compute-engine-windows-common',
   'google-compute-engine-sysprep',
   'google-compute-engine-metadata-scripts',
   'google-compute-engine-auto-updater',
-  'google-compute-engine-powershell',
+  'google-compute-engine-powershell'
 )
 
 Start-Process 'C:\ProgramData\GooGet\googet.exe' -ArgumentList $args -Wait
