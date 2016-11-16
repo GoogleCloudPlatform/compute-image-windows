@@ -15,7 +15,7 @@ $args = @(
   'google-compute-engine-sysprep',
   'google-compute-engine-metadata-scripts',
   'google-compute-engine-auto-updater',
-  'google-compute-engine-powershell',
+  'google-compute-engine-powershell'
 )
 
 Start-Process 'C:\ProgramData\GooGet\googet.exe' -ArgumentList $args -Wait
