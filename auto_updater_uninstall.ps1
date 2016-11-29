@@ -12,5 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-Stop-Service GCEAgent -Verbose
-& sc.exe delete GCEAgent
+$ScheduleService = New-Object -ComObject('Schedule.Service')
+$ScheduleService.Connect()
+$ScheduleService.GetFolder('\').DeleteTask('Compute Engine Auto Updater', 0)

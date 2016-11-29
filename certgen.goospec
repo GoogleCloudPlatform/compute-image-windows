@@ -1,0 +1,23 @@
+{
+  "name": "certgen",
+  "version": "1.0.0@1",
+  "arch": "x86_64",
+  "authors": "Google Inc.",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "description": "Simple self signed cert generator",
+  "files": {
+    "certgen.exe": "<ProgramFiles>/Google/Compute Engine/tools/certgen.exe"
+  },
+  "releaseNotes": [
+    "1.0.0 - Initial release of certgen."
+  ],
+  "sources": [{
+      "include": [
+        "certgen.exe"
+      ]
+  }],
+  "build": {
+    "linux": "/bin/bash",
+    "linuxArgs": ["-c", "GOOS=windows go build ./certgen"]
+  }
+}

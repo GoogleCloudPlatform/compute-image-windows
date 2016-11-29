@@ -12,5 +12,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-Stop-Service GCEAgent -Verbose
-& sc.exe delete GCEAgent
+$install_dir = "${env:ProgramFiles}\Compute Engine\metadata_scripts"
+$machine_env = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
+
+$path = (Get-ItemProperty $machine_env).Path
+if ($path -like "*${install_dir}*") {
+  Set-ItemProperty $machine_env -Name 'Path' -Value $path.Replace(";$install_dir", '')
+}

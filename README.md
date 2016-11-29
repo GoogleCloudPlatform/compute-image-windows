@@ -43,7 +43,7 @@ The agent uses IP forwarding metadata to setup or remove IP routes.
 `instance_setup.ps1` is configured by GCE sysprep to run on VM first boot.
 The script performs the following tasks:
 
-*   Set the hostname to the the instance name.
+*   Set the hostname to the instance name.
 *   Runs user provided 'specialize' startup script.
 *   Activates Windows using a KMS server.
 *   Sets up RDP and WinRM to allow remote login.
@@ -62,8 +62,6 @@ packages and published to Google Cloud repositories.
 We build and install the following packages for the Windows guest environment:
 
 *   `google-compute-engine-windows` - Windows agent executable.
-*   `google-compute-engine-windows-common` - Windows agent common library
-     utilities.
 *   `google-compute-engine-sysprep` - Utilities for running sysprep on new
     Windows virtual machines.
 *   `google-compute-engine-metadata-scripts` - Windows `exe` and `cmd` files
@@ -101,8 +99,7 @@ Install the core packages `google-compute-engine-windows` and
 googet -noconfirm install google-compute-engine-windows google-compute-engine-sysprep
 ```
 
-Install optional packages, `google-compute-engine-auto-updater` and
-`google-compute-engine-windows-common`, see above for descriptions:
+Install optional packages, `google-compute-engine-auto-updater`:
 ```
 googet -noconfirm install google-compute-engine-auto-updater google-compute-engine-windows-common
 ```
