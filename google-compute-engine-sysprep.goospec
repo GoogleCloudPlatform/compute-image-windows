@@ -16,6 +16,7 @@
   },
   "releaseNotes": [
     "3.5.4 - Set GMT Standard Time in Unattend.xml",
+    "      - Run instance activation as a background job",
     "3.5.1 - Set @@servername if SQL is installed",
     "3.5.0 - Pull sysprep scripts out into their own package"
   ],

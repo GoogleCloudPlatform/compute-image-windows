@@ -43,7 +43,7 @@
             </OOBE>
             <!-- Setting timezone to GMT -->
             <ShowWindowsLive>false</ShowWindowsLive>
-            <TimeZone>Greenwich Standard Time</TimeZone>
+            <TimeZone>GMT Standard Time</TimeZone>
             <!--Setting OEM information -->
             <OEMInformation>
                 <Manufacturer>Google Cloud Platform</Manufacturer>
