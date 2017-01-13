@@ -412,7 +412,7 @@ function Set-SQLServerName {
 
   try {
     # We have to call CreateProcessAsUser as this script runs as SYSTEM.
-    Add-Type -TypeDefinition $source -Language CSharp
+    Add-Type -TypeDefinition $create_process_source -Language CSharp
     $cmd = "sqlcmd.exe -S. -E -Q `"IF @@servername = '$global:hostname' RETURN; exec sp_dropserver @@servername; exec sp_addserver '$global:hostname', local`""
     [CreateProcess.Win32]::CreateProcessAsUser($cmd, '.', 'Administrator', $password)
   } catch {
