@@ -18,7 +18,7 @@
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
             <!-- Random ComputerName, will be replaced by specialize script -->
             <ComputerName></ComputerName>
-            <TimeZone>GMT Standard Time</TimeZone>
+            <TimeZone>Greenwich Standard Time</TimeZone>
         </component>
     </settings>
     <settings pass="oobeSystem">
@@ -44,7 +44,6 @@
             <!-- Setting timezone to GMT -->
             <ShowWindowsLive>false</ShowWindowsLive>
             <TimeZone>Greenwich Standard Time</TimeZone>
-
             <!--Setting OEM information -->
             <OEMInformation>
                 <Manufacturer>Google Cloud Platform</Manufacturer>
