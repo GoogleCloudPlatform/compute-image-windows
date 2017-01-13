@@ -247,6 +247,151 @@ function Disable-Administrator {
 }
 
 
+$create_process_source = @'
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Runtime.InteropServices;
+using Microsoft.Win32;
+using System.IO;
+
+namespace CreateProcess
+{
+  public class Win32
+  {
+    const UInt32 INFINITE = 0xFFFFFFFF;
+    const UInt32 WAIT_FAILED = 0xFFFFFFFF;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct STARTUPINFO
+    {
+      public Int32 cb;
+      public String lpReserved;
+      public String lpDesktop;
+      public String lpTitle;
+      public Int32 dwX;
+      public Int32 dwY;
+      public Int32 dwXSize;
+      public Int32 dwYSize;
+      public Int32 dwXCountChars;
+      public Int32 dwYCountChars;
+      public Int32 dwFillAttribute;
+      public Int32 dwFlags;
+      public Int16 wShowWindow;
+      public Int16 cbReserved2;
+      public IntPtr lpReserved2;
+      public IntPtr hStdInput;
+      public IntPtr hStdOutput;
+      public IntPtr hStdError;        
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PROCESS_INFORMATION
+    {
+      public IntPtr hProcess;
+      public IntPtr hThread;
+      public Int32 dwProcessId;
+      public Int32 dwThreadId;
+    }
+
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern Boolean LogonUser
+    (
+      String lpszUserName,
+      String lpszDomain,
+      String lpszPassword,
+      Int32 dwLogonType,
+      Int32 dwLogonProvider,
+      out IntPtr phToken
+    );
+
+    [DllImport("advapi32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    public static extern Boolean CreateProcessAsUser
+    (
+      IntPtr hToken,
+      String lpApplicationName,
+      String lpCommandLine,
+      IntPtr lpProcessAttributes,
+      IntPtr lpThreadAttributes,
+      Boolean bInheritHandles,
+      Int32 dwCreationFlags,
+      IntPtr lpEnvironment,
+      String lpCurrentDirectory,
+      ref STARTUPINFO lpStartupInfo,
+      out PROCESS_INFORMATION lpProcessInformation
+    );
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern UInt32 WaitForSingleObject
+    (
+      IntPtr hHandle,
+      UInt32 dwMilliseconds
+    );
+
+    [DllImport("kernel32", SetLastError=true)]
+    public static extern Boolean CloseHandle (IntPtr handle);
+
+    public static void CreateProcessAsUser(string strCommand, string strDomain, string strName, string strPassword)
+    {
+      PROCESS_INFORMATION processInfo = new PROCESS_INFORMATION();
+      STARTUPINFO startInfo = new STARTUPINFO();
+      Boolean bResult = false;
+      IntPtr hToken = IntPtr.Zero;
+      UInt32 uiResultWait = WAIT_FAILED;
+
+      try
+      {
+        // Logon user
+        bResult = Win32.LogonUser(
+          strName,
+          strDomain,
+          strPassword,
+          2,
+          0,
+          out hToken
+        );
+        if (!bResult) { 
+          throw new Exception("Logon error"); 
+        }
+
+        // Create process
+        startInfo.cb = Marshal.SizeOf(startInfo);
+
+        bResult = Win32.CreateProcessAsUser(
+          hToken,
+          null,
+          strCommand,
+          IntPtr.Zero,
+          IntPtr.Zero,
+          false,
+          0,
+          IntPtr.Zero,
+          null,
+          ref startInfo,
+          out processInfo
+        );
+        if (!bResult) {
+          throw new Exception("CreateProcessAsUser error"); 
+        }
+
+        // Wait for process to end
+        uiResultWait = WaitForSingleObject(processInfo.hProcess, INFINITE);
+        if (uiResultWait == WAIT_FAILED) { 
+          throw new Exception("WaitForSingleObject error");
+        }
+      }
+      finally
+      {
+        CloseHandle(hToken);
+        CloseHandle(processInfo.hProcess);
+        CloseHandle(processInfo.hThread);
+      }
+    }
+  }
+}
+'@
+
+
 function Set-SQLServerName {
   <#
     .SYNOPSIS
@@ -258,17 +403,21 @@ function Set-SQLServerName {
   if (-not (Get-Command 'sqlcmd.exe' -ErrorAction SilentlyContinue)) {
     return
   }
-  Write-Log 'Setting SQL servername to hostname'
+  Write-Log "Setting SQL servername to $global:hostname"
   # We have to do this as SYSTEM has no access to the SQL DB.
   # Disable-Administrator runs after this step.
-  $password = _GenerateRandomPassword
-  _RunExternalCMD net user Administrator $password
-  _RunExternalCMD net user Administrator /ACTIVE:YES
+  $password = 'P@ssw0rd!'
+  & net user Administrator $password
+  & net user Administrator /ACTIVE:YES
 
-  $script = "Invoke-SQLCmd -Query `"IF @@servername = '$global:hostname' RETURN; exec sp_dropserver @@servername; exec sp_addserver '$global:hostname', local`""
-  $sec = ConvertTo-SecureString $Password -AsPlainText -Force
-  $credential = New-Object System.Management.Automation.PSCredential ('Administrator', $sec)
-  Invoke-Command -ScriptBlock ([scriptblock]::Create($script)) -Credential $credential
+  try {
+    # We have to call CreateProcessAsUser as this script runs as SYSTEM.
+    Add-Type -TypeDefinition $source -Language CSharp
+    $cmd = "sqlcmd.exe -S. -E -Q `"IF @@servername = '$global:hostname' RETURN; exec sp_dropserver @@servername; exec sp_addserver '$global:hostname', local`""
+    [CreateProcess.Win32]::CreateProcessAsUser($cmd, '.', 'Administrator', $password)
+  } catch {
+    _PrintError
+  }
 }
 
 
