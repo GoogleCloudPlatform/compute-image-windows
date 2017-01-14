@@ -2,7 +2,7 @@ $url = "http://metadata.google.internal/computeMetadata/v1/instance/attributes?r
 $headers = @{"X-Google-Metadata-Request" = "True"}
 $metadata = (Invoke-WebRequest $url -Headers $headers -UseBasicParsing).Content | ConvertFrom-Json
 
-if ($metadata.'disable-agent-updates') {
+if ($metadata.'disable-agent-updates' -eq $true) {
   return
 }
 
