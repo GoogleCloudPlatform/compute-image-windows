@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
@@ -28,14 +29,10 @@ import (
 	"time"
 
 	"../logger"
-
-	"github.com/dchest/uniuri"
 )
 
 var (
 	regName         = "PublicKeys"
-	pwChars         = []byte(`abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789()~!@#$%^&*-+=|\{}[]:;<>,.?/`)
-	pwLgth          = 15
 	accountDisabled = false
 )
 
@@ -61,8 +58,60 @@ func (k windowsKeyJSON) expired() bool {
 	return t.Before(time.Now())
 }
 
+func newPwd() (string, error) {
+	// 15 character password with a max of 4 characters from each category.
+	pwLgth, limit := 15, 4
+	lower := []byte("abcdefghijklmnopqrstuvwxyz")
+	upper := []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	numbers := []byte("0123456789")
+	special := []byte(`~!@#$%^&*_-+=|\(){}[]:;<>,.?/`)
+	chars := bytes.Join([][]byte{lower, upper, numbers, special}, nil)
+
+	r := make([]byte, len(chars))
+	if _, err := rand.Read(r); err != nil {
+		return "", err
+	}
+
+	var i, l, u, n, s int
+	b := make([]byte, pwLgth)
+	for _, rb := range r {
+		c := chars[int(rb)%len(chars)]
+		switch {
+		case bytes.Contains(lower, []byte{c}):
+			if l >= limit {
+				continue
+			}
+			l++
+		case bytes.Contains(upper, []byte{c}):
+			if u >= limit {
+				continue
+			}
+			u++
+		case bytes.Contains(numbers, []byte{c}):
+			if n >= limit {
+				continue
+			}
+			n++
+		case bytes.Contains(special, []byte{c}):
+			if s >= limit {
+				continue
+			}
+			s++
+		}
+		b[i] = c
+		i++
+		if i == pwLgth {
+			break
+		}
+	}
+	return string(b), nil
+}
+
 func (k windowsKeyJSON) createOrResetPwd() (*credsJSON, error) {
-	pwd := uniuri.NewLenChars(pwLgth, pwChars)
+	pwd, err := newPwd()
+	if err != nil {
+		return nil, fmt.Errorf("error creating password: %v", err)
+	}
 	if _, err := user.Lookup(k.UserName); err == nil {
 		logger.Infoln("Resetting password for user", k.UserName)
 		if err := resetPwd(k.UserName, pwd); err != nil {

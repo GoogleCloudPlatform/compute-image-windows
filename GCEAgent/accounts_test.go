@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"unicode"
 )
 
 func TestExpired(t *testing.T) {
@@ -39,6 +40,34 @@ func TestExpired(t *testing.T) {
 		k := windowsKeyJSON{ExpireOn: tt.sTime}
 		if tt.e != k.expired() {
 			t.Errorf("windowsKeyJSON.expired() with ExpiredOn %q should return %t", k.ExpireOn, tt.e)
+		}
+	}
+}
+
+func TestNewPwd(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		pwd, err := newPwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(pwd) != 15 {
+			t.Fatalf("Password is not 15 characters: len(%s)=%d", pwd, len(pwd))
+		}
+		var l, u, n, s bool
+		for _, r := range pwd {
+			switch {
+			case unicode.IsLower(r):
+				l = true
+			case unicode.IsUpper(r):
+				u = true
+			case unicode.IsDigit(r):
+				n = true
+			case unicode.IsPunct(r) || unicode.IsSymbol(r):
+				s = true
+			}
+		}
+		if !l || !u || !n || !s {
+			t.Fatalf("Password does not have at least one character from each category: %s", pwd)
 		}
 	}
 }
