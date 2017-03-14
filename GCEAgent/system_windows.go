@@ -17,7 +17,7 @@
 package main
 
 import (
-	"../logger"
+	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 	"golang.org/x/sys/windows/registry"
 )
 

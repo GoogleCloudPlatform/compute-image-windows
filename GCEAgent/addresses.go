@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"strings"
 
-	"../logger"
+	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 )
 
 var addressDisabled = false

@@ -21,8 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"../logger"
-
+	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 	"github.com/tarm/serial"
 )
 

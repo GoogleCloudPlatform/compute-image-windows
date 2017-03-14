@@ -31,8 +31,8 @@ import (
 	"sort"
 	"time"
 
-	"../../logger"
 	"cloud.google.com/go/storage"
+	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 )
 
 var (

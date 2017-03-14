@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	"../logger"
+	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 )
 
 var (
