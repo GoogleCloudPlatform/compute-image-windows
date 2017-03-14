@@ -1,4 +1,4 @@
-# Copyright 2015 Google Inc. All Rights Reserved.
+# Copyright 2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -282,11 +282,11 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
   Write-Log 'Finished with sysprep specialize phase, restarting...'
 }
 else {
-  $activate_job = Start-Job -FilePath $script:activate_instance_script_loc 
+  $activate_job = Start-Job -FilePath $script:activate_instance_script_loc
   Disable-Administrator
   Enable-RemoteDesktop
   Configure-WinRM
-  
+
   Wait-Job $activate_job | Receive-Job | ForEach-Object {
     Write-Log $_
   }
