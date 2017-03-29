@@ -15,6 +15,7 @@
 package main
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
@@ -54,4 +55,69 @@ func TestCompareIPs(t *testing.T) {
 		}
 	}
 
+}
+
+func TestWsfcFilter(t *testing.T) {
+	var tests = []struct {
+		metaData    []byte
+		expectedIps []string
+	}{
+		// signle nic with enable-wsfc set to true
+		{[]byte(`{"instance":{"attributes":{"enable-wsfc":"true"}, "networkInterfaces":[{"forwardedIps":["192.168.0.0", "192.168.0.1"]}]}}`), []string{}},
+		// multi nic with enable-wsfc set to true
+		{[]byte(`{"instance":{"attributes":{"enable-wsfc":"true"}, "networkInterfaces":[{"forwardedIps":["192.168.0.0", "192.168.0.1"]},{"forwardedIps":["192.168.0.2"]}]}}`), []string{}},
+		// filter with wsfc-addrs
+		{[]byte(`{"instance":{"attributes":{"wsfc-addrs":"192.168.0.1"}, "networkInterfaces":[{"forwardedIps":["192.168.0.0", "192.168.0.1"]}]}}`), []string{"192.168.0.0"}},
+		// filter with both wsfc-addrs and enable-wsfc flag
+		{[]byte(`{"instance":{"attributes":{"wsfc-addrs":"192.168.0.1", "enable-wsfc":"true"}, "networkInterfaces":[{"forwardedIps":["192.168.0.0", "192.168.0.1"]}]}}`), []string{"192.168.0.0"}},
+		// filter with invalid wsfc-addrs
+		{[]byte(`{"instance":{"attributes":{"wsfc-addrs":"192.168.0"}, "networkInterfaces":[{"forwardedIps":["192.168.0.0", "192.168.0.1"]}]}}`), []string{"192.168.0.0", "192.168.0.1"}},
+	}
+
+	for _, tt := range tests {
+		var metadata metadataJSON
+		if err := json.Unmarshal(tt.metaData, &metadata); err != nil {
+			t.Error("invalid test case:", tt, err)
+		}
+
+		testAddress := addresses{&metadata, nil}
+		testAddress.applyWSFCFilter()
+
+		forwardedIps := []string{}
+		for _, ni := range testAddress.newMetadata.Instance.NetworkInterfaces {
+			forwardedIps = append(forwardedIps, ni.ForwardedIps...)
+		}
+
+		if !reflect.DeepEqual(forwardedIps, tt.expectedIps) {
+			t.Errorf("wsfc filter failed: expect - %q, actual - %q", tt.expectedIps, forwardedIps)
+		}
+	}
+}
+
+func TestWsfcFlagTriggerAddressDiff(t *testing.T) {
+	var tests = []struct {
+		newMetadata, oldMetadata []byte
+	}{
+		// trigger diff on enable-wsfc
+		{[]byte(`{"instance":{"attributes":{"enable-wsfc":"true"}}}`), nil},
+		// trigger diff on enable-wsfc
+		{[]byte(`{"instance":{"attributes":{"enable-wsfc":"false"}}}`), []byte(`{"instance":{"attributes":{"enable-wsfc":"true"}}}`)},
+		// trigger diff on wsfc-addrs
+		{[]byte(`{"instance":{"attributes":{"wsfc-addrs":"192.168.0.1"}}}`), []byte(`{"instance":{"attributes":{}}}`)},
+		// trigger diff on wsfc-addrs
+		{[]byte(`{"instance":{"attributes":{"wsfc-addrs":"192.168.0.1"}}}`), []byte(`{"instance":{"attributes":{"wsfc-addrs":"192.168.0.2"}}}`)},
+	}
+
+	for _, tt := range tests {
+		var newMetadata metadataJSON
+		var oldMetadata metadataJSON
+		json.Unmarshal(tt.newMetadata, &newMetadata)
+		json.Unmarshal(tt.oldMetadata, &oldMetadata)
+
+		testAddress := addresses{&newMetadata, &oldMetadata}
+
+		if !testAddress.diff() {
+			t.Errorf("old: %q new: %q does't tirgger diff.", tt.oldMetadata, tt.newMetadata)
+		}
+	}
 }
