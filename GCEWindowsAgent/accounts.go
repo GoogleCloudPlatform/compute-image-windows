@@ -175,12 +175,12 @@ func (a *accounts) disabled() bool {
 }
 
 type credsJSON struct {
-	ErrorMessage      string `JSON:"errorMessage,omitempty"`
-	EncryptedPassword string `JSON:"encryptedPassword,omitempty"`
-	UserName          string `JSON:"userName,omitempty"`
-	PasswordFound     bool   `JSON:"passwordFound,omitempty"`
-	Exponent          string `JSON:"exponent,omitempty"`
-	Modulus           string `JSON:"modulus,omitempty"`
+	ErrorMessage      string `json:"errorMessage,omitempty"`
+	EncryptedPassword string `json:"encryptedPassword,omitempty"`
+	UserName          string `json:"userName,omitempty"`
+	PasswordFound     bool   `json:"passwordFound,omitempty"`
+	Exponent          string `json:"exponent,omitempty"`
+	Modulus           string `json:"modulus,omitempty"`
 }
 
 func printCreds(creds *credsJSON) error {

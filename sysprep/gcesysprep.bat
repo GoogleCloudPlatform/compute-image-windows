@@ -18,12 +18,5 @@ REM Batch script is used to call sysprep.ps1
 REM Change working directory to load modules correctly.
 cd "%~dp0"
 
-REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Server\ServerLevels" /v NanoServer
-IF %ERRORLEVEL% == 0 GOTO NANO
-
 %WinDir%\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Unrestricted -NonInteractive -NoProfile -NoLogo -File "%~dp0sysprep.ps1" %*
-exit /b
-
-:NANO
-%WinDir%\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Unrestricted -NonInteractive -NoProfile -NoLogo -File "%~dp0nano_sysprep.ps1" %*
 exit /b
