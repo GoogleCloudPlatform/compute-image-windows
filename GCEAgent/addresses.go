@@ -30,7 +30,9 @@ type addresses struct {
 }
 
 func (a *addresses) diff() bool {
-	return !reflect.DeepEqual(a.newMetadata.Instance.NetworkInterfaces, a.oldMetadata.Instance.NetworkInterfaces)
+	return !reflect.DeepEqual(a.newMetadata.Instance.NetworkInterfaces, a.oldMetadata.Instance.NetworkInterfaces) ||
+		a.newMetadata.Instance.Attributes.WSFCAddresses != a.oldMetadata.Instance.Attributes.WSFCAddresses ||
+		a.newMetadata.Instance.Attributes.EnableWSFC != a.oldMetadata.Instance.Attributes.EnableWSFC
 }
 
 func (a *addresses) disabled() bool {
@@ -66,6 +68,9 @@ func (a *addresses) set() error {
 	if err != nil {
 		return err
 	}
+
+	a.applyWSFCFilter()
+
 	for _, ni := range a.newMetadata.Instance.NetworkInterfaces {
 		mac, err := net.ParseMAC(ni.Mac)
 		if err != nil {
@@ -141,4 +146,41 @@ func (a *addresses) set() error {
 	}
 
 	return nil
+}
+
+// Filter out forwarded ips based on WSFC (Windows Failover Cluster Settings).
+// If only EnableWSFC is set, all ips in the ForwardedIps will be ignored.
+// If WSFCAddresses is set (with or without EnableWSFC), only ips in the list will be filtered out.
+func (a *addresses) applyWSFCFilter() {
+	var wsfcAddrs []string
+	for _, wsfcAddr := range strings.Split(a.newMetadata.Instance.Attributes.WSFCAddresses, ",") {
+		if len(wsfcAddr) == 0 {
+			continue
+		}
+
+		if net.ParseIP(wsfcAddr) == nil {
+			logger.Errorln("ip address for wsfc is not in valid form", wsfcAddr)
+			continue
+		}
+
+		wsfcAddrs = append(wsfcAddrs, wsfcAddr)
+	}
+
+	if len(wsfcAddrs) != 0 {
+		interfaces := a.newMetadata.Instance.NetworkInterfaces
+		for idx := range interfaces {
+			var filteredList []string
+			for _, ip := range interfaces[idx].ForwardedIps {
+				if !containsString(ip, wsfcAddrs) {
+					filteredList = append(filteredList, ip)
+				}
+			}
+
+			interfaces[idx].ForwardedIps = filteredList
+		}
+	} else if a.newMetadata.Instance.Attributes.EnableWSFC {
+		for idx := range a.newMetadata.Instance.NetworkInterfaces {
+			a.newMetadata.Instance.NetworkInterfaces[idx].ForwardedIps = nil
+		}
+	}
 }
