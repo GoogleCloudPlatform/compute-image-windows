@@ -91,6 +91,5 @@ func watchMetadata(ctx context.Context) (*metadataJSON, error) {
 		return nil, err
 	}
 	var metadata metadataJSON
-	writeSerial("COM1", md)
 	return &metadata, json.Unmarshal(md, &metadata)
 }
