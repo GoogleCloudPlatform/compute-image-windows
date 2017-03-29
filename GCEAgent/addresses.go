@@ -149,25 +149,27 @@ func (a *addresses) set() error {
 }
 
 // Filter out forwarded ips based on WSFC (Windows Failover Cluster Settings).
-// If EnableWSFC is set, all ips in the ForwardedIps will be ignore.
-// If WSFCAddresses is set, only ips in the lisft will be filtered out.
-// If both of attributes are set, logic will respect WSFCAddresses
+// If only EnableWSFC is set, all ips in the ForwardedIps will be ignored.
+// If WSFCAddresses is set (with or without EnableWSFC), only ips in the list will be filtered out.
 func (a *addresses) applyWSFCFilter() {
 	var wsfcAddrs []string
 	for _, wsfcAddr := range strings.Split(a.newMetadata.Instance.Attributes.WSFCAddresses, ",") {
 		if len(wsfcAddr) == 0 {
 			continue
-		} else if net.ParseIP(wsfcAddr) == nil {
-			logger.Errorln("ip address for wsfc is not in valid form", wsfcAddr)
-		} else {
-			wsfcAddrs = append(wsfcAddrs, wsfcAddr)
 		}
+
+		if net.ParseIP(wsfcAddr) == nil {
+			logger.Errorln("ip address for wsfc is not in valid form", wsfcAddr)
+			continue
+		}
+
+		wsfcAddrs = append(wsfcAddrs, wsfcAddr)
 	}
 
 	if len(wsfcAddrs) != 0 {
 		interfaces := a.newMetadata.Instance.NetworkInterfaces
 		for idx := range interfaces {
-			filteredList := interfaces[idx].ForwardedIps[:0]
+			var filteredList []string
 			for _, ip := range interfaces[idx].ForwardedIps {
 				if !containsString(ip, wsfcAddrs) {
 					filteredList = append(filteredList, ip)
