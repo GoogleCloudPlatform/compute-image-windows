@@ -69,7 +69,9 @@ func runUpdate(newMetadata, oldMetadata *metadataJSON) {
 		oldMetadata: oldMetadata,
 		newMetadata: newMetadata,
 	}
-	for _, mgr := range []manager{addressMgr, acctMgr} {
+	wsfcMgr := newWsfcManager(newMetadata)
+
+	for _, mgr := range []manager{addressMgr, acctMgr, wsfcMgr} {
 		wg.Add(1)
 		go func(mgr manager) {
 			defer wg.Done()
