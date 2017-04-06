@@ -21,10 +21,8 @@ import (
 	"log"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/tarm/serial"
-	"golang.org/x/sys/windows/svc/eventlog"
 )
 
 var (
@@ -59,56 +57,6 @@ const (
 	sError
 	sFatal
 )
-
-type writer struct {
-	pri severity
-	src string
-	el  *eventlog.Log
-}
-
-// Write sends a log message to the Event Log.
-func (w *writer) Write(b []byte) (int, error) {
-	switch w.pri {
-	case sInfo:
-		return len(b), w.el.Info(1, string(b))
-	case sError:
-		return len(b), w.el.Error(2, string(b))
-	}
-	return 0, fmt.Errorf("unrecognized severity: %v", w.pri)
-}
-
-func newW(pri severity, src string) (*writer, error) {
-	if err := eventlog.InstallAsEventCreate(src, eventlog.Info|eventlog.Error); err != nil {
-		if !strings.Contains(err.Error(), "registry key already exists") {
-			return nil, err
-		}
-	}
-	el, err := eventlog.Open(src)
-	if err != nil {
-		return nil, err
-	}
-	return &writer{
-		pri: pri,
-		src: src,
-		el:  el,
-	}, nil
-}
-
-func slSetup(src string) error {
-	flags := log.Ldate | log.Lmicroseconds | log.Lshortfile
-	infoL, err := newW(sInfo, src)
-	if err != nil {
-		return err
-	}
-	slInfo = log.New(infoL, "INFO: ", flags)
-	errL, err := newW(sError, src)
-	if err != nil {
-		return err
-	}
-	slError = log.New(errL, "ERROR: ", flags)
-	slFatal = log.New(errL, "FATAL: ", flags)
-	return nil
-}
 
 type serialPort struct {
 	Port string
