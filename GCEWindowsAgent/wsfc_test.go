@@ -118,14 +118,14 @@ func (a *mockAgent) setPort(newPort string) {
 	a.port = newPort
 }
 
-func (a *mockAgent) run(errc chan error) {
+func (a *mockAgent) run() error {
 	a.runInvoked = true
 	if a.runError {
-		errc <- errors.New("Run error")
+		return errors.New("Run error")
 	}
 
-	errc <- nil
 	a.state = running
+	return nil
 }
 
 func (a *mockAgent) stop() error {
@@ -236,10 +236,7 @@ func TestWsfcRunAgentE2E(t *testing.T) {
 func TestInvokeRunOnRunningWsfcAgent(t *testing.T) {
 	agent := &wsfcAgent{state: running}
 
-	errc := make(chan error)
-	go agent.run(errc)
-
-	if err := <-errc; err != nil {
+	if err := agent.run(); err != nil {
 		t.Errorf("Invoke run on running agent, error = %v, want = %v", err, nil)
 	}
 }

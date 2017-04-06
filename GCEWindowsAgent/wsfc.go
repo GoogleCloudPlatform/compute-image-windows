@@ -105,9 +105,7 @@ func (m *wsfcManager) set() error {
 
 // Start health agent in goroutine
 func (m *wsfcManager) startAgent() error {
-	startChan := make(chan error)
-	go m.agent.run(startChan)
-	if err := <-startChan; err != nil {
+	if err := m.agent.run(); err != nil {
 		return err
 	}
 
@@ -128,7 +126,7 @@ type healthAgent interface {
 	getState() agentState
 	getPort() string
 	setPort(string)
-	run(errc chan error)
+	run() error
 	stop() error
 }
 
@@ -141,56 +139,55 @@ type wsfcAgent struct {
 }
 
 // Start agent and taking tcp request
-func (a *wsfcAgent) run(errc chan error) {
+func (a *wsfcAgent) run() error {
 	if a.state == running {
 		logger.Infoln("wsfc agent is already running")
-		errc <- nil
-		return
+		return nil
 	}
 
 	logger.Info("Starting wsfc agent...")
 	listenerAddr, err := net.ResolveTCPAddr("tcp", ":"+a.port)
 	if err != nil {
-		errc <- err
-		return
+		return err
 	}
 
 	listener, err := net.ListenTCP("tcp", listenerAddr)
 	if err != nil {
-		errc <- err
-		return
+		return err
 	}
+
+	go func() {
+		for {
+			select {
+			case closeChan := <-a.closing:
+				// close listener first to avoid taking additional request
+				err = listener.Close()
+				// wait for exiting request to finish
+				a.waitGroup.Wait()
+				a.state = stopped
+				closeChan <- err
+				logger.Info("wsfc agent stopped.")
+				return
+			default:
+				listener.SetDeadline(time.Now().Add(time.Second))
+				conn, err := listener.Accept()
+				if err != nil {
+					// if err is not due to time out, log it
+					if opErr, ok := err.(*net.OpError); !ok || !opErr.Timeout() {
+						logger.Errorln("error on accepting request: ", err)
+					}
+					continue
+				}
+				a.waitGroup.Add(1)
+				go a.handleHealthCheckRequest(conn)
+			}
+		}
+	}()
 
 	logger.Infoln("wsfc agent stared. Listening on port:", a.port)
 	a.state = running
-	errc <- nil
 
-	for {
-		select {
-		case closeChan := <-a.closing:
-			// close listener first to avoid taking additional request
-			err = listener.Close()
-			// wait for exiting request to finish
-			a.waitGroup.Wait()
-			a.state = stopped
-			closeChan <- err
-			logger.Info("wsfc agent stopped.")
-			return
-		default:
-			listener.SetDeadline(time.Now().Add(time.Second))
-			conn, err := listener.Accept()
-			if err != nil {
-				// if err is not due to time out, log it
-				if opErr, ok := err.(*net.OpError); !ok || !opErr.Timeout() {
-					logger.Errorln("error on accepting request: ", err)
-				}
-				continue
-			}
-			a.waitGroup.Add(1)
-			go a.handleHealthCheckRequest(conn)
-		}
-	}
-
+	return nil
 }
 
 // Handle health check request.
