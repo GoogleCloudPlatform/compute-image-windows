@@ -19,3 +19,5 @@ $path = (Get-ItemProperty $machine_env).Path
 if ($path -like "*${install_dir}*") {
   Set-ItemProperty $machine_env -Name 'Path' -Value $path.Replace(";$install_dir", '')
 }
+
+& schtasks /delete /tn GCEStartup /f

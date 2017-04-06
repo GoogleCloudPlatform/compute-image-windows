@@ -19,3 +19,5 @@ $path = (Get-ItemProperty $machine_env).Path
 if ($path -notlike "*${install_dir}*") {
   Set-ItemProperty $machine_env -Name 'Path' -Value ($path + ";${install_dir}")
 }
+
+& schtasks /create /tn GCEStartup /tr "'${install_dir}\run_startup_scripts.cmd'" /sc onstart /ru System /f
