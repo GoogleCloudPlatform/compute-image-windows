@@ -13,24 +13,102 @@
 //  limitations under the License.
 
 // Package logger offers simple logging on GCE.
+// Events are logged to the serial console as well as the event log.
 package logger
 
 import (
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/tarm/serial"
+	"golang.org/x/sys/windows/svc/eventlog"
 )
 
 var (
-	// Log is the logger's log.Logger.
+	// Log is the serial logger's log.Logger.
 	Log         *log.Logger
+	slInfo      *log.Logger
+	slError     *log.Logger
+	slFatal     *log.Logger
 	initialized bool
 	logger      string
 )
+
+// Init sets up logging and should be called before log functions, usually in
+// the callers main(). Log functions can be called before Init(), but log
+// output will go to COM1.
+func Init(name, port string) {
+	logger = name
+	out := &serialPort{port}
+	// Split logging to the serial port and event log so processes like the
+	// metadata script runnner can log to serial output but not the event log.
+	Log = log.New(out, "", log.Ldate|log.Ltime)
+	if err := slSetup(name); err != nil {
+		log.Fatal(err)
+	}
+	initialized = true
+}
+
+type severity int
+
+const (
+	sInfo = iota
+	sError
+	sFatal
+)
+
+type writer struct {
+	pri severity
+	src string
+	el  *eventlog.Log
+}
+
+// Write sends a log message to the Event Log.
+func (w *writer) Write(b []byte) (int, error) {
+	switch w.pri {
+	case sInfo:
+		return len(b), w.el.Info(1, string(b))
+	case sError:
+		return len(b), w.el.Error(2, string(b))
+	}
+	return 0, fmt.Errorf("unrecognized severity: %v", w.pri)
+}
+
+func newW(pri severity, src string) (*writer, error) {
+	if err := eventlog.InstallAsEventCreate(src, eventlog.Info|eventlog.Error); err != nil {
+		if !strings.Contains(err.Error(), "registry key already exists") {
+			return nil, err
+		}
+	}
+	el, err := eventlog.Open(src)
+	if err != nil {
+		return nil, err
+	}
+	return &writer{
+		pri: pri,
+		src: src,
+		el:  el,
+	}, nil
+}
+
+func slSetup(src string) error {
+	flags := log.Ldate | log.Lmicroseconds | log.Lshortfile
+	infoL, err := newW(sInfo, src)
+	if err != nil {
+		return err
+	}
+	slInfo = log.New(infoL, "INFO: ", flags)
+	errL, err := newW(sError, src)
+	if err != nil {
+		return err
+	}
+	slError = log.New(errL, "ERROR: ", flags)
+	slFatal = log.New(errL, "FATAL: ", flags)
+	return nil
+}
 
 type serialPort struct {
 	Port string
@@ -46,24 +124,6 @@ func (s *serialPort) Write(b []byte) (int, error) {
 
 	return p.Write(b)
 }
-
-// Init sets up logging and should be called before log functions, usually in
-// the callers main(). Log functions can be called before Init(), but log
-// output will go to COM1.
-func Init(name, port string) {
-	logger = name
-	out := &serialPort{port}
-	Log = log.New(out, "", log.Ldate|log.Ltime)
-	initialized = true
-}
-
-type severity int
-
-const (
-	sInfo = iota
-	sError
-	sFatal
-)
 
 func caller() string {
 	_, file, line, ok := runtime.Caller(3)
@@ -81,11 +141,17 @@ func output(s severity, txt string) {
 
 	switch s {
 	case sInfo:
-		Log.Output(3, fmt.Sprintf("%s: %s", logger, txt))
+		msg := fmt.Sprintf("%s: %s", logger, txt)
+		Log.Output(3, msg)
+		slInfo.Output(3, msg)
 	case sError:
-		Log.Output(3, fmt.Sprintf("%s: ERROR %s: %s", logger, caller(), txt))
+		msg := fmt.Sprintf("%s: ERROR %s: %s", logger, caller(), txt)
+		Log.Output(3, msg)
+		slError.Output(3, msg)
 	case sFatal:
-		Log.Output(3, fmt.Sprintf("%s: FATAL %s: %s", logger, caller(), txt))
+		msg := fmt.Sprintf("%s: FATAL %s: %s", logger, caller(), txt)
+		Log.Output(3, msg)
+		slFatal.Output(3, msg)
 	default:
 		panic(fmt.Sprintln("unrecognized severity:", s))
 	}
@@ -131,19 +197,16 @@ func Errorf(format string, v ...interface{}) {
 // Arguments are handled in the manner of fmt.Print.
 func Fatal(v ...interface{}) {
 	output(sFatal, fmt.Sprint(v...))
-	os.Exit(1)
 }
 
 // Fatalln logs with the Fatal severity, and ends with os.Exit(1).
 // Arguments are handled in the manner of fmt.Println.
 func Fatalln(v ...interface{}) {
 	output(sFatal, fmt.Sprintln(v...))
-	os.Exit(1)
 }
 
 // Fatalf logs with the Fatal severity, and ends with os.Exit(1).
 // Arguments are handled in the manner of fmt.Printf.
 func Fatalf(format string, v ...interface{}) {
 	output(sFatal, fmt.Sprintf(format, v...))
-	os.Exit(1)
 }
