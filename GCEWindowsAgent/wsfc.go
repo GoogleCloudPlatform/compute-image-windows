@@ -45,6 +45,9 @@ type wsfcManager struct {
 }
 
 // Create new wsfcManager based on metadata
+// agent request state will be set to running if one of the following is true:
+// - EnableWSFC is set
+// - WSFCAddresses is set (As an advanced setting, it will always override EnableWSFC flag)
 func newWsfcManager(newMetadata *metadataJSON) *wsfcManager {
 	newState := stopped
 	if newMetadata.Instance.Attributes.EnableWSFC ||
@@ -66,7 +69,9 @@ func (m *wsfcManager) diff() bool {
 }
 
 // Implement manager.disabled().
-// wsfc manager is always enabled.
+// wsfc manager is always enabled. The manager is just a broker which manages the state of wsfcAgent. User
+// can disable the wsfc feature by setting the metadata. If the manager is disabled, the agent will become
+// an orphan goroutine if it is currently running and no one can talk to it.
 func (m *wsfcManager) disabled() bool {
 	return false
 }
@@ -143,7 +148,7 @@ func (a *wsfcAgent) run(errc chan error) {
 		return
 	}
 
-	logger.Info("wsfc agent starting")
+	logger.Info("Starting wsfc agent...")
 	listenerAddr, err := net.ResolveTCPAddr("tcp", ":"+a.port)
 	if err != nil {
 		errc <- err
@@ -163,12 +168,13 @@ func (a *wsfcAgent) run(errc chan error) {
 	for {
 		select {
 		case closeChan := <-a.closing:
-			// close listen first to avoid taking additional request
+			// close listener first to avoid taking additional request
 			err = listener.Close()
 			// wait for exiting request to finish
 			a.waitGroup.Wait()
 			a.state = stopped
 			closeChan <- err
+			logger.Info("wsfc agent stopped.")
 			return
 		default:
 			listener.SetDeadline(time.Now().Add(time.Second))
@@ -218,7 +224,7 @@ func (a *wsfcAgent) stop() error {
 		return nil
 	}
 
-	logger.Info("wsfc agent stopped.")
+	logger.Info("Stopping wsfc agent...")
 	errc := make(chan error)
 	a.closing <- errc
 	return <-errc

@@ -189,7 +189,7 @@ func getHealthCheckResponce(request string, agent healthAgent) (string, error) {
 	return bufio.NewReader(conn).ReadString('\n')
 }
 
-func TestRunAgentE2E(t *testing.T) {
+func TestWsfcRunAgentE2E(t *testing.T) {
 
 	wsfcMgr := &wsfcManager{agentNewState: running, agent: getWsfcAgentInstance()}
 	wsfcMgr.startAgent()
@@ -217,7 +217,7 @@ func TestRunAgentE2E(t *testing.T) {
 		}
 	}
 
-	// test an invalid ip which could not existIP
+	// test an invalid ip which could not exist
 	invalidIP := "255.255.255.256"
 	if got, err := getHealthCheckResponce(invalidIP, wsfcMgr.agent); got != "0" {
 		t.Errorf("health check failed with %v, got = %v, want %v", invalidIP, got, "0")
@@ -233,7 +233,7 @@ func TestRunAgentE2E(t *testing.T) {
 	}
 }
 
-func TestInvokeRunOnRunningAgent(t *testing.T) {
+func TestInvokeRunOnRunningWsfcAgent(t *testing.T) {
 	agent := &wsfcAgent{state: running}
 
 	errc := make(chan error)
@@ -244,7 +244,7 @@ func TestInvokeRunOnRunningAgent(t *testing.T) {
 	}
 }
 
-func TestInvokeStopOnStoppedAgent(t *testing.T) {
+func TestInvokeStopOnStoppedWsfcAgent(t *testing.T) {
 	agent := &wsfcAgent{state: stopped}
 
 	if err := agent.stop(); err != nil {
