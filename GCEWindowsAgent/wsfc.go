@@ -174,14 +174,14 @@ func (a *wsfcAgent) handleHealthCheckRequest(conn net.Conn) {
 	// Read the incoming connection into the buffer.
 	reqLen, err := conn.Read(buf)
 	if err != nil {
-		logger.Errorln("error on processing request:", err)
+		logger.Errorln("wsfc - error on processing request:", err)
 		return
 	}
 
 	wsfcIP := strings.TrimSpace(string(buf[:reqLen]))
 	reply, err := checkIPExist(wsfcIP)
 	if err != nil {
-		logger.Errorln("error on checking local ip:", err)
+		logger.Errorln("wsfc - error on checking local ip:", err)
 	}
 	conn.Write([]byte(reply))
 }
