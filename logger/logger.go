@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	// Log is the serial logger's log.Logger.
-	Log         *log.Logger
+	// SerialLog is the serial logger's log.Logger.
+	SerialLog   *log.Logger
 	slInfo      *log.Logger
 	slError     *log.Logger
 	slFatal     *log.Logger
@@ -43,9 +43,9 @@ func Init(name, port string) {
 	out := &serialPort{port}
 	// Split logging to the serial port and event log so processes like the
 	// metadata script runnner can log to serial output but not the event log.
-	Log = log.New(out, "", log.Ldate|log.Ltime)
+	SerialLog = log.New(out, "", log.Ldate|log.Ltime)
 	if err := slSetup(name); err != nil {
-		log.Fatal(err)
+		SerialLog.Fatal(err)
 	}
 	initialized = true
 }
@@ -90,15 +90,15 @@ func output(s severity, txt string) {
 	switch s {
 	case sInfo:
 		msg := fmt.Sprintf("%s: %s", logger, txt)
-		Log.Output(3, msg)
+		SerialLog.Output(3, msg)
 		slInfo.Output(3, msg)
 	case sError:
 		msg := fmt.Sprintf("%s: ERROR %s: %s", logger, caller(), txt)
-		Log.Output(3, msg)
+		SerialLog.Output(3, msg)
 		slError.Output(3, msg)
 	case sFatal:
 		msg := fmt.Sprintf("%s: FATAL %s: %s", logger, caller(), txt)
-		Log.Output(3, msg)
+		SerialLog.Output(3, msg)
 		slFatal.Output(3, msg)
 	default:
 		panic(fmt.Sprintln("unrecognized severity:", s))

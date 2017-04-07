@@ -194,7 +194,7 @@ func runCmd(c *exec.Cmd, name string) error {
 
 	in := bufio.NewScanner(pr)
 	for in.Scan() {
-		logger.Log.Output(3, name+": "+in.Text())
+		logger.SerialLog.Output(3, name+": "+in.Text())
 	}
 
 	return c.Wait()
