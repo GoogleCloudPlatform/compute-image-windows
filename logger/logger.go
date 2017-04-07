@@ -13,12 +13,12 @@
 //  limitations under the License.
 
 // Package logger offers simple logging on GCE.
+// Events are logged to the serial console as well as the event log.
 package logger
 
 import (
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"runtime"
 
@@ -26,10 +26,36 @@ import (
 )
 
 var (
-	// Log is the logger's log.Logger.
-	Log         *log.Logger
+	// SerialLog is the serial logger's log.Logger.
+	SerialLog   *log.Logger
+	slInfo      *log.Logger
+	slError     *log.Logger
+	slFatal     *log.Logger
 	initialized bool
 	logger      string
+)
+
+// Init sets up logging and should be called before log functions, usually in
+// the callers main(). Log functions can be called before Init(), but log
+// output will go to COM1.
+func Init(name, port string) {
+	logger = name
+	out := &serialPort{port}
+	// Split logging to the serial port and event log so processes like the
+	// metadata script runnner can log to serial output but not the event log.
+	SerialLog = log.New(out, "", log.Ldate|log.Ltime)
+	if err := slSetup(name); err != nil {
+		SerialLog.Fatal(err)
+	}
+	initialized = true
+}
+
+type severity int
+
+const (
+	sInfo = iota
+	sError
+	sFatal
 )
 
 type serialPort struct {
@@ -47,24 +73,6 @@ func (s *serialPort) Write(b []byte) (int, error) {
 	return p.Write(b)
 }
 
-// Init sets up logging and should be called before log functions, usually in
-// the callers main(). Log functions can be called before Init(), but log
-// output will go to COM1.
-func Init(name, port string) {
-	logger = name
-	out := &serialPort{port}
-	Log = log.New(out, "", log.Ldate|log.Ltime)
-	initialized = true
-}
-
-type severity int
-
-const (
-	sInfo = iota
-	sError
-	sFatal
-)
-
 func caller() string {
 	_, file, line, ok := runtime.Caller(3)
 	if !ok {
@@ -81,11 +89,17 @@ func output(s severity, txt string) {
 
 	switch s {
 	case sInfo:
-		Log.Output(3, fmt.Sprintf("%s: %s", logger, txt))
+		msg := fmt.Sprintf("%s: %s", logger, txt)
+		SerialLog.Output(3, msg)
+		slInfo.Output(3, msg)
 	case sError:
-		Log.Output(3, fmt.Sprintf("%s: ERROR %s: %s", logger, caller(), txt))
+		msg := fmt.Sprintf("%s: ERROR %s: %s", logger, caller(), txt)
+		SerialLog.Output(3, msg)
+		slError.Output(3, msg)
 	case sFatal:
-		Log.Output(3, fmt.Sprintf("%s: FATAL %s: %s", logger, caller(), txt))
+		msg := fmt.Sprintf("%s: FATAL %s: %s", logger, caller(), txt)
+		SerialLog.Output(3, msg)
+		slFatal.Output(3, msg)
 	default:
 		panic(fmt.Sprintln("unrecognized severity:", s))
 	}
@@ -131,19 +145,16 @@ func Errorf(format string, v ...interface{}) {
 // Arguments are handled in the manner of fmt.Print.
 func Fatal(v ...interface{}) {
 	output(sFatal, fmt.Sprint(v...))
-	os.Exit(1)
 }
 
 // Fatalln logs with the Fatal severity, and ends with os.Exit(1).
 // Arguments are handled in the manner of fmt.Println.
 func Fatalln(v ...interface{}) {
 	output(sFatal, fmt.Sprintln(v...))
-	os.Exit(1)
 }
 
 // Fatalf logs with the Fatal severity, and ends with os.Exit(1).
 // Arguments are handled in the manner of fmt.Printf.
 func Fatalf(format string, v ...interface{}) {
 	output(sFatal, fmt.Sprintf(format, v...))
-	os.Exit(1)
 }
