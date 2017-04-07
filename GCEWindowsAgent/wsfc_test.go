@@ -41,6 +41,7 @@ func setWSFCAgentPort(metadata metadataJSON, wsfcPort string) *metadataJSON {
 var (
 	testAgent    = getWsfcAgentInstance()
 	testMetadata = metadataJSON{}
+	testListener = &net.TCPListener{}
 )
 
 func TestNewWsfcManager(t *testing.T) {
@@ -72,11 +73,11 @@ func TestWsfcManagerDiff(t *testing.T) {
 		m    *wsfcManager
 		want bool
 	}{
-		{"state change from stop to running", &wsfcManager{agentNewState: running, agent: &wsfcAgent{state: stopped}}, true},
-		{"state change from running to stop", &wsfcManager{agentNewState: stopped, agent: &wsfcAgent{state: running}}, true},
+		{"state change from stop to running", &wsfcManager{agentNewState: running, agent: &wsfcAgent{listener: nil}}, true},
+		{"state change from running to stop", &wsfcManager{agentNewState: stopped, agent: &wsfcAgent{listener: testListener}}, true},
 		{"port changed", &wsfcManager{agentNewPort: "1818", agent: &wsfcAgent{port: wsfcDefaultAgentPort}}, true},
-		{"state does not change both running", &wsfcManager{agentNewState: running, agent: &wsfcAgent{state: running}}, false},
-		{"state does not change both stopped", &wsfcManager{agentNewState: stopped, agent: &wsfcAgent{state: stopped}}, false},
+		{"state does not change both running", &wsfcManager{agentNewState: running, agent: &wsfcAgent{listener: testListener}}, false},
+		{"state does not change both stopped", &wsfcManager{agentNewState: stopped, agent: &wsfcAgent{listener: nil}}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -191,9 +192,11 @@ func getHealthCheckResponce(request string, agent healthAgent) (string, error) {
 
 func TestWsfcRunAgentE2E(t *testing.T) {
 
-	wsfcMgr := &wsfcManager{agentNewState: running, agent: getWsfcAgentInstance()}
-	wsfcMgr.startAgent()
-	defer wsfcMgr.stopAgent()
+	wsfcMgr := &wsfcManager{agentNewState: running, agentNewPort: wsfcDefaultAgentPort, agent: getWsfcAgentInstance()}
+	wsfcMgr.set()
+
+	// make sure the agent is cleaned up.
+	defer wsfcMgr.agent.stop()
 
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -227,14 +230,15 @@ func TestWsfcRunAgentE2E(t *testing.T) {
 	}
 
 	// test stop agent
-	wsfcMgr.stopAgent()
+	wsfcMgrStop := &wsfcManager{agentNewState: stopped, agent: getWsfcAgentInstance()}
+	wsfcMgrStop.set()
 	if _, err := getHealthCheckResponce(existIP, wsfcMgr.agent); err == nil {
 		t.Errorf("health check still running after calling stop")
 	}
 }
 
 func TestInvokeRunOnRunningWsfcAgent(t *testing.T) {
-	agent := &wsfcAgent{state: running}
+	agent := &wsfcAgent{listener: testListener}
 
 	if err := agent.run(); err != nil {
 		t.Errorf("Invoke run on running agent, error = %v, want = %v", err, nil)
@@ -242,7 +246,7 @@ func TestInvokeRunOnRunningWsfcAgent(t *testing.T) {
 }
 
 func TestInvokeStopOnStoppedWsfcAgent(t *testing.T) {
-	agent := &wsfcAgent{state: stopped}
+	agent := &wsfcAgent{listener: nil}
 
 	if err := agent.stop(); err != nil {
 		t.Errorf("Invoke stop on stopped agent, error = %v, want = %v", err, nil)

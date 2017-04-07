@@ -85,37 +85,19 @@ func (m *wsfcManager) set() error {
 	// if state changes
 	if m.agentNewState != m.agent.getState() {
 		if m.agentNewState == running {
-			return m.startAgent()
+			return m.agent.run()
 		}
 
-		return m.stopAgent()
+		return m.agent.stop()
 	}
 
 	// If port changed
 	if m.agent.getState() == running {
-		if err := m.stopAgent(); err != nil {
+		if err := m.agent.stop(); err != nil {
 			return err
 		}
 
-		return m.startAgent()
-	}
-
-	return nil
-}
-
-// Start health agent in goroutine
-func (m *wsfcManager) startAgent() error {
-	if err := m.agent.run(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Stop health agent
-func (m *wsfcManager) stopAgent() error {
-	if err := m.agent.stop(); err != nil {
-		return err
+		return m.agent.run()
 	}
 
 	return nil
@@ -132,15 +114,14 @@ type healthAgent interface {
 
 // Windows failover cluster agent, implements healthAgent interface
 type wsfcAgent struct {
-	state     agentState
 	port      string
 	waitGroup *sync.WaitGroup
-	closing   chan chan error
+	listener  *net.TCPListener
 }
 
 // Start agent and taking tcp request
 func (a *wsfcAgent) run() error {
-	if a.state == running {
+	if a.getState() == running {
 		logger.Infoln("wsfc agent is already running")
 		return nil
 	}
@@ -156,36 +137,27 @@ func (a *wsfcAgent) run() error {
 		return err
 	}
 
+	// goroutine for handling request
 	go func() {
 		for {
-			select {
-			case closeChan := <-a.closing:
-				// close listener first to avoid taking additional request
-				err = listener.Close()
-				// wait for exiting request to finish
-				a.waitGroup.Wait()
-				a.state = stopped
-				closeChan <- err
-				logger.Info("wsfc agent stopped.")
-				return
-			default:
-				listener.SetDeadline(time.Now().Add(time.Second))
-				conn, err := listener.Accept()
-				if err != nil {
-					// if err is not due to time out, log it
-					if opErr, ok := err.(*net.OpError); !ok || !opErr.Timeout() {
-						logger.Errorln("error on accepting request: ", err)
-					}
-					continue
+			conn, err := listener.Accept()
+			if err != nil {
+				// if err is not due to listener closed, return
+				if opErr, ok := err.(*net.OpError); ok && strings.Contains(opErr.Error(), "closed") {
+					logger.Info("wsfc agent - tcp listener closed.")
+					return
 				}
-				a.waitGroup.Add(1)
-				go a.handleHealthCheckRequest(conn)
+
+				logger.Errorln("wsfc agent - error on accepting request: ", err)
+				continue
 			}
+			a.waitGroup.Add(1)
+			go a.handleHealthCheckRequest(conn)
 		}
 	}()
 
 	logger.Infoln("wsfc agent stared. Listening on port:", a.port)
-	a.state = running
+	a.listener = listener
 
 	return nil
 }
@@ -216,19 +188,29 @@ func (a *wsfcAgent) handleHealthCheckRequest(conn net.Conn) {
 
 // Stop agent. Will wait for all existing request to be completed.
 func (a *wsfcAgent) stop() error {
-	if a.state == stopped {
+	if a.getState() == stopped {
 		logger.Info("wsfc agent already stopped.")
 		return nil
 	}
 
 	logger.Info("Stopping wsfc agent...")
-	errc := make(chan error)
-	a.closing <- errc
-	return <-errc
+	// close listener first to avoid taking additional request
+	err := a.listener.Close()
+	// wait for exiting request to finish
+	a.waitGroup.Wait()
+	a.listener = nil
+	logger.Info("wsfc agent stopped.")
+	return err
 }
 
+// Get the current state of the agent. If there is a valid listener,
+// return state running and if listener is nil, return stopped
 func (a *wsfcAgent) getState() agentState {
-	return a.state
+	if a.listener != nil {
+		return running
+	}
+
+	return stopped
 }
 
 func (a *wsfcAgent) getPort() string {
@@ -246,10 +228,9 @@ func (a *wsfcAgent) setPort(newPort string) {
 func getWsfcAgentInstance() *wsfcAgent {
 	once.Do(func() {
 		agentInstance = &wsfcAgent{
-			state:     stopped,
 			port:      wsfcDefaultAgentPort,
 			waitGroup: &sync.WaitGroup{},
-			closing:   make(chan chan error),
+			listener:  nil,
 		}
 	})
 
