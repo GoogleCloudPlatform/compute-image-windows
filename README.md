@@ -101,7 +101,7 @@ googet -noconfirm install google-compute-engine-windows google-compute-engine-sy
 
 Install optional packages, `google-compute-engine-auto-updater`:
 ```
-googet -noconfirm install google-compute-engine-auto-updater google-compute-engine-windows-common
+googet -noconfirm install google-compute-engine-auto-updater
 ```
 
 You can view available packages using the `googet available` and installed

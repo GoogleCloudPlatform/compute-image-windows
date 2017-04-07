@@ -194,7 +194,7 @@ func runCmd(c *exec.Cmd, name string) error {
 
 	in := bufio.NewScanner(pr)
 	for in.Scan() {
-		logger.Log.Output(3, name+": "+in.Text())
+		logger.SerialLog.Output(3, name+": "+in.Text())
 	}
 
 	return c.Wait()
@@ -262,11 +262,15 @@ var (
 	// Many of the Google Storage URLs are supported below.
 	// It is preferred that customers specify their object using
 	// its gs://<bucket>/<object> URL.
-	gsRegex = regexp.MustCompile(fmt.Sprintf(`gs://%s/%s`, bucket, object))
+	bucketRegex = regexp.MustCompile(fmt.Sprintf(`^gs://%s/?$`, bucket))
+	gsRegex     = regexp.MustCompile(fmt.Sprintf(`^gs://%s/%s$`, bucket, object))
 	// Check for the Google Storage URLs:
 	// http://<bucket>.storage.googleapis.com/<object>
 	// https://<bucket>.storage.googleapis.com/<object>
-	urlRegex = regexp.MustCompile(fmt.Sprintf(`http[s]?://%s\.storage\.googleapis\.com/%s`, bucket, object))
+	gsHTTPRegex1 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://%s\.storage\.googleapis\.com/%s$`, bucket, object))
+	// http://storage.cloud.google.com/<bucket>/<object>
+	// https://storage.cloud.google.com/<bucket>/<object>
+	gsHTTPRegex2 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://storage\.cloud\.google\.com/%s/%s$`, bucket, object))
 	// Check for the other possible Google Storage URLs:
 	// http://storage.googleapis.com/<bucket>/<object>
 	// https://storage.googleapis.com/<bucket>/<object>
@@ -274,11 +278,11 @@ var (
 	// The following are deprecated but checked:
 	// http://commondatastorage.googleapis.com/<bucket>/<object>
 	// https://commondatastorage.googleapis.com/<bucket>/<object>
-	url2Regex = regexp.MustCompile(fmt.Sprintf(`http[s]?://(?:commondata)?storage\.googleapis\.com/%s/%s`, bucket, object))
+	gsHTTPRegex3 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://(?:commondata)?storage\.googleapis\.com/%s/%s$`, bucket, object))
 )
 
 func findMatch(path string) (string, string) {
-	for _, re := range []*regexp.Regexp{gsRegex, urlRegex, url2Regex} {
+	for _, re := range []*regexp.Regexp{gsRegex, gsHTTPRegex1, gsHTTPRegex2, gsHTTPRegex3} {
 		match := re.FindStringSubmatch(path)
 		if len(match) == 3 {
 			return match[1], match[2]
