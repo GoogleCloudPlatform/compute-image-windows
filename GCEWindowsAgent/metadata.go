@@ -57,6 +57,7 @@ type attributesJSON struct {
 	DisableAccountManager bool   `json:"disable-account-manager,string"`
 	EnableWSFC            bool   `json:"enable-wsfc,string"`
 	WSFCAddresses         string `json:"wsfc-addrs"`
+	WSFCAgentPort         string `json:"wsfc-agent-port"`
 }
 
 func updateEtag(resp *http.Response) {
