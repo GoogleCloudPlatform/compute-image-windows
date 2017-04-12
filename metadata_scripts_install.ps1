@@ -21,3 +21,21 @@ if ($path -notlike "*${install_dir}*") {
 }
 
 & schtasks /create /tn GCEStartup /tr "'${install_dir}\run_startup_scripts.cmd'" /sc onstart /ru System /f
+
+$gpt_ini = "${env:SystemRoot}\System32\GroupPolicy\gpt.ini"
+$scripts_ini = "${env:SystemRoot}\System32\GroupPolicy\Machine\Scripts\scripts.ini""
+if (Test-Path $gpt_ini -or Test-Path $scripts_ini) {
+  return
+}
+
+@'
+[General]
+gPCMachineExtensionNames= [{42B5FAAE-6536-11D2-AE5A-0000F87571E3}{40B6664F-4972-11D1-A7CA-0000F87571E3}]
+Version=1
+'@ | Set-Content -Path $gpt_ini -Encoding ASCII
+
+@'
+[Shutdown]
+0CmdLine=C:\Program Files\Google\Compute Engine\metadata_scripts\run_shutdown_scripts.cmd
+0Parameters=
+'@ | Set-Content -Path $scripts_ini -Encoding ASCII

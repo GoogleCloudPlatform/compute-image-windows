@@ -196,12 +196,20 @@ function Configure-WinRM {
   #>
 
   Write-Log 'Configuring WinRM...'
-  # We're using makecert here because New-SelfSignedCertificate isn't full featured in anything
-  # less than Win10/Server 2016, makecert is installed during imaging on non 2016 machines.
-  try {
-    $cert = New-SelfSignedCertificate -DnsName "$(hostname)" -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddYears(5)
+
+  if (Get-Command Import-PfxCertificate -ErrorAction SilentlyContinue) {
+    $tempDir = "${env:TEMP}\cert"
+    New-Item $tempDir -Type Directory
+    & $script:gce_install_dir\tools\certgen.exe -outDir $tempDir
+
+    if (-not (Test-Path "${tempDir}\cert.p12")) {
+      Write-Log 'Error creating cert, unable to setup WinRM'
+      return
+    }
+    $cert = Import-PfxCertificate -FilePath $tempDir\cert.p12 -CertStoreLocation cert:\LocalMachine\My
+    Remove-Item $tempDir -Recurse
   }
-  catch {
+  else {
     # SHA1 self signed cert using hostname as the SubjectKey and name installed to LocalMachine\My store
     # with enhanced key usage object identifiers of Server Authentication and Client Authentication.
     # https://msdn.microsoft.com/en-us/library/windows/desktop/aa386968(v=vs.85).aspx
@@ -209,17 +217,26 @@ function Configure-WinRM {
     & $script:gce_install_dir\tools\makecert.exe -r -a SHA1 -sk "$(hostname)" -n "CN=$(hostname)" -ss My -sr LocalMachine -eku $eku
     $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=$(hostname)"} | Select-Object -First 1
   }
-  # Configure winrm HTTPS transport using the created cert.
-  $config = '@{Hostname="'+ $(hostname) + '";CertificateThumbprint="' + $cert.Thumbprint + '";Port="5986"}'
-  _RunExternalCMD winrm create winrm/config/listener?Address=*+Transport=HTTPS $config -ErrorAction SilentlyContinue
-  if ($LASTEXITCODE -ne 0) {
-    # Listener has already been setup, we need to edit it in place.
-    _RunExternalCMD winrm set winrm/config/listener?Address=*+Transport=HTTPS $config
+
+  $xml = @"
+<p:Listener xmlns:p="http://schemas.microsoft.com/wbem/wsman/1/config/listener.xsd">
+<p:Enabled>True</p:Enabled>
+<p:URLPrefix>wsman</p:URLPrefix>
+<p:CertificateThumbPrint>$($cert.Thumbprint)</p:CertificateThumbPrint>
+</p:Listener>
+"@
+
+  $sess = (New-Object -ComObject 'WSMAN.Automation').CreateSession()
+  try {
+    $sess.Create('winrm/config/listener?Address=*+Transport=HTTPS', $xml)
   }
+  catch {
+    $sess.Put('winrm/config/listener?Address=*+Transport=HTTPS', $xml)
+  }
+
   # Open the firewall.
   $rule = 'Windows Remote Management (HTTPS-In)'
   _RunExternalCMD netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
-
   Restart-Service WinRM
   Write-Log 'Setup of WinRM complete.'
 }
@@ -287,19 +304,19 @@ else {
   Enable-RemoteDesktop
   Configure-WinRM
 
-  Wait-Job $activate_job | Receive-Job | ForEach-Object {
-    Write-Log $_
-  }
-
   # Schedule startup script.
   Write-Log 'Adding startup scripts from metadata server.'
   $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
   _RunExternalCMD schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
   _RunExternalCMD schtasks /run /tn GCEStartup
 
-  Write-Log "Instance setup finished. $global:hostname is ready to use." -important
+  Write-Log "Instance setup finished. $global:hostname is ready to use. Activation will continue in the background." -important
 
   if (Test-Path $script:setupcomplete_loc) {
     Remove-Item -Path $script:setupcomplete_loc -Force
+  }
+
+  Wait-Job $activate_job | Receive-Job | ForEach-Object {
+    Write-Log $_
   }
 }

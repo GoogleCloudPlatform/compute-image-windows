@@ -6,11 +6,7 @@
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
   "description": "Google Compute Engine metadata scripts",
   "files": {
-    "metadata_scripts/gpt.ini": "<SystemRoot>/System32/GroupPolicy/gpt.ini",
-    "metadata_scripts/scripts.ini": "<SystemRoot>/System32/GroupPolicy/Machine/Scripts/scripts.ini",
-    "metadata_scripts/run_startup_scripts.cmd": "<ProgramFiles>/Google/Compute Engine/metadata_scripts/run_startup_scripts.cmd",
-    "metadata_scripts/run_shutdown_scripts.cmd": "<ProgramFiles>/Google/Compute Engine/metadata_scripts/run_shutdown_scripts.cmd",
-    "metadata_scripts/GCEMetadataScripts.exe": "<ProgramFiles>/Google/Compute Engine/metadata_scripts/GCEMetadataScripts.exe"
+    "metadata_scripts": "<ProgramFiles>/Google/Compute Engine/metadata_scripts"
   },
  "install": {
     "path": "metadata_scripts_install.ps1"
@@ -27,8 +23,6 @@
       "include": [
         "metadata_scripts/run_shutdown_scripts.cmd",
         "metadata_scripts/run_startup_scripts.cmd",
-        "metadata_scripts/gpt.ini",
-        "metadata_scripts/scripts.ini",
         "metadata_scripts/GCEMetadataScripts.exe",
         "metadata_scripts_install.ps1",
         "metadata_scripts_uninstall.ps1"
