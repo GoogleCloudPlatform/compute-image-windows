@@ -7,6 +7,7 @@
   "description": "Google Compute Engine Windows agent",
   "files": {
     "GCEAgent.exe": "<ProgramFiles>/Google/Compute Engine/agent/GCEWindowsAgent.exe"
+    "instance_configs.cfg": "<ProgramFiles>/Google/Compute Engine/instance_configs.cfg"
   },
   "install": {
     "path": "agent_install.ps1"
@@ -22,7 +23,8 @@
       "include": [
         "agent_install.ps1",
         "agent_uninstall.ps1",
-        "GCEWindowsAgent.exe"
+        "GCEWindowsAgent.exe",
+        "instance_configs.cfg"
       ]
   }],
  "build": {

@@ -12,25 +12,44 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-$url = 'http://metadata.google.internal/computeMetadata/v1/instance/attributes?recursive=true&alt=json&timeout_sec=10&last_etag='
+function Get-MetadataBool {
+  param(
+    [string]$Path
+  )
+  $url = 'http://metadata.google.internal/computeMetadata/v1/' + $Path
+  Add-Type -AssemblyName System.Net.Http
+  $client = New-Object System.Net.Http.HttpClient
+  $request = New-Object System.Net.Http.HttpRequestMessage -ArgumentList @([System.Net.Http.HttpMethod]::Get, $url)
+  $request.Headers.Add('Metadata-Flavor', 'Google')
+  $responseMsg = $client.SendAsync($request)
+  $responseMsg.Wait()
 
-$client = New-Object System.Net.Http.HttpClient
-$request = New-Object System.Net.Http.HttpRequestMessage -ArgumentList @([System.Net.Http.HttpMethod]::Get, $url)
-$request.Headers.Add('Metadata-Flavor', 'Google')
-$responseMsg = $client.SendAsync($request)
-$responseMsg.Wait()
+  $response = $responseMsg.Result
+  if ($response.IsSuccessStatusCode) {
+    $contentMsg = $response.Content.ReadAsStringAsync()
+      try {
+    $disable = [bool]::Parse(($contentMsg.Result).Trim())
+    }
+    catch [FormatException] {
+      Write-Error "Error parsing metadata."
+      return $true
+    }
+  }
+  else {
+    Write-Host "URL: $url, status code: $($response.StatusCode)"
+    return $false
+  }
 
-$response = $responseMsg.Result
-if ($response.IsSuccessStatusCode) {
-  $contentMsg = $responseMsg.Result.Content.ReadAsStringAsync()
-  $metadata = ($contentMsg.Result).Trim() | ConvertFrom-Json
+  return $disable
 }
-else {
-  Write-Error "Error updating agent. Status code $($response.StatusCode)."
-  exit 1
+
+$url = 'instance/attributes/disable-agent-updates'
+if (Get-MetadataBool $url) {
+  return
 }
 
-if ($metadata.'disable-agent-updates' -eq $true) {
+$url = 'project/attributes/disable-agent-updates'
+if (Get-MetadataBool $url) {
   return
 }
 

@@ -21,11 +21,17 @@ import (
 	"sync"
 	"time"
 
+	"io/ioutil"
+
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
+	"github.com/go-ini/ini"
 	"github.com/tarm/serial"
 )
 
-const regKeyBase = `SOFTWARE\Google\ComputeEngine`
+const (
+	configPath = `C:\Program Files\Google\Compute Engine\instance_configs.cfg`
+	regKeyBase = `SOFTWARE\Google\ComputeEngine`
+)
 
 func writeSerial(port string, msg []byte) error {
 	c := &serial.Config{Name: port, Baud: 115200}
@@ -59,17 +65,35 @@ func logStatus(name string, disabled bool) {
 	logger.Infof("GCE %s manager status: %s", name, status)
 }
 
+func parseConfig(file string) (*ini.File, error) {
+	d, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	return ini.InsensitiveLoad(d)
+}
+
 func runUpdate(newMetadata, oldMetadata *metadataJSON) {
+	cfg, err := parseConfig(configPath)
+	if err != nil && err != os.ErrNotExist {
+		logger.Error(err)
+	}
+	if cfg == nil {
+		cfg = &ini.File{}
+	}
+
 	var wg sync.WaitGroup
 	addressMgr := &addresses{
 		oldMetadata: oldMetadata,
 		newMetadata: newMetadata,
+		config:      cfg,
 	}
 	acctMgr := &accounts{
 		oldMetadata: oldMetadata,
 		newMetadata: newMetadata,
+		config:      cfg,
 	}
-	wsfcMgr := newWsfcManager(newMetadata)
+	wsfcMgr := newWsfcManager(newMetadata, cfg)
 
 	for _, mgr := range []manager{addressMgr, acctMgr, wsfcMgr} {
 		wg.Add(1)

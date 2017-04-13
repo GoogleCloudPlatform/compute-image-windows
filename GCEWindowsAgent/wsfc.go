@@ -19,8 +19,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"strconv"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
+	"github.com/go-ini/ini"
 )
 
 const wsfcDefaultAgentPort = "59998"
@@ -48,15 +50,31 @@ type wsfcManager struct {
 // agent request state will be set to running if one of the following is true:
 // - EnableWSFC is set
 // - WSFCAddresses is set (As an advanced setting, it will always override EnableWSFC flag)
-func newWsfcManager(newMetadata *metadataJSON) *wsfcManager {
+func newWsfcManager(newMetadata *metadataJSON, config *ini.File) *wsfcManager {
 	newState := stopped
-	if newMetadata.Instance.Attributes.EnableWSFC ||
-		len(newMetadata.Instance.Attributes.WSFCAddresses) > 0 {
+
+	enabled, err := config.Section("wsfc").Key("enabled").Bool()
+	if (err == nil && enabled) || len(config.Section("wsfc").Key("addresses").String()) > 0 {
 		newState = running
+	} else if err != nil {
+		enabled, err = strconv.ParseBool(newMetadata.Instance.Attributes.EnableWSFC)
+		if (err == nil && enabled) || len(newMetadata.Instance.Attributes.WSFCAddresses) > 0 {
+			newState = running
+		} else if err != nil {
+			enabled, err = strconv.ParseBool(newMetadata.Project.Attributes.EnableWSFC)
+			if (err == nil && enabled) || len(newMetadata.Project.Attributes.WSFCAddresses) > 0 {
+				newState = running
+			}
+		}
 	}
 
 	newPort := wsfcDefaultAgentPort
-	if len(newMetadata.Instance.Attributes.WSFCAgentPort) > 0 {
+	port := config.Section("wsfc").Key("port").String()
+	if len(port) > 0 {
+		newPort = port
+	} else if len(newMetadata.Instance.Attributes.WSFCAgentPort) > 0 {
+		newPort = newMetadata.Instance.Attributes.WSFCAgentPort
+	} else if len(newMetadata.Project.Attributes.WSFCAgentPort) > 0 {
 		newPort = newMetadata.Instance.Attributes.WSFCAgentPort
 	}
 
@@ -70,8 +88,7 @@ func (m *wsfcManager) diff() bool {
 
 // Implement manager.disabled().
 // wsfc manager is always enabled. The manager is just a broker which manages the state of wsfcAgent. User
-// can disable the wsfc feature by setting the metadata. If the manager is disabled, the agent will become
-// an orphan goroutine if it is currently running and no one can talk to it.
+// can disable the wsfc feature by setting the metadata. If the manager is disabled, the agent will stop.
 func (m *wsfcManager) disabled() bool {
 	return false
 }

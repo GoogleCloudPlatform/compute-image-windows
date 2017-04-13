@@ -21,9 +21,11 @@ import (
 	"net"
 	"reflect"
 	"testing"
+
+	"github.com/go-ini/ini"
 )
 
-func setEnableWSFC(metadata metadataJSON, enabled bool) *metadataJSON {
+func setEnableWSFC(metadata metadataJSON, enabled string) *metadataJSON {
 	metadata.Instance.Attributes.EnableWSFC = enabled
 	return &metadata
 }
@@ -54,16 +56,14 @@ func TestNewWsfcManager(t *testing.T) {
 		want *wsfcManager
 	}{
 		{"empty meta config", args{&testMetadata}, &wsfcManager{agentNewState: stopped, agentNewPort: wsfcDefaultAgentPort, agent: testAgent}},
-		{"wsfc enabled", args{setEnableWSFC(testMetadata, true)}, &wsfcManager{agentNewState: running, agentNewPort: wsfcDefaultAgentPort, agent: testAgent}},
+		{"wsfc enabled", args{setEnableWSFC(testMetadata, "true")}, &wsfcManager{agentNewState: running, agentNewPort: wsfcDefaultAgentPort, agent: testAgent}},
 		{"wsfc addrs is set", args{setWSFCAddresses(testMetadata, "0.0.0.0")}, &wsfcManager{agentNewState: running, agentNewPort: wsfcDefaultAgentPort, agent: testAgent}},
 		{"wsfc port is set", args{setWSFCAgentPort(testMetadata, "1818")}, &wsfcManager{agentNewState: stopped, agentNewPort: "1818", agent: testAgent}},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := newWsfcManager(tt.args.newMetadata); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("newWsfcManager() = %v, want %v", got, tt.want)
-			}
-		})
+		if got := newWsfcManager(tt.args.newMetadata, ini.Empty()); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("test case %q: newWsfcManager() = %v, want %v", tt.name, got, tt.want)
+		}
 	}
 }
 
@@ -80,11 +80,10 @@ func TestWsfcManagerDiff(t *testing.T) {
 		{"state does not change both stopped", &wsfcManager{agentNewState: stopped, agent: &wsfcAgent{listener: nil}}, false},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.m.diff(); got != tt.want {
-				t.Errorf("wsfcManager.diff() = %v, want %v", got, tt.want)
-			}
-		})
+		if got := tt.m.diff(); got != tt.want {
+			t.Errorf("test case %q: wsfcManager.diff() = %v, want %v", tt.name, got, tt.want)
+		}
+
 	}
 }
 
@@ -157,24 +156,22 @@ func TestWsfcManagerSet(t *testing.T) {
 		{"set do nothing", &wsfcManager{agentNewState: stopped, agentNewPort: "1", agent: &mockAgent{state: stopped, port: "0"}}, false, false, false},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.m.set(); (err != nil) != tt.wantErr {
-				t.Errorf("wsfcManager.set() error = %v, wantErr %v", err, tt.wantErr)
-			}
+		if err := tt.m.set(); (err != nil) != tt.wantErr {
+			t.Errorf("wsfcManager.set() error = %v, wantErr %v", err, tt.wantErr)
+		}
 
-			mAgent := tt.m.agent.(*mockAgent)
-			if gotRunInvoked := mAgent.runInvoked; gotRunInvoked != tt.runInvoked {
-				t.Errorf("wsfcManager.set() runInvoked = %v, want %v", gotRunInvoked, tt.runInvoked)
-			}
+		mAgent := tt.m.agent.(*mockAgent)
+		if gotRunInvoked := mAgent.runInvoked; gotRunInvoked != tt.runInvoked {
+			t.Errorf("wsfcManager.set() runInvoked = %v, want %v", gotRunInvoked, tt.runInvoked)
+		}
 
-			if gotStopInvoked := mAgent.stopInvoked; gotStopInvoked != tt.stopInvoked {
-				t.Errorf("wsfcManager.set() stopInvoked = %v, want %v", gotStopInvoked, tt.stopInvoked)
-			}
+		if gotStopInvoked := mAgent.stopInvoked; gotStopInvoked != tt.stopInvoked {
+			t.Errorf("wsfcManager.set() stopInvoked = %v, want %v", gotStopInvoked, tt.stopInvoked)
+		}
 
-			if tt.m.agentNewPort != mAgent.port {
-				t.Errorf("wsfcManager.set() does not set prot, agent port = %v, want %v", mAgent.port, tt.m.agentNewPort)
-			}
-		})
+		if tt.m.agentNewPort != mAgent.port {
+			t.Errorf("wsfcManager.set() does not set prot, agent port = %v, want %v", mAgent.port, tt.m.agentNewPort)
+		}
 	}
 }
 

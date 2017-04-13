@@ -14,20 +14,33 @@
 
 package main
 
-import "testing"
+import (
+	"errors"
+	"net"
+)
 
-func TestContainsString(t *testing.T) {
-	table := []struct {
-		a     string
-		slice []string
-		want  bool
-	}{
-		{"a", []string{"a", "b"}, true},
-		{"c", []string{"a", "b"}, false},
-	}
-	for _, tt := range table {
-		if got, want := containsString(tt.a, tt.slice), tt.want; got != want {
-			t.Errorf("containsString(%s, %v) incorrect return: got %v, want %t", tt.a, tt.slice, got, want)
-		}
-	}
+var errRegNotExist = errors.New("error")
+
+func resetPwd(username, pwd string) error {
+	return nil
+}
+
+func createAdminUser(username, pwd string) error {
+	return nil
+}
+
+func readRegMultiString(key, name string) ([]string, error) {
+	return nil, nil
+}
+
+func writeRegMultiString(key, name string, value []string) error {
+	return nil
+}
+
+func addIPAddress(ip, mask net.IP, index int) error {
+	return nil
+}
+
+func deleteIPAddress(ip net.IP) error {
+	return nil
 }

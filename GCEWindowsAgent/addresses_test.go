@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+
+	"github.com/go-ini/ini"
 )
 
 func TestCompareIPs(t *testing.T) {
@@ -57,6 +59,78 @@ func TestCompareIPs(t *testing.T) {
 
 }
 
+func TestAddressDisabled(t *testing.T) {
+	var tests = []struct {
+		name string
+		data []byte
+		md   *metadataJSON
+		want bool
+	}{
+		{"not explicitly disabled", []byte(""), &metadataJSON{}, false},
+		{"enabled in cfg only", []byte("[addressManager]\ndisable=false"), &metadataJSON{}, false},
+		{"disabled in cfg only", []byte("[addressManager]\ndisable=true"), &metadataJSON{}, true},
+		{"disabled in cfg, enabled in instance metadata", []byte("[addressManager]\ndisable=true"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: "false"}}}, true},
+		{"enabled in cfg, disabled in instance metadata", []byte("[addressManager]\ndisable=false"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: "true"}}}, false},
+		{"enabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: "false"}}}, false},
+		{"enabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{DisableAddressManager: "false"}}}, false},
+		{"disabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: "true"}}}, true},
+		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: "false"}}, Project: projectJSON{Attributes: attributesJSON{DisableAddressManager: "true"}}}, false},
+		{"disabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{DisableAddressManager: "true"}}}, true},
+	}
+
+	for _, tt := range tests {
+		cfg, err := ini.InsensitiveLoad(tt.data)
+		if err != nil {
+			t.Errorf("test case %q: error parsing config: %v", tt.name, err)
+			continue
+		}
+		if cfg == nil {
+			cfg = &ini.File{}
+		}
+		got := (&addresses{newMetadata: tt.md, config: cfg}).disabled()
+		if got != tt.want {
+			t.Errorf("test case %q, disabled? got: %t, want: %t", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestAddressDiff(t *testing.T) {
+	var tests = []struct {
+		name string
+		data []byte
+		md   *metadataJSON
+		want bool
+	}{
+		{"not set", []byte(""), &metadataJSON{}, false},
+		{"enabled in cfg only", []byte("[wsfc]\nenable=true"), &metadataJSON{}, true},
+		{"disabled in cfg only", []byte("[wsfc]\nenable=false"), &metadataJSON{}, false},
+		{"disabled in cfg, enabled in instance metadata", []byte("[wsfc]\nenable=false"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableWSFC: "true"}}}, false},
+		{"enabled in cfg, disabled in instance metadata", []byte("[wsfc]\nenable=true"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableWSFC: "false"}}}, true},
+		{"enabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableWSFC: "true"}}}, true},
+		{"enabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{EnableWSFC: "true"}}}, true},
+		{"disabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableWSFC: "false"}}}, false},
+		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableWSFC: "true"}}, Project: projectJSON{Attributes: attributesJSON{EnableWSFC: "false"}}}, true},
+		{"disabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{EnableWSFC: "false"}}}, false},
+	}
+
+	oldMetadata := &metadataJSON{}
+	for _, tt := range tests {
+		cfg, err := ini.InsensitiveLoad(tt.data)
+		if err != nil {
+			t.Errorf("test case %q: error parsing config: %v", tt.name, err)
+			continue
+		}
+		if cfg == nil {
+			cfg = &ini.File{}
+		}
+		oldWSFCEnable = false
+		got := (&addresses{oldMetadata: oldMetadata, newMetadata: tt.md, config: cfg}).diff()
+		if got != tt.want {
+			t.Errorf("test case %q, addresses.diff() got: %t, want: %t", tt.name, got, tt.want)
+		}
+	}
+}
+
 func TestWsfcFilter(t *testing.T) {
 	var tests = []struct {
 		metaData    []byte
@@ -80,7 +154,7 @@ func TestWsfcFilter(t *testing.T) {
 			t.Error("invalid test case:", tt, err)
 		}
 
-		testAddress := addresses{&metadata, nil}
+		testAddress := addresses{&metadata, nil, nil}
 		testAddress.applyWSFCFilter()
 
 		forwardedIps := []string{}
@@ -96,28 +170,20 @@ func TestWsfcFilter(t *testing.T) {
 
 func TestWsfcFlagTriggerAddressDiff(t *testing.T) {
 	var tests = []struct {
-		newMetadata, oldMetadata []byte
+		newMetadata, oldMetadata *metadataJSON
 	}{
-		// trigger diff on enable-wsfc
-		{[]byte(`{"instance":{"attributes":{"enable-wsfc":"true"}}}`), nil},
-		// trigger diff on enable-wsfc
-		{[]byte(`{"instance":{"attributes":{"enable-wsfc":"false"}}}`), []byte(`{"instance":{"attributes":{"enable-wsfc":"true"}}}`)},
 		// trigger diff on wsfc-addrs
-		{[]byte(`{"instance":{"attributes":{"wsfc-addrs":"192.168.0.1"}}}`), []byte(`{"instance":{"attributes":{}}}`)},
-		// trigger diff on wsfc-addrs
-		{[]byte(`{"instance":{"attributes":{"wsfc-addrs":"192.168.0.1"}}}`), []byte(`{"instance":{"attributes":{"wsfc-addrs":"192.168.0.2"}}}`)},
+		{&metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.1"}}}, &metadataJSON{}},
+		{&metadataJSON{Project: projectJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.1"}}}, &metadataJSON{}},
+		{&metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.1"}}}, &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.2"}}}},
+		{&metadataJSON{Project: projectJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.1"}}}, &metadataJSON{Project: projectJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.2"}}}},
 	}
 
 	for _, tt := range tests {
-		var newMetadata metadataJSON
-		var oldMetadata metadataJSON
-		json.Unmarshal(tt.newMetadata, &newMetadata)
-		json.Unmarshal(tt.oldMetadata, &oldMetadata)
-
-		testAddress := addresses{&newMetadata, &oldMetadata}
-
+		oldWSFCAddresses = tt.oldMetadata.Instance.Attributes.WSFCAddresses
+		testAddress := addresses{tt.newMetadata, tt.oldMetadata, ini.Empty()}
 		if !testAddress.diff() {
-			t.Errorf("old: %q new: %q does't tirgger diff.", tt.oldMetadata, tt.newMetadata)
+			t.Errorf("old: %q new: %q doesn't tirgger diff.", tt.oldMetadata, tt.newMetadata)
 		}
 	}
 }

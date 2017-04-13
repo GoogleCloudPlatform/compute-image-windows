@@ -17,32 +17,77 @@ package main
 import (
 	"net"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
+	"github.com/go-ini/ini"
 )
 
-var addressDisabled = false
-var addressKey = regKeyBase + `\ForwardedIps`
+var (
+	addressDisabled  = false
+	addressKey       = regKeyBase + `\ForwardedIps`
+	oldWSFCAddresses string
+	oldWSFCEnable    bool
+)
 
 type addresses struct {
 	newMetadata, oldMetadata *metadataJSON
+	config                   *ini.File
 }
 
 func (a *addresses) diff() bool {
-	return !reflect.DeepEqual(a.newMetadata.Instance.NetworkInterfaces, a.oldMetadata.Instance.NetworkInterfaces) ||
-		a.newMetadata.Instance.Attributes.WSFCAddresses != a.oldMetadata.Instance.Attributes.WSFCAddresses ||
-		a.newMetadata.Instance.Attributes.EnableWSFC != a.oldMetadata.Instance.Attributes.EnableWSFC
-}
-
-func (a *addresses) disabled() bool {
-	d := a.newMetadata.Instance.Attributes.DisableAddressManager
-	if d != addressDisabled {
-		addressDisabled = d
-		logStatus("address", d)
+	wsfcAddresses := a.config.Section("wsfc").Key("addresses").String()
+	if len(wsfcAddresses) == 0 {
+		if len(a.newMetadata.Instance.Attributes.WSFCAddresses) > 0 {
+			wsfcAddresses = a.newMetadata.Instance.Attributes.WSFCAddresses
+		} else if len(a.newMetadata.Project.Attributes.WSFCAddresses) > 0 {
+			wsfcAddresses = a.newMetadata.Project.Attributes.WSFCAddresses
+		}
 	}
 
-	return d
+	wsfcEnable, err := a.config.Section("wsfc").Key("enable").Bool()
+	if err != nil {
+		wsfcEnable, err = strconv.ParseBool(a.newMetadata.Instance.Attributes.EnableWSFC)
+		if err != nil {
+			wsfcEnable, err = strconv.ParseBool(a.newMetadata.Project.Attributes.EnableWSFC)
+			if err != nil {
+				wsfcEnable = false
+			}
+		}
+	}
+
+	diff := !reflect.DeepEqual(a.newMetadata.Instance.NetworkInterfaces, a.oldMetadata.Instance.NetworkInterfaces) ||
+		wsfcEnable != oldWSFCEnable || wsfcAddresses != oldWSFCAddresses
+
+	oldWSFCAddresses = wsfcAddresses
+	oldWSFCEnable = wsfcEnable
+	return diff
+}
+
+func (a *addresses) disabled() (disabled bool) {
+	var err error
+
+	defer func() {
+		if disabled != addressDisabled {
+			addressDisabled = disabled
+			logStatus("address", disabled)
+		}
+	}()
+
+	disabled, err = strconv.ParseBool(a.config.Section("addressManager").Key("disable").String())
+	if err == nil {
+		return disabled
+	}
+	disabled, err = strconv.ParseBool(a.newMetadata.Instance.Attributes.DisableAddressManager)
+	if err == nil {
+		return disabled
+	}
+	disabled, err = strconv.ParseBool(a.newMetadata.Project.Attributes.DisableAddressManager)
+	if err == nil {
+		return disabled
+	}
+	return addressDisabled
 }
 
 func compareIPs(regFwdIPs, mdFwdIPs, cfgIPs []string) (toAdd []string, toRm []string) {
@@ -178,7 +223,7 @@ func (a *addresses) applyWSFCFilter() {
 
 			interfaces[idx].ForwardedIps = filteredList
 		}
-	} else if a.newMetadata.Instance.Attributes.EnableWSFC {
+	} else if len(a.newMetadata.Instance.Attributes.EnableWSFC) > 0 {
 		for idx := range a.newMetadata.Instance.NetworkInterfaces {
 			a.newMetadata.Instance.NetworkInterfaces[idx].ForwardedIps = nil
 		}
