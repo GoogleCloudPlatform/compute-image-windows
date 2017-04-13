@@ -160,12 +160,12 @@ func TestCompareAccounts(t *testing.T) {
 	}{
 		// These should return toAdd:
 		// In MD, not Reg
-		{[]windowsKeyJSON{windowsKeyJSON{UserName: "foo"}}, nil, []windowsKeyJSON{windowsKeyJSON{UserName: "foo"}}},
-		{[]windowsKeyJSON{windowsKeyJSON{UserName: "foo"}}, []string{`{"UserName":"bar"}`}, []windowsKeyJSON{windowsKeyJSON{UserName: "foo"}}},
+		{[]windowsKeyJSON{{UserName: "foo"}}, nil, []windowsKeyJSON{{UserName: "foo"}}},
+		{[]windowsKeyJSON{{UserName: "foo"}}, []string{`{"UserName":"bar"}`}, []windowsKeyJSON{{UserName: "foo"}}},
 
 		// These should return nothing:
 		// In Reg and Md
-		{[]windowsKeyJSON{windowsKeyJSON{UserName: "foo"}}, []string{`{"UserName":"foo"}`}, nil},
+		{[]windowsKeyJSON{{UserName: "foo"}}, []string{`{"UserName":"foo"}`}, nil},
 		// In Md, not Reg
 		{nil, []string{`{UserName":"foo"}`}, nil},
 	}

@@ -119,7 +119,7 @@ func addToGroup(username, group string) error {
 		return err
 	}
 
-	sArray := []LOCALGROUP_MEMBERS_INFO_0{LOCALGROUP_MEMBERS_INFO_0{sid}}
+	sArray := []LOCALGROUP_MEMBERS_INFO_0{{sid}}
 	ret, _, _ := procNetLocalGroupAddMembers.Call(
 		uintptr(0),
 		uintptr(unsafe.Pointer(gPtr)),

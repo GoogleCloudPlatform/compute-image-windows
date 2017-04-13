@@ -16,10 +16,10 @@ package main
 
 import (
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"strconv"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 	"github.com/go-ini/ini"

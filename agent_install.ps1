@@ -25,10 +25,10 @@ if (-not (Test-Path $config)) {
 # on what can be configured.
 
 # [accountManager]
-# enabled=true
+# disable=false
 
 # [addressManager]
-# enabled=true
+# disable=false
 '@ | Set-Content -Path $config -Encoding ASCII
 }
 
