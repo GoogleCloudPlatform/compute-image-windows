@@ -29,11 +29,7 @@
       ]
   }],
   "build": {
-    "linux": "/bin/bash",
-    "linuxArgs": [
-      "-c",
-      "GOOS=windows go build -o ./metadata_scripts/GCEMetadataScripts.exe ./metadata_scripts/GCEMetadataScripts"
-    ]
+    "linux": "./metadata_scripts_build.sh"
   }
 }
 

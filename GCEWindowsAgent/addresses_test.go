@@ -16,9 +16,15 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"reflect"
 	"testing"
 
+	"bytes"
+
+	"fmt"
+
+	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 	"github.com/go-ini/ini"
 )
 
@@ -185,5 +191,33 @@ func TestWsfcFlagTriggerAddressDiff(t *testing.T) {
 		if !testAddress.diff() {
 			t.Errorf("old: %q new: %q doesn't tirgger diff.", tt.oldMetadata, tt.newMetadata)
 		}
+	}
+}
+
+func TestAddressLogStatus(t *testing.T) {
+	var buf bytes.Buffer
+	logger.Init("test", "")
+	logger.SerialLog = log.New(&buf, "", 0)
+
+	// Disable it.
+	addressDisabled = false
+	disabled := (&addresses{newMetadata: &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: "true"}}}, config: ini.Empty()}).disabled()
+	if !disabled {
+		t.Fatal("expected true but got", disabled)
+	}
+	want := fmt.Sprintln("test: GCE address manager status: disabled")
+	if buf.String() != want {
+		t.Errorf("got: %q, want: %q", buf.String(), want)
+	}
+	buf.Reset()
+
+	// Enable it.
+	disabled = (&addresses{newMetadata: &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: "false"}}}, config: ini.Empty()}).disabled()
+	if disabled {
+		t.Fatal("expected false but got", disabled)
+	}
+	want = fmt.Sprintln("test: GCE address manager status: enabled")
+	if buf.String() != want {
+		t.Errorf("got: %q, want: %q", buf.String(), want)
 	}
 }

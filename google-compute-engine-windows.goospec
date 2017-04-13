@@ -1,13 +1,12 @@
 {
   "name": "google-compute-engine-windows",
-  "version": "4.0.0@3",
+  "version": "4.1.0@1",
   "arch": "x86_64",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
   "description": "Google Compute Engine Windows agent",
   "files": {
-    "GCEAgent.exe": "<ProgramFiles>/Google/Compute Engine/agent/GCEWindowsAgent.exe"
-    "instance_configs.cfg": "<ProgramFiles>/Google/Compute Engine/instance_configs.cfg"
+    "GCEWindowsAgent.exe": "<ProgramFiles>/Google/Compute Engine/agent/GCEWindowsAgent.exe"
   },
   "install": {
     "path": "agent_install.ps1"
@@ -16,6 +15,7 @@
     "path": "agent_uninstall.ps1"
   },
   "releaseNotes": [
+    "4.1.0 - Add configuration file",
     "4.0.0 - Rewrite GCEAgent in Go",
     "3.5.0 - Pull the Windows agent out into its own package"
   ],
@@ -23,12 +23,10 @@
       "include": [
         "agent_install.ps1",
         "agent_uninstall.ps1",
-        "GCEWindowsAgent.exe",
-        "instance_configs.cfg"
+        "GCEWindowsAgent.exe"
       ]
   }],
  "build": {
-    "linux": "/bin/bash",
-    "linuxArgs": ["-c", "GOOS=windows go build ./GCEWindowsAgent"]
+    "linux": "./agent_build.sh"
   }
 }

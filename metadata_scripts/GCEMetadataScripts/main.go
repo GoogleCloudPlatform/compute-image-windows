@@ -46,6 +46,7 @@ var (
 		bat: "%s-script-bat",
 		url: "%s-script-url",
 	}
+	version string
 )
 
 const (
@@ -325,7 +326,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Infof("Starting %s scripts.", os.Args[1])
+	logger.Infof("Starting %s scripts (verison %s).", os.Args[1], version)
 
 	scripts, err := getScripts(metadata)
 	if err != nil {

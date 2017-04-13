@@ -28,6 +28,8 @@ import (
 	"github.com/tarm/serial"
 )
 
+var version string
+
 const (
 	configPath = `C:\Program Files\Google\Compute Engine\instance_configs.cfg`
 	regKeyBase = `SOFTWARE\Google\ComputeEngine`
@@ -111,7 +113,7 @@ func runUpdate(newMetadata, oldMetadata *metadataJSON) {
 }
 
 func run(ctx context.Context) {
-	logger.Info("GCE Agent Started")
+	logger.Infof("GCE Agent Started (version %s)", version)
 
 	go func() {
 		var oldMetadata metadataJSON
