@@ -76,10 +76,10 @@ func TestParseMetadata(t *testing.T) {
 	}
 
 	want := []metadataScript{
-		metadataScript{Type: ps1, Script: "ps1", Metadata: "sysprep-specialize-script-ps1"},
-		metadataScript{Type: cmd, Script: "cmd", Metadata: "sysprep-specialize-script-cmd"},
-		metadataScript{Type: bat, Script: "bat", Metadata: "sysprep-specialize-script-bat"},
-		metadataScript{Type: url, Script: "url", Metadata: "sysprep-specialize-script-url"},
+		{Type: ps1, Script: "ps1", Metadata: "sysprep-specialize-script-ps1"},
+		{Type: cmd, Script: "cmd", Metadata: "sysprep-specialize-script-cmd"},
+		{Type: bat, Script: "bat", Metadata: "sysprep-specialize-script-bat"},
+		{Type: url, Script: "url", Metadata: "sysprep-specialize-script-url"},
 	}
 	got := parseMetadata(mdsm, md)
 	if !reflect.DeepEqual(got, want) {

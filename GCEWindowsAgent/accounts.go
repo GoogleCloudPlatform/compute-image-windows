@@ -25,10 +25,12 @@ import (
 	"math/big"
 	"os/user"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
+	"github.com/go-ini/ini"
 )
 
 var (
@@ -158,20 +160,35 @@ func createcredsJSON(k windowsKeyJSON, pwd string) (*credsJSON, error) {
 
 type accounts struct {
 	newMetadata, oldMetadata *metadataJSON
+	config                   *ini.File
 }
 
 func (a *accounts) diff() bool {
 	return !reflect.DeepEqual(a.newMetadata.Instance.Attributes.WindowsKeys, a.oldMetadata.Instance.Attributes.WindowsKeys)
 }
 
-func (a *accounts) disabled() bool {
-	d := a.newMetadata.Instance.Attributes.DisableAccountManager
-	if d != accountDisabled {
-		accountDisabled = d
-		logStatus("account", d)
-	}
+func (a *accounts) disabled() (disabled bool) {
+	defer func() {
+		if disabled != accountDisabled {
+			accountDisabled = disabled
+			logStatus("account", disabled)
+		}
+	}()
 
-	return d
+	var err error
+	disabled, err = strconv.ParseBool(a.config.Section("accountManager").Key("disable").String())
+	if err == nil {
+		return disabled
+	}
+	disabled, err = strconv.ParseBool(a.newMetadata.Instance.Attributes.DisableAccountManager)
+	if err == nil {
+		return disabled
+	}
+	disabled, err = strconv.ParseBool(a.newMetadata.Project.Attributes.DisableAccountManager)
+	if err == nil {
+		return disabled
+	}
+	return accountDisabled
 }
 
 type credsJSON struct {

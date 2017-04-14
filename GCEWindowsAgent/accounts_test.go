@@ -19,11 +19,18 @@ import (
 	"crypto/rsa"
 	"crypto/sha1"
 	"encoding/base64"
+	"log"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
 	"unicode"
+
+	"bytes"
+	"fmt"
+
+	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
+	"github.com/go-ini/ini"
 )
 
 func TestExpired(t *testing.T) {
@@ -40,6 +47,41 @@ func TestExpired(t *testing.T) {
 		k := windowsKeyJSON{ExpireOn: tt.sTime}
 		if tt.e != k.expired() {
 			t.Errorf("windowsKeyJSON.expired() with ExpiredOn %q should return %t", k.ExpireOn, tt.e)
+		}
+	}
+}
+
+func TestAccountsDisabled(t *testing.T) {
+	var tests = []struct {
+		name string
+		data []byte
+		md   *metadataJSON
+		want bool
+	}{
+		{"not explicitly disabled", []byte(""), &metadataJSON{}, false},
+		{"enabled in cfg only", []byte("[accountManager]\ndisable=false"), &metadataJSON{}, false},
+		{"disabled in cfg only", []byte("[accountManager]\ndisable=true"), &metadataJSON{}, true},
+		{"disabled in cfg, enabled in instance metadata", []byte("[accountManager]\ndisable=true"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "false"}}}, true},
+		{"enabled in cfg, disabled in instance metadata", []byte("[accountManager]\ndisable=false"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "true"}}}, false},
+		{"enabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "false"}}}, false},
+		{"enabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{DisableAccountManager: "false"}}}, false},
+		{"disabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "true"}}}, true},
+		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "false"}}, Project: projectJSON{Attributes: attributesJSON{DisableAccountManager: "true"}}}, false},
+		{"disabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{DisableAccountManager: "true"}}}, true},
+	}
+
+	for _, tt := range tests {
+		cfg, err := ini.InsensitiveLoad(tt.data)
+		if err != nil {
+			t.Errorf("test case %q: error parsing config: %v", tt.name, err)
+			continue
+		}
+		if cfg == nil {
+			cfg = &ini.File{}
+		}
+		got := (&accounts{newMetadata: tt.md, config: cfg}).disabled()
+		if got != tt.want {
+			t.Errorf("test case %q, accounts.disabled() got: %t, want: %t", tt.name, got, tt.want)
 		}
 	}
 }
@@ -118,12 +160,12 @@ func TestCompareAccounts(t *testing.T) {
 	}{
 		// These should return toAdd:
 		// In MD, not Reg
-		{[]windowsKeyJSON{windowsKeyJSON{UserName: "foo"}}, nil, []windowsKeyJSON{windowsKeyJSON{UserName: "foo"}}},
-		{[]windowsKeyJSON{windowsKeyJSON{UserName: "foo"}}, []string{`{"UserName":"bar"}`}, []windowsKeyJSON{windowsKeyJSON{UserName: "foo"}}},
+		{[]windowsKeyJSON{{UserName: "foo"}}, nil, []windowsKeyJSON{{UserName: "foo"}}},
+		{[]windowsKeyJSON{{UserName: "foo"}}, []string{`{"UserName":"bar"}`}, []windowsKeyJSON{{UserName: "foo"}}},
 
 		// These should return nothing:
 		// In Reg and Md
-		{[]windowsKeyJSON{windowsKeyJSON{UserName: "foo"}}, []string{`{"UserName":"foo"}`}, nil},
+		{[]windowsKeyJSON{{UserName: "foo"}}, []string{`{"UserName":"foo"}`}, nil},
 		// In Md, not Reg
 		{nil, []string{`{UserName":"foo"}`}, nil},
 	}
@@ -133,5 +175,33 @@ func TestCompareAccounts(t *testing.T) {
 		if !reflect.DeepEqual(tt.wantAdd, toAdd) {
 			t.Errorf("toAdd does not match expected: newKeys: %q, oldStrKeys: %q, got: %q, want: %q", tt.newKeys, tt.oldStrKeys, toAdd, tt.wantAdd)
 		}
+	}
+}
+
+func TestAccountsLogStatus(t *testing.T) {
+	var buf bytes.Buffer
+	logger.Init("test", "")
+	logger.SerialLog = log.New(&buf, "", 0)
+
+	// Disable it.
+	accountDisabled = false
+	disabled := (&accounts{newMetadata: &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "true"}}}, config: ini.Empty()}).disabled()
+	if !disabled {
+		t.Fatal("expected true but got", disabled)
+	}
+	want := fmt.Sprintln("test: GCE account manager status: disabled")
+	if buf.String() != want {
+		t.Errorf("got: %q, want: %q", buf.String(), want)
+	}
+	buf.Reset()
+
+	// Enable it.
+	disabled = (&accounts{newMetadata: &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "false"}}}, config: ini.Empty()}).disabled()
+	if disabled {
+		t.Fatal("expected false but got", disabled)
+	}
+	want = fmt.Sprintln("test: GCE account manager status: enabled")
+	if buf.String() != want {
+		t.Errorf("got: %q, want: %q", buf.String(), want)
 	}
 }

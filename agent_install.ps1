@@ -16,4 +16,20 @@ if (-not (Get-Service 'GCEAgent' -ErrorAction SilentlyContinue)) {
   New-Service -Name 'GCEAgent' -BinaryPathName 'C:\Program Files\Google\Compute Engine\agent\GCEWindowsAgent.exe' -StartupType Automatic -Description 'Google Compute Engine Agent'
 }
 
+$config = 'C:\Program Files\Google\Compute Engine\instance_configs.cfg'
+if (-not (Test-Path $config)) {
+  @'
+# GCE Instance Configuration
+
+# See https://cloud.google.com/compute/docs/images#os-details for details
+# on what can be configured.
+
+# [accountManager]
+# disable=false
+
+# [addressManager]
+# disable=false
+'@ | Set-Content -Path $config -Encoding ASCII
+}
+
 Restart-Service GCEAgent -Verbose
