@@ -46,8 +46,8 @@ type wsfcManager struct {
 	agent         healthAgent
 }
 
-// Create new wsfcManager based on metadata
-// agent request state will be set to running if one of the following is true:
+// Create new wsfcManager based on metadata agent request state will be set to
+// running if one of the following is true:
 // - EnableWSFC is set
 // - WSFCAddresses is set (As an advanced setting, it will always override EnableWSFC flag)
 func newWsfcManager(newMetadata *metadataJSON, config *ini.File) *wsfcManager {

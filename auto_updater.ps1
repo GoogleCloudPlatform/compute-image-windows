@@ -27,8 +27,8 @@ function Get-MetadataBool {
   $response = $responseMsg.Result
   if ($response.IsSuccessStatusCode) {
     $contentMsg = $response.Content.ReadAsStringAsync()
-      try {
-    $disable = [bool]::Parse(($contentMsg.Result).Trim())
+    try {
+      $disable = [bool]::Parse(($contentMsg.Result).Trim())
     }
     catch [FormatException] {
       Write-Error "Error parsing metadata."

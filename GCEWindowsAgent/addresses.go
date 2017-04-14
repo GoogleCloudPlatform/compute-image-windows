@@ -36,26 +36,40 @@ type addresses struct {
 	config                   *ini.File
 }
 
-func (a *addresses) diff() bool {
+func (a *addresses) parseWSFCAddresses() string {
 	wsfcAddresses := a.config.Section("wsfc").Key("addresses").String()
-	if len(wsfcAddresses) == 0 {
-		if len(a.newMetadata.Instance.Attributes.WSFCAddresses) > 0 {
-			wsfcAddresses = a.newMetadata.Instance.Attributes.WSFCAddresses
-		} else if len(a.newMetadata.Project.Attributes.WSFCAddresses) > 0 {
-			wsfcAddresses = a.newMetadata.Project.Attributes.WSFCAddresses
-		}
+	if len(wsfcAddresses) > 0 {
+		return wsfcAddresses
+	}
+	if len(a.newMetadata.Instance.Attributes.WSFCAddresses) > 0 {
+		return a.newMetadata.Instance.Attributes.WSFCAddresses
+	}
+	if len(a.newMetadata.Project.Attributes.WSFCAddresses) > 0 {
+		return a.newMetadata.Project.Attributes.WSFCAddresses
 	}
 
+	return ""
+}
+
+func (a *addresses) parseWSFCEnable() bool {
 	wsfcEnable, err := a.config.Section("wsfc").Key("enable").Bool()
-	if err != nil {
-		wsfcEnable, err = strconv.ParseBool(a.newMetadata.Instance.Attributes.EnableWSFC)
-		if err != nil {
-			wsfcEnable, err = strconv.ParseBool(a.newMetadata.Project.Attributes.EnableWSFC)
-			if err != nil {
-				wsfcEnable = false
-			}
-		}
+	if err == nil {
+		return wsfcEnable
 	}
+	wsfcEnable, err = strconv.ParseBool(a.newMetadata.Instance.Attributes.EnableWSFC)
+	if err == nil {
+		return wsfcEnable
+	}
+	wsfcEnable, err = strconv.ParseBool(a.newMetadata.Project.Attributes.EnableWSFC)
+	if err == nil {
+		return wsfcEnable
+	}
+	return false
+}
+
+func (a *addresses) diff() bool {
+	wsfcAddresses := a.parseWSFCAddresses()
+	wsfcEnable := a.parseWSFCEnable()
 
 	diff := !reflect.DeepEqual(a.newMetadata.Instance.NetworkInterfaces, a.oldMetadata.Instance.NetworkInterfaces) ||
 		wsfcEnable != oldWSFCEnable || wsfcAddresses != oldWSFCAddresses
@@ -223,9 +237,12 @@ func (a *addresses) applyWSFCFilter() {
 
 			interfaces[idx].ForwardedIps = filteredList
 		}
-	} else if len(a.newMetadata.Instance.Attributes.EnableWSFC) > 0 {
-		for idx := range a.newMetadata.Instance.NetworkInterfaces {
-			a.newMetadata.Instance.NetworkInterfaces[idx].ForwardedIps = nil
+	} else {
+		enabled, err := strconv.ParseBool(a.newMetadata.Instance.Attributes.EnableWSFC)
+		if err == nil && enabled {
+			for idx := range a.newMetadata.Instance.NetworkInterfaces {
+				a.newMetadata.Instance.NetworkInterfaces[idx].ForwardedIps = nil
+			}
 		}
 	}
 }
