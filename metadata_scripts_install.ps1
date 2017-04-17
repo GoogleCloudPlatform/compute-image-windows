@@ -23,8 +23,8 @@ if ($path -notlike "*${install_dir}*") {
 & schtasks /create /tn GCEStartup /tr "'${install_dir}\run_startup_scripts.cmd'" /sc onstart /ru System /f
 
 $gpt_ini = "${env:SystemRoot}\System32\GroupPolicy\gpt.ini"
-$scripts_ini = "${env:SystemRoot}\System32\GroupPolicy\Machine\Scripts\scripts.ini""
-if (Test-Path $gpt_ini -or Test-Path $scripts_ini) {
+$scripts_ini = "${env:SystemRoot}\System32\GroupPolicy\Machine\Scripts\scripts.ini"
+if ((Test-Path $gpt_ini) -or (Test-Path $scripts_ini)) {
   return
 }
 
