@@ -160,7 +160,7 @@ func TestWsfcFilter(t *testing.T) {
 			t.Error("invalid test case:", tt, err)
 		}
 
-		testAddress := addresses{&metadata, nil, nil}
+		testAddress := addresses{&metadata, nil, ini.Empty()}
 		testAddress.applyWSFCFilter()
 
 		forwardedIps := []string{}
