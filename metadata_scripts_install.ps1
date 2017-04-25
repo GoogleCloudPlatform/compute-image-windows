@@ -28,6 +28,8 @@ if ((Test-Path $gpt_ini) -or (Test-Path $scripts_ini)) {
   return
 }
 
+New-Item -Type Directory -Path "${env:SystemRoot}\System32\GroupPolicy\Machine\Scripts" -ErrorAction SilentlyContinue
+
 @'
 [General]
 gPCMachineExtensionNames= [{42B5FAAE-6536-11D2-AE5A-0000F87571E3}{40B6664F-4972-11D1-A7CA-0000F87571E3}]
