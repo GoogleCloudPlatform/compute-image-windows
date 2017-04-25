@@ -211,8 +211,10 @@ func (a *addresses) set() error {
 // If only EnableWSFC is set, all ips in the ForwardedIps will be ignored.
 // If WSFCAddresses is set (with or without EnableWSFC), only ips in the list will be filtered out.
 func (a *addresses) applyWSFCFilter() {
+	wsfcAddresses := a.parseWSFCAddresses()
+
 	var wsfcAddrs []string
-	for _, wsfcAddr := range strings.Split(a.newMetadata.Instance.Attributes.WSFCAddresses, ",") {
+	for _, wsfcAddr := range strings.Split(wsfcAddresses, ",") {
 		if len(wsfcAddr) == 0 {
 			continue
 		}
@@ -238,8 +240,8 @@ func (a *addresses) applyWSFCFilter() {
 			interfaces[idx].ForwardedIps = filteredList
 		}
 	} else {
-		enabled, err := strconv.ParseBool(a.newMetadata.Instance.Attributes.EnableWSFC)
-		if err == nil && enabled {
+		wsfcEnable := a.parseWSFCEnable()
+		if wsfcEnable {
 			for idx := range a.newMetadata.Instance.NetworkInterfaces {
 				a.newMetadata.Instance.NetworkInterfaces[idx].ForwardedIps = nil
 			}
