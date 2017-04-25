@@ -178,8 +178,11 @@ try {
   }
 
   Write-Log 'Clearing self signed certs.'
-  Get-ChildItem 'Cert:\LocalMachine\Remote Desktop' | Where-Object {$_.Subject -eq $_.Issuer} | Remove-Item
-  Get-ChildItem 'Cert:\LocalMachine\My' | Where-Object {$_.Subject -eq $_.Issuer} | Remove-Item
+  @('Cert:\LocalMachine\Remote Desktop', 'Cert:\LocalMachine\My') | ForEach-Object {
+    if (Test-Path $_) {
+      Get-ChildItem $_ | Where-Object {$_.Subject -eq $_.Issuer} | Remove-Item
+    }
+  }
 
   Write-Log 'Shutting down.'
   shutdown /s /t 00
