@@ -117,7 +117,7 @@ func (ms *metadataScript) run(ctx context.Context) error {
 		nMS := &metadataScript{st, script, ms.Metadata}
 		return nMS.run(ctx)
 	default:
-		return fmt.Errorf("unknown script type: %s", ms.Type)
+		return fmt.Errorf("unknown script type: %q", ms.Script)
 	}
 }
 
