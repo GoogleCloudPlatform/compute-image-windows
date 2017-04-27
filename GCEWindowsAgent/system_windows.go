@@ -57,3 +57,13 @@ func writeRegMultiString(key, name string, value []string) error {
 
 	return k.SetStringsValue(name, value)
 }
+
+func deleteRegKey(key, name string) error {
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, key, registry.WRITE)
+	if err != nil {
+		return err
+	}
+	defer k.Close()
+
+	return k.DeleteValue(name)
+}

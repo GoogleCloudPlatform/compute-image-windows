@@ -44,3 +44,7 @@ func addIPAddress(ip, mask net.IP, index int) error {
 func deleteIPAddress(ip net.IP) error {
 	return nil
 }
+
+func deleteRegKey(key, name string) error {
+	return nil
+}
