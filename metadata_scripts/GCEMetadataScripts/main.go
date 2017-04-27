@@ -31,6 +31,8 @@ import (
 	"sort"
 	"time"
 
+	"strings"
+
 	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 )
@@ -47,6 +49,29 @@ var (
 		url: "%s-script-url",
 	}
 	version string
+
+	bucket = `([a-z0-9][-_.a-z0-9]*)`
+	object = `(.+)`
+	// Many of the Google Storage URLs are supported below.
+	// It is preferred that customers specify their object using
+	// its gs://<bucket>/<object> URL.
+	bucketRegex = regexp.MustCompile(fmt.Sprintf(`^gs://%s/?$`, bucket))
+	gsRegex     = regexp.MustCompile(fmt.Sprintf(`^gs://%s/%s$`, bucket, object))
+	// Check for the Google Storage URLs:
+	// http://<bucket>.storage.googleapis.com/<object>
+	// https://<bucket>.storage.googleapis.com/<object>
+	gsHTTPRegex1 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://%s\.storage\.googleapis\.com/%s$`, bucket, object))
+	// http://storage.cloud.google.com/<bucket>/<object>
+	// https://storage.cloud.google.com/<bucket>/<object>
+	gsHTTPRegex2 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://storage\.cloud\.google\.com/%s/%s$`, bucket, object))
+	// Check for the other possible Google Storage URLs:
+	// http://storage.googleapis.com/<bucket>/<object>
+	// https://storage.googleapis.com/<bucket>/<object>
+	//
+	// The following are deprecated but checked:
+	// http://commondatastorage.googleapis.com/<bucket>/<object>
+	// https://commondatastorage.googleapis.com/<bucket>/<object>
+	gsHTTPRegex3 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://(?:commondata)?storage\.googleapis\.com/%s/%s$`, bucket, object))
 )
 
 const (
@@ -57,13 +82,13 @@ const (
 )
 
 type metadataScriptType int
+
 type metadataScript struct {
 	Type             metadataScriptType
 	Script, Metadata string
 }
 
 func (ms *metadataScript) run(ctx context.Context) error {
-	sType := ms.Metadata[len(ms.Metadata)-3 : len(ms.Metadata)]
 	switch ms.Type {
 	case ps1:
 		return runPs1(ms)
@@ -72,6 +97,8 @@ func (ms *metadataScript) run(ctx context.Context) error {
 	case bat:
 		return runBat(ms)
 	case url:
+		trimmed := strings.TrimSpace(ms.Script)
+		sType := trimmed[len(trimmed)-3 : len(trimmed)]
 		var st metadataScriptType
 		switch sType {
 		case "ps1":
@@ -81,17 +108,72 @@ func (ms *metadataScript) run(ctx context.Context) error {
 		case "bat":
 			st = bat
 		default:
-			return fmt.Errorf("error getting script type from url path, unknown script type: %q", sType)
+			return fmt.Errorf("error getting script type from url path, path: %q, parsed type: %q", trimmed, sType)
 		}
-		script, err := downloadScript(ctx, ms.Script)
+		script, err := downloadScript(ctx, trimmed)
 		if err != nil {
 			return err
 		}
 		nMS := &metadataScript{st, script, ms.Metadata}
 		return nMS.run(ctx)
 	default:
-		return fmt.Errorf("unknown script type: %s", sType)
+		return fmt.Errorf("unknown script type: %s", ms.Type)
 	}
+}
+
+func downloadGSURL(ctx context.Context, bucket, object string) (string, error) {
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	bkt := client.Bucket(bucket)
+	obj := bkt.Object(object)
+	r, err := obj.NewReader(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer r.Close()
+
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(r); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func downloadScript(ctx context.Context, path string) (string, error) {
+	bucket, object := findMatch(path)
+	if bucket != "" && object != "" {
+		return downloadGSURL(ctx, bucket, object)
+	}
+
+	// Fall back to unauthenticated download of the object.
+	return downloadURL(path)
+}
+
+func downloadURL(p string) (string, error) {
+	res, err := http.Get(p)
+	if err != nil {
+		return "", err
+	}
+	data, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func findMatch(path string) (string, string) {
+	for _, re := range []*regexp.Regexp{gsRegex, gsHTTPRegex1, gsHTTPRegex2, gsHTTPRegex3} {
+		match := re.FindStringSubmatch(path)
+		if len(match) == 3 {
+			return match[1], match[2]
+		}
+	}
+	return "", ""
 }
 
 func getMetadata() (map[string]string, error) {
@@ -119,25 +201,12 @@ func getMetadata() (map[string]string, error) {
 	return att, json.Unmarshal(md, &att)
 }
 
-func validateArgs(args []string) (map[metadataScriptType]string, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("No valid arguments specified. Options: %s", commands)
+func getScripts(mdsm map[metadataScriptType]string) ([]metadataScript, error) {
+	md, err := getMetadata()
+	if err != nil {
+		return nil, err
 	}
-	for _, command := range commands {
-		if command == args[1] {
-			mdsm := map[metadataScriptType]string{}
-			if command == "specialize" {
-				command = "sysprep-" + command
-			} else {
-				command = "windows-" + command
-			}
-			for st, script := range scripts {
-				mdsm[st] = fmt.Sprintf(script, command)
-			}
-			return mdsm, nil
-		}
-	}
-	return nil, fmt.Errorf("No valid arguments specified. Options: %s", commands)
+	return parseMetadata(mdsm, md), nil
 }
 
 func parseMetadata(mdsm map[metadataScriptType]string, md map[string]string) []metadataScript {
@@ -160,22 +229,20 @@ func parseMetadata(mdsm map[metadataScriptType]string, md map[string]string) []m
 	return mdss
 }
 
-func getScripts(mdsm map[metadataScriptType]string) ([]metadataScript, error) {
-	md, err := getMetadata()
-	if err != nil {
-		return nil, err
+func runScripts(ctx context.Context, scripts []metadataScript) {
+	for _, script := range scripts {
+		logger.Infoln("Found", script.Metadata, "in metadata.")
+		err := script.run(ctx)
+		if _, ok := err.(*exec.ExitError); ok {
+			logger.Infoln(script.Metadata, err)
+			continue
+		}
+		if err == nil {
+			logger.Infoln(script.Metadata, "exit status 0")
+			continue
+		}
+		logger.Error(err)
 	}
-	return parseMetadata(mdsm, md), nil
-}
-
-func tempFile(name, content string) (string, error) {
-	dir, err := ioutil.TempDir("", "metadata-scripts")
-	if err != nil {
-		return "", err
-	}
-
-	tmpFile := filepath.Join(dir, name)
-	return tmpFile, ioutil.WriteFile(tmpFile, []byte(content), 0666)
 }
 
 func runCmd(c *exec.Cmd, name string) error {
@@ -222,100 +289,35 @@ func runPs1(ms *metadataScript) error {
 	return runCmd(c, ms.Metadata)
 }
 
-func downloadGSURL(ctx context.Context, bucket, object string) (string, error) {
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to create client: %v", err)
-	}
-	defer client.Close()
-
-	bkt := client.Bucket(bucket)
-	obj := bkt.Object(object)
-	r, err := obj.NewReader(ctx)
+func tempFile(name, content string) (string, error) {
+	dir, err := ioutil.TempDir("", "metadata-scripts")
 	if err != nil {
 		return "", err
 	}
-	defer r.Close()
 
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
+	tmpFile := filepath.Join(dir, name)
+	return tmpFile, ioutil.WriteFile(tmpFile, []byte(content), 0666)
 }
 
-func downloadURL(p string) (string, error) {
-	res, err := http.Get(p)
-	if err != nil {
-		return "", err
+func validateArgs(args []string) (map[metadataScriptType]string, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("No valid arguments specified. Options: %s", commands)
 	}
-	data, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
-var (
-	bucket = `([a-z0-9][-_.a-z0-9]*)`
-	object = `(.+)`
-	// Many of the Google Storage URLs are supported below.
-	// It is preferred that customers specify their object using
-	// its gs://<bucket>/<object> URL.
-	bucketRegex = regexp.MustCompile(fmt.Sprintf(`^gs://%s/?$`, bucket))
-	gsRegex     = regexp.MustCompile(fmt.Sprintf(`^gs://%s/%s$`, bucket, object))
-	// Check for the Google Storage URLs:
-	// http://<bucket>.storage.googleapis.com/<object>
-	// https://<bucket>.storage.googleapis.com/<object>
-	gsHTTPRegex1 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://%s\.storage\.googleapis\.com/%s$`, bucket, object))
-	// http://storage.cloud.google.com/<bucket>/<object>
-	// https://storage.cloud.google.com/<bucket>/<object>
-	gsHTTPRegex2 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://storage\.cloud\.google\.com/%s/%s$`, bucket, object))
-	// Check for the other possible Google Storage URLs:
-	// http://storage.googleapis.com/<bucket>/<object>
-	// https://storage.googleapis.com/<bucket>/<object>
-	//
-	// The following are deprecated but checked:
-	// http://commondatastorage.googleapis.com/<bucket>/<object>
-	// https://commondatastorage.googleapis.com/<bucket>/<object>
-	gsHTTPRegex3 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://(?:commondata)?storage\.googleapis\.com/%s/%s$`, bucket, object))
-)
-
-func findMatch(path string) (string, string) {
-	for _, re := range []*regexp.Regexp{gsRegex, gsHTTPRegex1, gsHTTPRegex2, gsHTTPRegex3} {
-		match := re.FindStringSubmatch(path)
-		if len(match) == 3 {
-			return match[1], match[2]
+	for _, command := range commands {
+		if command == args[1] {
+			mdsm := map[metadataScriptType]string{}
+			if command == "specialize" {
+				command = "sysprep-" + command
+			} else {
+				command = "windows-" + command
+			}
+			for st, script := range scripts {
+				mdsm[st] = fmt.Sprintf(script, command)
+			}
+			return mdsm, nil
 		}
 	}
-	return "", ""
-}
-
-func downloadScript(ctx context.Context, path string) (string, error) {
-	bucket, object := findMatch(path)
-	if bucket != "" && object != "" {
-		return downloadGSURL(ctx, bucket, object)
-	}
-
-	// Fall back to unauthenticated download of the object.
-	return downloadURL(path)
-}
-
-func runScripts(ctx context.Context, scripts []metadataScript) {
-	for _, script := range scripts {
-		logger.Infoln("Found", script.Metadata, "in metadata.")
-		err := script.run(ctx)
-		if _, ok := err.(*exec.ExitError); ok {
-			logger.Infoln(script.Metadata, err)
-			continue
-		}
-		if err == nil {
-			logger.Infoln(script.Metadata, "exit status 0")
-			continue
-		}
-		logger.Error(err)
-	}
+	return nil, fmt.Errorf("No valid arguments specified. Options: %s", commands)
 }
 
 func main() {
