@@ -145,7 +145,16 @@ func (a *addresses) set() error {
 			logger.Error(err)
 			continue
 		} else if err != nil && err == errRegNotExist {
-			regFwdIPs = nil
+			// The old agent stored MAC addresses without the ':',
+			// check for those and clean them up.
+			oldName := strings.Replace(mac.String(), ":", "", -1)
+			regFwdIPs, err = readRegMultiString(addressKey, oldName)
+			if err == nil {
+				// Ignore error here as this is just cleanup.
+				deleteRegKey(addressKey, oldName)
+			} else {
+				regFwdIPs = nil
+			}
 		}
 
 		var iface net.Interface

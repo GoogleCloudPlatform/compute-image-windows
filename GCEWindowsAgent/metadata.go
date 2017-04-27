@@ -79,6 +79,10 @@ func watchMetadata(ctx context.Context) (*metadataJSON, error) {
 	req = req.WithContext(ctx)
 
 	resp, err := client.Do(req)
+	// Don't return error on a canceled context.
+	if err != nil && ctx.Err() != nil {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}

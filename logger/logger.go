@@ -13,21 +13,24 @@
 //  limitations under the License.
 
 // Package logger offers simple logging on GCE.
-// Events are logged to the serial console as well as the event log.
+// Events are logged to the serial console, stdout, and the event log.
 package logger
 
 import (
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"runtime"
+
+	"io"
 
 	"github.com/tarm/serial"
 )
 
 var (
-	// SerialLog is the serial logger's log.Logger.
-	SerialLog   *log.Logger
+	// Log is a log.Logger that writes to a serial console and stdout.
+	Log         *log.Logger
 	slInfo      *log.Logger
 	slError     *log.Logger
 	slFatal     *log.Logger
@@ -40,12 +43,13 @@ var (
 // output will go to COM1.
 func Init(name, port string) {
 	logger = name
-	out := &serialPort{port}
-	// Split logging to the serial port and event log so processes like the
-	// metadata script runnner can log to serial output but not the event log.
-	SerialLog = log.New(out, "", log.Ldate|log.Ltime)
+	out := io.MultiWriter(&serialPort{port}, os.Stdout)
+	// Split logging to the serial port and stdout from the event log so
+	// processes like the metadata script runner can log to serial output
+	// but not the system log.
+	Log = log.New(out, "", log.Ldate|log.Ltime)
 	if err := slSetup(name); err != nil {
-		SerialLog.Fatal(err)
+		Log.Fatal(err)
 	}
 	initialized = true
 }
@@ -90,15 +94,15 @@ func output(s severity, txt string) {
 	switch s {
 	case sInfo:
 		msg := fmt.Sprintf("%s: %s", logger, txt)
-		SerialLog.Output(3, msg)
+		Log.Output(3, msg)
 		slInfo.Output(3, msg)
 	case sError:
 		msg := fmt.Sprintf("%s: ERROR %s: %s", logger, caller(), txt)
-		SerialLog.Output(3, msg)
+		Log.Output(3, msg)
 		slError.Output(3, msg)
 	case sFatal:
 		msg := fmt.Sprintf("%s: FATAL %s: %s", logger, caller(), txt)
-		SerialLog.Output(3, msg)
+		Log.Output(3, msg)
 		slFatal.Output(3, msg)
 	default:
 		panic(fmt.Sprintln("unrecognized severity:", s))

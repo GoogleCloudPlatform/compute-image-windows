@@ -1,13 +1,8 @@
+dist: trusty
+sudo: false
 language: go
-go: 1.8
-install:
-  - GOOS=windows go get -t ./...
-  - go get github.com/google/googet
+go: 1.x
 script:
   - go vet ./...
-  - go test -v -race ./... -tags test
-    #- GOOS=windows go run $GOPATH/src/github.com/google/googet/goopack/goopack.go google-compute-engine-auto-updater.goospec
-    #- GOOS=windows go run $GOPATH/src/github.com/google/googet/goopack/goopack.go google-compute-engine-metadata-scripts.goospec
-    #- GOOS=windows go run $GOPATH/src/github.com/google/googet/goopack/goopack.go google-compute-engine-powershell.goospec
-    #- GOOS=windows go run $GOPATH/src/github.com/google/googet/goopack/goopack.go google-compute-engine-sysprep.goospec
-    #- GOOS=windows go run $GOPATH/src/github.com/google/googet/goopack/goopack.go google-compute-engine-windows.goospec
+  - ./.travis.gofmt.sh
+  - go test -v -race ./...
