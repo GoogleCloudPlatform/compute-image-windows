@@ -81,14 +81,14 @@ func (ms *metadataScript) run(ctx context.Context) error {
 		case "bat":
 			st = bat
 		default:
-			return fmt.Errorf("error getting script type from url path, unknown script type: %q", ms.Metadata)
+			return fmt.Errorf("error getting script type from url path, unknown script type: %q", sType)
 		}
 		script, err := downloadScript(ctx, ms.Script)
 		if err != nil {
 			return err
 		}
-		ms = &metadataScript{st, script, ms.Metadata}
-		return ms.run(ctx)
+		nMS := &metadataScript{st, script, ms.Metadata}
+		return nMS.run(ctx)
 	default:
 		return fmt.Errorf("unknown script type: %s", sType)
 	}
@@ -195,7 +195,7 @@ func runCmd(c *exec.Cmd, name string) error {
 
 	in := bufio.NewScanner(pr)
 	for in.Scan() {
-		logger.SerialLog.Output(3, name+": "+in.Text())
+		logger.Log.Output(3, name+": "+in.Text())
 	}
 
 	return c.Wait()
