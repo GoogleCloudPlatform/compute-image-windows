@@ -17,20 +17,11 @@
     Setup GCE instance.
 
   .DESCRIPTION
-    This powershell script setups a GCE instance during and post sysprep.
+    This powershell script setups a GCE instance post sysprep.
     Some of the task performed by the scripts are:
       Change the hostname to match the GCE hostname
       Disable default Administrator user
-      Cleanup eventviewer
-      Cleanup temp files
       Activate the GCE instance
-      Set up the administrative username and password
-  .EXAMPLE
-    instance_setup.ps1
-  .EXAMPLE
-    instance_setup.ps1 -specialize
-  .EXAMPLE
-    instance_setup.ps1 -test
 
   #requires -version 3.0
 #>
@@ -130,16 +121,12 @@ function Change-InstanceProperties {
 
   $netkvm = Get-WmiObject Win32_NetworkAdapter -filter "ServiceName = 'netkvm'"
 
-  # Set MTU to 1430.
-  _RunExternalCMD netsh interface ipv4 set interface $netkvm.NetConnectionID mtu=1430
-  Write-Log 'MTU set to 1430.'
+  _RunExternalCMD netsh interface ipv4 set interface $netkvm.NetConnectionID mtu=1460
+  Write-Log 'MTU set to 1460.'
 
   # Adding persistent route to metadata netblock via netkvm adapter.
   _RunExternalCMD route /p add 169.254.0.0 mask 255.255.0.0 0.0.0.0 if $netkvm.InterfaceIndex metric 1 -ErrorAction SilentlyContinue
   Write-Log 'Added persistent route to metadata netblock via netkvm adapter.'
-
-  # Set minimum password length.
-  _RunExternalCMD net accounts /MINPWLEN:8
 
   # Enable access to Windows administrative file share.
   Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
