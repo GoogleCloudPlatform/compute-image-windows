@@ -181,7 +181,7 @@ func TestCompareAccounts(t *testing.T) {
 func TestAccountsLogStatus(t *testing.T) {
 	var buf bytes.Buffer
 	logger.Init("test", "")
-	logger.SerialLog = log.New(&buf, "", 0)
+	logger.Log = log.New(&buf, "", 0)
 
 	// Disable it.
 	accountDisabled = false

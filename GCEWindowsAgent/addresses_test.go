@@ -197,7 +197,7 @@ func TestWsfcFlagTriggerAddressDiff(t *testing.T) {
 func TestAddressLogStatus(t *testing.T) {
 	var buf bytes.Buffer
 	logger.Init("test", "")
-	logger.SerialLog = log.New(&buf, "", 0)
+	logger.Log = log.New(&buf, "", 0)
 
 	// Disable it.
 	addressDisabled = false
