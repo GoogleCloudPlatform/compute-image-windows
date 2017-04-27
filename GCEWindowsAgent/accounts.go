@@ -254,7 +254,7 @@ func (a *accounts) set() error {
 	for _, s := range strings.Split(a.newMetadata.Instance.Attributes.WindowsKeys, "\n") {
 		var key windowsKeyJSON
 		if err := json.Unmarshal([]byte(s), &key); err != nil {
-			if !containsString(s, badReg) {
+			if !containsString(s, badKeys) {
 				logger.Error(err)
 				badKeys = append(badKeys, s)
 			}

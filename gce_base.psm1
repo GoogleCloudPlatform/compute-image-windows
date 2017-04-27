@@ -616,7 +616,7 @@ function Write-Log {
     [Alias('warning')]
     [Switch] $is_warning
   )
-  $timestamp = $(Get-Date)
+  $timestamp = $(Get-Date -Format 'yyyy/MM/dd HH:mm:ss')
   try {
     # Add a boundary around an important message.
     if ($is_important) {

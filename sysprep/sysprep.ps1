@@ -167,6 +167,7 @@ try {
 
   Write-Log 'Setting new startup command.'
   Set-ItemProperty -Path HKLM:\SYSTEM\Setup -Name CmdLine -Value "`"$PSScriptRoot\windeploy.cmd`""
+
   Write-Log 'Forgetting persistent disks.'
   # While we are using the PersistAllDeviceInstalls setting to make boot faster on GCE, it's a
   # good idea to forget the disks so that online/offline settings aren't applied to different
@@ -175,8 +176,16 @@ try {
   if (Test-Path $disk_root) {
     Remove-Item -Path "$disk_root\*\Device Parameters\Partmgr" -Recurse -Force
   }
+
+  Write-Log 'Clearing self signed certs.'
+  @('Cert:\LocalMachine\Remote Desktop', 'Cert:\LocalMachine\My') | ForEach-Object {
+    if (Test-Path $_) {
+      Get-ChildItem $_ | Where-Object {$_.Subject -eq $_.Issuer} | Remove-Item
+    }
+  }
+
   Write-Log 'Shutting down.'
-  Stop-Computer
+  shutdown /s /t 00
 }
 catch {
   _PrintError
