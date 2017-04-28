@@ -277,7 +277,7 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
 
   try {
     # Call startup script during sysprep specialize phase.
-    _RunExternalCMD $script:metadata_script_loc 'specialize'
+    & $script:metadata_script_loc 'specialize'
   }
   catch {
     _PrintError
