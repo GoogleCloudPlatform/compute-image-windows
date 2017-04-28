@@ -19,10 +19,11 @@
     This powershell script runs some cleanup routines and goes through a
     checklist before performing a sysprep on a windows host the script is being
     executed. This ensure's that the instance is in a clean state before a
-    sysprep is initated.
+    sysprep is initiated.
     Some of the task performed by the scripts are:
       Cleanup temp files
       Cleanup eventviewer
+      Cleanup self signed certs (RDP, WinRM)
       Make sure all important files used by GCE instance setup are present.
     A valid sysprep answer file should be specified when the script is called
     or present in the source directory.
@@ -40,19 +41,6 @@
     Alias destination
   .PARAMETER help
     Print help message which is derived from the script definition.
-  .EXAMPLE
-    powershell -ExecutionPolicy Unrestricted -File sysprep.ps1
-  .EXAMPLE
-    powershell -ExecutionPolicy Unrestricted -File sysprep.ps1
-  .EXAMPLE
-    powershell -File sysprep.ps1 -unattended <file>.xml
-  .EXAMPLE
-    sysprep.ps1 -unattended unattended.xml
-  .EXAMPLE
-    powershell -ExecutionPolicy Unrestricted -File sysprep.ps1 -help
-  .NOTES
-    LastModifiedDate: $Date: 2015/06/01 $
-    Version: $Revision: #19 $
 
   #requires -version 3.0
 #>
