@@ -60,6 +60,10 @@ func (k windowsKeyJSON) expired() bool {
 	return t.Before(time.Now())
 }
 
+// newPwd will generate a random password that meets Windows complexity
+// requirements: https://technet.microsoft.com/en-us/library/cc786468.
+// Characters that are difficult for users to type on a command line (quotes,
+// non english characters) are not used.
 func newPwd() (string, error) {
 	pwLgth := 15
 	lower := []byte("abcdefghijklmnopqrstuvwxyz")
