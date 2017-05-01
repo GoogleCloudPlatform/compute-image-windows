@@ -17,20 +17,10 @@
     Setup GCE instance.
 
   .DESCRIPTION
-    This powershell script setups a GCE instance during and post sysprep.
+    This powershell script setups a GCE instance post sysprep.
     Some of the task performed by the scripts are:
       Change the hostname to match the GCE hostname
-      Disable default Administrator user
-      Cleanup eventviewer
-      Cleanup temp files
       Activate the GCE instance
-      Set up the administrative username and password
-  .EXAMPLE
-    instance_setup.ps1
-  .EXAMPLE
-    instance_setup.ps1 -specialize
-  .EXAMPLE
-    instance_setup.ps1 -test
 
   #requires -version 3.0
 #>
@@ -130,16 +120,12 @@ function Change-InstanceProperties {
 
   $netkvm = Get-WmiObject Win32_NetworkAdapter -filter "ServiceName = 'netkvm'"
 
-  # Set MTU to 1430.
-  _RunExternalCMD netsh interface ipv4 set interface $netkvm.NetConnectionID mtu=1430
-  Write-Log 'MTU set to 1430.'
+  _RunExternalCMD netsh interface ipv4 set interface $netkvm.NetConnectionID mtu=1460
+  Write-Log 'MTU set to 1460.'
 
   # Adding persistent route to metadata netblock via netkvm adapter.
   _RunExternalCMD route /p add 169.254.0.0 mask 255.255.0.0 0.0.0.0 if $netkvm.InterfaceIndex metric 1 -ErrorAction SilentlyContinue
   Write-Log 'Added persistent route to metadata netblock via netkvm adapter.'
-
-  # Set minimum password length.
-  _RunExternalCMD net accounts /MINPWLEN:8
 
   # Enable access to Windows administrative file share.
   Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
@@ -242,28 +228,6 @@ function Configure-WinRM {
 }
 
 
-function Disable-Administrator {
-  <#
-    .SYNOPSIS
-      Disables the default Administrator user.
-    .DESCRIPTION
-      This function gives the built-in "Administrator" account a random password
-      and disables it.
-  #>
-  try {
-    Write-Log 'Setting random password for Administrator account.'
-    $password = _GenerateRandomPassword
-    _RunExternalCMD net user Administrator $password
-    _RunExternalCMD net user Administrator /ACTIVE:NO
-    Write-Log 'Disabled Administrator account.'
-  }
-  catch {
-    _PrintError
-    Write-Log 'Failed to disable Administrator account.' -error
-  }
-}
-
-
 # Check if COM1 exists.
 if (-not ($global:write_to_serial)) {
   Write-Log 'COM1 does not exist on this machine. Logs will not be written to GCE console.' -warning
@@ -290,7 +254,7 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
 
   try {
     # Call startup script during sysprep specialize phase.
-    _RunExternalCMD $script:metadata_script_loc 'specialize'
+    & $script:metadata_script_loc 'specialize'
   }
   catch {
     _PrintError
@@ -300,7 +264,6 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
 }
 else {
   $activate_job = Start-Job -FilePath $script:activate_instance_script_loc
-  Disable-Administrator
   Enable-RemoteDesktop
   Configure-WinRM
 
