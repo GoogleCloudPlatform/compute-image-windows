@@ -72,33 +72,35 @@ func newPwd() (string, error) {
 	special := []byte(`~!@#$%^&*_-+=|\(){}[]:;<>,.?/`)
 	chars := bytes.Join([][]byte{lower, upper, numbers, special}, nil)
 
-	b := make([]byte, pwLgth)
-	for i := range b {
-		ci, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars)-1)))
-		if err != nil {
-			return "", err
+	for {
+		b := make([]byte, pwLgth)
+		for i := range b {
+			ci, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+			if err != nil {
+				return "", err
+			}
+			b[i] = chars[ci.Int64()]
 		}
-		b[i] = chars[ci.Int64()]
-	}
 
-	var l, u, n, s int
-	for _, c := range b {
-		switch {
-		case bytes.Contains(lower, []byte{c}):
-			l = 1
-		case bytes.Contains(upper, []byte{c}):
-			u = 1
-		case bytes.Contains(numbers, []byte{c}):
-			n = 1
-		case bytes.Contains(special, []byte{c}):
-			s = 1
+		var l, u, n, s int
+		for _, c := range b {
+			switch {
+			case bytes.Contains(lower, []byte{c}):
+				l = 1
+			case bytes.Contains(upper, []byte{c}):
+				u = 1
+			case bytes.Contains(numbers, []byte{c}):
+				n = 1
+			case bytes.Contains(special, []byte{c}):
+				s = 1
+			}
+		}
+		// If the password does not meet Windows complexity requirements, try again.
+		// https://technet.microsoft.com/en-us/library/cc786468
+		if l+u+n+s >= 3 {
+			return string(b), nil
 		}
 	}
-	// If the password does not meet Windows complexity requirements, try again.
-	if l+u+n+s >= 3 {
-		return string(b), nil
-	}
-	return newPwd()
 }
 
 func (k windowsKeyJSON) createOrResetPwd() (*credsJSON, error) {
