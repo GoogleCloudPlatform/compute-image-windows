@@ -83,17 +83,17 @@ func newPwd() (string, error) {
 		}
 
 		var l, u, n, s int
-		for _, c := range b {
-			switch {
-			case bytes.Contains(lower, []byte{c}):
-				l = 1
-			case bytes.Contains(upper, []byte{c}):
-				u = 1
-			case bytes.Contains(numbers, []byte{c}):
-				n = 1
-			case bytes.Contains(special, []byte{c}):
-				s = 1
-			}
+		if bytes.ContainsAny(lower, string(b)) {
+			l = 1
+		}
+		if bytes.ContainsAny(upper, string(b)) {
+			u = 1
+		}
+		if bytes.ContainsAny(numbers, string(b)) {
+			n = 1
+		}
+		if bytes.ContainsAny(special, string(b)) {
+			s = 1
 		}
 		// If the password does not meet Windows complexity requirements, try again.
 		// https://technet.microsoft.com/en-us/library/cc786468
