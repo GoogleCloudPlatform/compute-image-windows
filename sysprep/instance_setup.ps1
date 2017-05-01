@@ -20,7 +20,6 @@
     This powershell script setups a GCE instance post sysprep.
     Some of the task performed by the scripts are:
       Change the hostname to match the GCE hostname
-      Disable default Administrator user
       Activate the GCE instance
 
   #requires -version 3.0
@@ -229,28 +228,6 @@ function Configure-WinRM {
 }
 
 
-function Disable-Administrator {
-  <#
-    .SYNOPSIS
-      Disables the default Administrator user.
-    .DESCRIPTION
-      This function gives the built-in "Administrator" account a random password
-      and disables it.
-  #>
-  try {
-    Write-Log 'Setting random password for Administrator account.'
-    $password = _GenerateRandomPassword
-    _RunExternalCMD net user Administrator $password
-    _RunExternalCMD net user Administrator /ACTIVE:NO
-    Write-Log 'Disabled Administrator account.'
-  }
-  catch {
-    _PrintError
-    Write-Log 'Failed to disable Administrator account.' -error
-  }
-}
-
-
 # Check if COM1 exists.
 if (-not ($global:write_to_serial)) {
   Write-Log 'COM1 does not exist on this machine. Logs will not be written to GCE console.' -warning
@@ -287,7 +264,6 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
 }
 else {
   $activate_job = Start-Job -FilePath $script:activate_instance_script_loc
-  Disable-Administrator
   Enable-RemoteDesktop
   Configure-WinRM
 
