@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-$install_dir = "${env:ProgramFiles}\Compute Engine\sysprep"
+$install_dir = "${env:ProgramFiles}\Google\Compute Engine\sysprep"
 $machine_env = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
 
 $path = (Get-ItemProperty $machine_env).Path
