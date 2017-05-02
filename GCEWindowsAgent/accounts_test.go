@@ -87,29 +87,29 @@ func TestAccountsDisabled(t *testing.T) {
 }
 
 func TestNewPwd(t *testing.T) {
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100000; i++ {
 		pwd, err := newPwd()
 		if err != nil {
 			t.Fatal(err)
 		}
 		if len(pwd) != 15 {
-			t.Fatalf("Password is not 15 characters: len(%s)=%d", pwd, len(pwd))
+			t.Errorf("Password is not 15 characters: len(%s)=%d", pwd, len(pwd))
 		}
-		var l, u, n, s bool
+		var l, u, n, s int
 		for _, r := range pwd {
 			switch {
 			case unicode.IsLower(r):
-				l = true
+				l = 1
 			case unicode.IsUpper(r):
-				u = true
+				u = 1
 			case unicode.IsDigit(r):
-				n = true
+				n = 1
 			case unicode.IsPunct(r) || unicode.IsSymbol(r):
-				s = true
+				s = 1
 			}
 		}
-		if !l || !u || !n || !s {
-			t.Fatalf("Password does not have at least one character from each category: %s", pwd)
+		if l+u+n+s < 3 {
+			t.Errorf("Password does not have at least one character from 3 categories: '%v'", pwd)
 		}
 	}
 }

@@ -60,53 +60,47 @@ func (k windowsKeyJSON) expired() bool {
 	return t.Before(time.Now())
 }
 
+// newPwd will generate a random password that meets Windows complexity
+// requirements: https://technet.microsoft.com/en-us/library/cc786468.
+// Characters that are difficult for users to type on a command line (quotes,
+// non english characters) are not used.
 func newPwd() (string, error) {
-	// 15 character password with a max of 4 characters from each category.
-	pwLgth, limit := 15, 4
+	pwLgth := 15
 	lower := []byte("abcdefghijklmnopqrstuvwxyz")
 	upper := []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	numbers := []byte("0123456789")
 	special := []byte(`~!@#$%^&*_-+=|\(){}[]:;<>,.?/`)
 	chars := bytes.Join([][]byte{lower, upper, numbers, special}, nil)
 
-	r := make([]byte, len(chars))
-	if _, err := rand.Read(r); err != nil {
-		return "", err
-	}
+	for {
+		b := make([]byte, pwLgth)
+		for i := range b {
+			ci, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+			if err != nil {
+				return "", err
+			}
+			b[i] = chars[ci.Int64()]
+		}
 
-	var i, l, u, n, s int
-	b := make([]byte, pwLgth)
-	for _, rb := range r {
-		c := chars[int(rb)%len(chars)]
-		switch {
-		case bytes.Contains(lower, []byte{c}):
-			if l >= limit {
-				continue
-			}
-			l++
-		case bytes.Contains(upper, []byte{c}):
-			if u >= limit {
-				continue
-			}
-			u++
-		case bytes.Contains(numbers, []byte{c}):
-			if n >= limit {
-				continue
-			}
-			n++
-		case bytes.Contains(special, []byte{c}):
-			if s >= limit {
-				continue
-			}
-			s++
+		var l, u, n, s int
+		if bytes.ContainsAny(lower, string(b)) {
+			l = 1
 		}
-		b[i] = c
-		i++
-		if i == pwLgth {
-			break
+		if bytes.ContainsAny(upper, string(b)) {
+			u = 1
+		}
+		if bytes.ContainsAny(numbers, string(b)) {
+			n = 1
+		}
+		if bytes.ContainsAny(special, string(b)) {
+			s = 1
+		}
+		// If the password does not meet Windows complexity requirements, try again.
+		// https://technet.microsoft.com/en-us/library/cc786468
+		if l+u+n+s >= 3 {
+			return string(b), nil
 		}
 	}
-	return string(b), nil
 }
 
 func (k windowsKeyJSON) createOrResetPwd() (*credsJSON, error) {

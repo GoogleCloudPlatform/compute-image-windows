@@ -146,7 +146,12 @@ func downloadGSURL(ctx context.Context, bucket, object string) (string, error) {
 func downloadScript(ctx context.Context, path string) (string, error) {
 	bucket, object := findMatch(path)
 	if bucket != "" && object != "" {
-		return downloadGSURL(ctx, bucket, object)
+		script, err := downloadGSURL(ctx, bucket, object)
+		if err == nil {
+			return script, nil
+		}
+		logger.Infof("Failed to download GCS path: %v", err)
+		logger.Infof("Trying unauthenticated download", err)
 	}
 
 	// Fall back to unauthenticated download of the object.
