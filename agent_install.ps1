@@ -16,7 +16,7 @@ if (-not (Get-Service 'GCEAgent' -ErrorAction SilentlyContinue)) {
   New-Service -Name 'GCEAgent' -BinaryPathName 'C:\Program Files\Google\Compute Engine\agent\GCEWindowsAgent.exe' -StartupType Automatic -Description 'Google Compute Engine Agent'
 }
 
-$config = 'C:\Program Files\Google\Compute Engine\instance_configs.cfg'
+$config = "${env:ProgramFiles}\Google\Compute Engine\instance_configs.cfg"
 if (-not (Test-Path $config)) {
   @'
 # GCE Instance Configuration

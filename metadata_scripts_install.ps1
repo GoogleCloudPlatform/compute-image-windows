@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-$install_dir = "${env:ProgramFiles}\Compute Engine\metadata_scripts"
+$install_dir = "${env:ProgramFiles}\Google\Compute Engine\metadata_scripts"
 $machine_env = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
 
 $path = (Get-ItemProperty $machine_env).Path
