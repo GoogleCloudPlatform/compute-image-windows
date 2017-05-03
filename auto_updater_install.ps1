@@ -23,7 +23,7 @@ $task.Principal.RunLevel = 1
 
 $action = $task.Actions.Create(0)
 $action.Path = 'powershell.exe'
-$action.Arguments = '-ExecutionPolicy Bypass -NonInteractive -NoProfile -File "${env:ProgramFiles}\Google\Compute Engine\tools\auto_updater.ps1"'
+$action.Arguments = "-ExecutionPolicy Bypass -NonInteractive -NoProfile -File `"${env:ProgramFiles}\Google\Compute Engine\tools\auto_updater.ps1`""
 
 # Run task 5 minutes after boot, then every day indefinitely
 $boot_trigger = $task.Triggers.Create(8)

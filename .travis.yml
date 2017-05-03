@@ -3,6 +3,6 @@ sudo: false
 language: go
 go: 1.x
 script:
-  - go vet ./...
+  - go vet $(go list ./... | grep -v /vendor/)
   - ./.travis.gofmt.sh
-  - go test -v -race ./...
+  - go test -v -race $(go list ./... | grep -v /vendor/)
