@@ -112,16 +112,18 @@ function Change-InstanceProperties {
   #>
 
   # Set all Adapters to get IP from DHCP.
-  $nics = Get-WMIObject Win32_NetworkAdapterConfiguration | Where-Object {$_.IPEnabled -eq 'TRUE'}
-  foreach($nic in $nics) {
-    $nic.EnableDHCP()
-    $nic.SetDNSServerSearchOrder()
+  $nics = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=True"
+  $nics | Invoke-CimMethod -Name EnableDHCP
+  $nics | Invoke-CimMethod -Name EnableDHCP
+
+  $netkvm = Get-CimInstance Win32_NetworkAdapter -filter "ServiceName='netkvm'"
+  $netkvm | ForEach-Object {
+    _RunExternalCMD netsh interface ipv4 set interface $_.NetConnectionID mtu=1460
   }
-
-  $netkvm = Get-WmiObject Win32_NetworkAdapter -filter "ServiceName = 'netkvm'"
-
-  _RunExternalCMD netsh interface ipv4 set interface $netkvm.NetConnectionID mtu=1460
   Write-Log 'MTU set to 1460.'
+
+  _RunExternalCMD route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $netkvm[0].InterfaceIndex metric 1
+  Write-Log 'Added persistent route to metadata netblock via first netkvm adapter.'
 
   # Enable access to Windows administrative file share.
   Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
@@ -142,21 +144,18 @@ function Enable-RemoteDesktop {
   if (-not (Test-Path $ts_path)) {
     return
   }
-  # Enable remote desktop.
+  # Enable remote desktop in registry.
   Set-ItemProperty -Path $ts_path -Name 'fDenyTSConnections' -Value 0 -Force
-  Write-Log 'Enabled remote desktop.'
 
   # Disable Ctrl + Alt + Del.
   Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
       -Name 'DisableCAD' -Value 1 -Force
   Write-Log 'Disabled Ctrl + Alt + Del.'
 
-  # Restart Terminal Service service via cmdlets.
+  Write-Log 'Enable RDP firewall rules.'
+  _RunExternalCMD netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
+
   try {
-    # Enable firewall rule.
-    Write-Log 'Enable RDP firewall rules.'
-    _RunExternalCMD netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
-    # Restart services.
     Write-Log 'Restarting Terminal Service services, to enable RDP.'
     Restart-Service UmRdpService,TermService -Force | Out-Null
     Write-Log 'Enabled Remote Desktop.'
