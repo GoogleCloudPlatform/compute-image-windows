@@ -38,6 +38,18 @@ The agent uses IP forwarding metadata to setup or remove IP routes.
 
 *   Only IPv4 IP addresses are currently supported.
 
+#### Windows Failover Cluster Support
+
+The agent can monitor the active node in the [Windows Failover Cluster](https://technet.microsoft.com/en-us/library/cc770737(v=ws.11).aspx) and coordinate with GCP [Internal Load Balancer](https://cloud.google.com/compute/docs/load-balancing/internal/) to forward all cluster traffic to the expected node.
+
+The following fields on instance metadata or instance_configs.cfg can control the behavior:
+
+* `enable-wsfc`: If set to true, all IP forwarding info will be ignored and agent will start responding to the health check port. Default false.
+* `wsfc-agent-port`: The port which health checker from load balancer will use to determine the active node. Default 59998.
+* `wsfc-addrs`: A comma separated IP address. This is an advanced setting to enable user have both normal forwarding IPs and cluster IPs on the same instance. If set, agent will only skip-auto configuring IPs in the list. Default empty. 
+
+Main code can be found here: [wsfc.go](GCEWindowsAgent/wsfc.go)
+
 ## Instance Setup
 
 `instance_setup.ps1` is configured by GCE sysprep to run on VM first boot.
