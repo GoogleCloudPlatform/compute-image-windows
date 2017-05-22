@@ -8,6 +8,7 @@ supported Compute Engine [images](https://cloud.google.com/compute/docs/images).
 * [Agent](#Agent)
     * [Account Setup](#account-setup)
     * [IP Forwarding](#ip-forwarding)
+    * [Windows Failover Cluster Support](#windows-failover-cluster-support)
 * [Instance Setup](#instance-setup)
 * [Metadata Scripts](#metadata-scripts)
 * [Network Setup](#network-setup)
