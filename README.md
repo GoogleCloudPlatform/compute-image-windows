@@ -45,8 +45,8 @@ The agent can monitor the active node in the [Windows Failover Cluster](https://
 The following fields on instance metadata or instance_configs.cfg can control the behavior:
 
 * `enable-wsfc`: If set to true, all IP forwarding info will be ignored and agent will start responding to the health check port. Default false.
-* `wsfc-agent-port`: The port which health checker from load balancer will use to determine the active node. Default 59998.
-* `wsfc-addrs`: A comma separated IP address. This is an advanced setting to enable user have both normal forwarding IPs and cluster IPs on the same instance. If set, agent will only skip-auto configuring IPs in the list. Default empty. 
+* `wsfc-agent-port`: The port which the agent will respond to health checks. Default 59998.
+* `wsfc-addrs`: A comma separated list of IP address. This is an advanced setting to enable user have both normal forwarding IPs and cluster IPs on the same instance. If set, agent will only skip-auto configuring IPs in the list. Default empty. 
 
 Main code can be found here: [wsfc.go](GCEWindowsAgent/wsfc.go)
 
