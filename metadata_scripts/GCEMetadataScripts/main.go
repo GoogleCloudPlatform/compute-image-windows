@@ -33,6 +33,8 @@ import (
 
 	"strings"
 
+	"net"
+
 	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 )
@@ -144,6 +146,17 @@ func downloadGSURL(ctx context.Context, bucket, object string) (string, error) {
 }
 
 func downloadScript(ctx context.Context, path string) (string, error) {
+	// Startup scripts may run before DNS is running on some systems,
+	// particularly once a system is promoted to a domain controller.
+	// Try to lookup storage.googleapis.com and sleep for up to 100s if
+	// we get an error.
+	storageURL := "storage.googleapis.com"
+	for i := 0; i < 20; i++ {
+		if _, err := net.LookupHost(storageURL); err == nil {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
 	bucket, object := findMatch(path)
 	if bucket != "" && object != "" {
 		script, err := downloadGSURL(ctx, bucket, object)
@@ -151,10 +164,11 @@ func downloadScript(ctx context.Context, path string) (string, error) {
 			return script, nil
 		}
 		logger.Infof("Failed to download GCS path: %v", err)
-		logger.Infof("Trying unauthenticated download", err)
+		logger.Info("Trying unauthenticated download")
+		return downloadURL(fmt.Sprintf("https://%s/%s/%s", storageURL, bucket, object))
 	}
 
-	// Fall back to unauthenticated download of the object.
+	// Fall back to an HTTP GET of the URL.
 	return downloadURL(path)
 }
 
