@@ -345,7 +345,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Infof("Starting %s scripts (verison %s).", os.Args[1], version)
+	logger.Infof("Starting %s scripts (version %s).", os.Args[1], version)
 
 	scripts, err := getScripts(metadata)
 	if err != nil {
