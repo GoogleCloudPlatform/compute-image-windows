@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 if (-not (Get-Service 'GCEAgent' -ErrorAction SilentlyContinue)) {
-  New-Service -Name 'GCEAgent' -BinaryPathName 'C:\Program Files\Google\Compute Engine\agent\GCEWindowsAgent.exe' -StartupType Automatic -Description 'Google Compute Engine Agent'
+  New-Service -Name 'GCEAgent' -BinaryPathName '"C:\Program Files\Google\Compute Engine\agent\GCEWindowsAgent.exe"' -StartupType Automatic -Description 'Google Compute Engine Agent'
 }
 
 $config = "${env:ProgramFiles}\Google\Compute Engine\instance_configs.cfg"
