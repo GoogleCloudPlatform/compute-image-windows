@@ -89,6 +89,10 @@ type metadataScript struct {
 }
 
 func (ms *metadataScript) run(ctx context.Context) error {
+	script, err := downloadScript(ctx, trimmed)
+	if err != nil {
+		return err
+	}
 	switch ms.Type {
 	case ps1:
 		return runPs1(ms)
@@ -99,23 +103,29 @@ func (ms *metadataScript) run(ctx context.Context) error {
 	case url:
 		trimmed := strings.TrimSpace(ms.Script)
 		sType := trimmed[len(trimmed)-3 : len(trimmed)]
-		var st metadataScriptType
-		switch sType {
-		case "ps1":
-			st = ps1
-		case "cmd":
-			st = cmd
-		case "bat":
-			st = bat
-		default:
-			return fmt.Errorf("error getting script type from url path, path: %q, parsed type: %q", trimmed, sType)
-		}
-		script, err := downloadScript(ctx, trimmed)
+		var c *exec.Cmd
+		dir, err := ioutil.TempDir("", "metadata-scripts")
 		if err != nil {
 			return err
 		}
-		nMS := &metadataScript{st, script, ms.Metadata}
-		return nMS.run(ctx)
+		tmpFile := filepath.Join(dir, ms.Metadata)
+		switch sType {
+		case "ps1":
+			tmpFile = tmpFile+".ps1"
+			c = exec.Command("powershell.exe", "-NoProfile", "-NoLogo", "-ExecutionPolicy", "Unrestricted", "-File", tmpFile)   
+		case "cmd":
+			tmpFile = tmpFile+".cmd"
+			c = exec.Command(tmpFile)
+		case "bat":
+			tmpFile = tmpFile+".bat"
+			c = exec.Command(tmpFile)
+		default:
+			return fmt.Errorf("error getting script type from url path, path: %q, parsed type: %q", trimmed, sType)
+		}
+		if err := downloadScript(ctx, url, tmpFile); err != nil {
+			return err
+		}
+		return runCmd(c, ms.Metadata)
 	default:
 		return fmt.Errorf("unknown script type: %q", ms.Script)
 	}
@@ -143,7 +153,7 @@ func downloadGSURL(ctx context.Context, bucket, object string) (string, error) {
 	return buf.String(), nil
 }
 
-func downloadScript(ctx context.Context, path string) (string, error) {
+func downloadScript(ctx context.Context, url, file string) (string, error) {
 	// Startup scripts may run before DNS is running on some systems,
 	// particularly once a system is promoted to a domain controller.
 	// Try to lookup storage.googleapis.com and sleep for up to 100s if
@@ -155,23 +165,23 @@ func downloadScript(ctx context.Context, path string) (string, error) {
 		}
 		time.Sleep(5 * time.Second)
 	}
-	bucket, object := findMatch(path)
+	bucket, object := findMatch(url)
 	if bucket != "" && object != "" {
-		script, err := downloadGSURL(ctx, bucket, object)
+		err := downloadGSURL(ctx, bucket, object, file)
 		if err == nil {
-			return script, nil
+			return nil
 		}
 		logger.Infof("Failed to download GCS path: %v", err)
 		logger.Info("Trying unauthenticated download")
-		return downloadURL(fmt.Sprintf("https://%s/%s/%s", storageURL, bucket, object))
+		return downloadURL(fmt.Sprintf("https://%s/%s/%s", storageURL, bucket, object), file)
 	}
 
 	// Fall back to an HTTP GET of the URL.
-	return downloadURL(path)
+	return downloadURL(url, file)
 }
 
-func downloadURL(p string) (string, error) {
-	res, err := http.Get(p)
+func downloadURL(url, file string) (string, error) {
+	res, err := http.Get(url)
 	if err != nil {
 		return "", err
 	}
