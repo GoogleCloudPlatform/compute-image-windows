@@ -18,7 +18,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -32,6 +31,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"io"
 
 	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
@@ -48,7 +49,8 @@ var (
 		bat: "%s-script-bat",
 		url: "%s-script-url",
 	}
-	version string
+	version        string
+	powerShellArgs = []string{"-NoProfile", "-NoLogo", "-ExecutionPolicy", "Unrestricted", "-File"}
 
 	bucket = `([a-z0-9][-_.a-z0-9]*)`
 	object = `(.+)`
@@ -89,10 +91,6 @@ type metadataScript struct {
 }
 
 func (ms *metadataScript) run(ctx context.Context) error {
-	script, err := downloadScript(ctx, trimmed)
-	if err != nil {
-		return err
-	}
 	switch ms.Type {
 	case ps1:
 		return runPs1(ms)
@@ -102,28 +100,36 @@ func (ms *metadataScript) run(ctx context.Context) error {
 		return runBat(ms)
 	case url:
 		trimmed := strings.TrimSpace(ms.Script)
-		sType := trimmed[len(trimmed)-3 : len(trimmed)]
+		sType := trimmed[len(trimmed)-3:]
 		var c *exec.Cmd
 		dir, err := ioutil.TempDir("", "metadata-scripts")
 		if err != nil {
 			return err
 		}
+		defer os.RemoveAll(dir)
 		tmpFile := filepath.Join(dir, ms.Metadata)
 		switch sType {
 		case "ps1":
-			tmpFile = tmpFile+".ps1"
-			c = exec.Command("powershell.exe", "-NoProfile", "-NoLogo", "-ExecutionPolicy", "Unrestricted", "-File", tmpFile)   
+			tmpFile = tmpFile + ".ps1"
+			c = exec.Command("powershell.exe", append(powerShellArgs, tmpFile)...)
 		case "cmd":
-			tmpFile = tmpFile+".cmd"
+			tmpFile = tmpFile + ".cmd"
 			c = exec.Command(tmpFile)
 		case "bat":
-			tmpFile = tmpFile+".bat"
+			tmpFile = tmpFile + ".bat"
 			c = exec.Command(tmpFile)
 		default:
 			return fmt.Errorf("error getting script type from url path, path: %q, parsed type: %q", trimmed, sType)
 		}
-		if err := downloadScript(ctx, url, tmpFile); err != nil {
-			return err
+		file, err := os.Create(tmpFile)
+		if err != nil {
+			return fmt.Errorf("error opening temp file: %v", err)
+		}
+		if err := downloadScript(ctx, trimmed, file); err != nil {
+			return fmt.Errorf("error downloading script: %v", err)
+		}
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("error closing temp file: %v", err)
 		}
 		return runCmd(c, ms.Metadata)
 	default:
@@ -131,10 +137,10 @@ func (ms *metadataScript) run(ctx context.Context) error {
 	}
 }
 
-func downloadGSURL(ctx context.Context, bucket, object string) (string, error) {
+func downloadGSURL(ctx context.Context, bucket, object string, file *os.File) error {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to create client: %v", err)
+		return fmt.Errorf("failed to create client: %v", err)
 	}
 	defer client.Close()
 
@@ -142,18 +148,15 @@ func downloadGSURL(ctx context.Context, bucket, object string) (string, error) {
 	obj := bkt.Object(object)
 	r, err := obj.NewReader(ctx)
 	if err != nil {
-		return "", err
+		return fmt.Errorf("error reading object %q: %v", object, err)
 	}
 	defer r.Close()
 
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
+	_, err = io.Copy(file, r)
+	return err
 }
 
-func downloadScript(ctx context.Context, url, file string) (string, error) {
+func downloadScript(ctx context.Context, path string, file *os.File) error {
 	// Startup scripts may run before DNS is running on some systems,
 	// particularly once a system is promoted to a domain controller.
 	// Try to lookup storage.googleapis.com and sleep for up to 100s if
@@ -165,7 +168,7 @@ func downloadScript(ctx context.Context, url, file string) (string, error) {
 		}
 		time.Sleep(5 * time.Second)
 	}
-	bucket, object := findMatch(url)
+	bucket, object := findMatch(path)
 	if bucket != "" && object != "" {
 		err := downloadGSURL(ctx, bucket, object, file)
 		if err == nil {
@@ -177,20 +180,18 @@ func downloadScript(ctx context.Context, url, file string) (string, error) {
 	}
 
 	// Fall back to an HTTP GET of the URL.
-	return downloadURL(url, file)
+	return downloadURL(path, file)
 }
 
-func downloadURL(url, file string) (string, error) {
+func downloadURL(url string, file *os.File) error {
 	res, err := http.Get(url)
 	if err != nil {
-		return "", err
+		return err
 	}
-	data, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+
+	defer res.Body.Close()
+	_, err = io.Copy(file, res.Body)
+	return err
 }
 
 func findMatch(path string) (string, string) {
@@ -312,7 +313,7 @@ func runPs1(ms *metadataScript) error {
 	}
 	defer os.RemoveAll(filepath.Dir(tmpFile))
 
-	c := exec.Command("powershell.exe", "-NoProfile", "-NoLogo", "-ExecutionPolicy", "Unrestricted", "-File", tmpFile)
+	c := exec.Command("powershell.exe", append(powerShellArgs, tmpFile)...)
 	return runCmd(c, ms.Metadata)
 }
 
