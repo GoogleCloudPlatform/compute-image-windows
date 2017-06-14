@@ -121,7 +121,7 @@ func TestGetMetadata(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	metadataServer = ts.URL
+	metadataURL = ts.URL
 	metadataHang = ""
 
 	want := map[string]string{"key1": "value1", "key2": "value2"}
