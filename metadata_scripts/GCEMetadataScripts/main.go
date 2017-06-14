@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	metadataServer = "http://metadata.google.internal/computeMetadata/v1/instance/attributes"
+	metadataURL    = "http://metadata.google.internal/computeMetadata/v1/instance/attributes"
 	metadataHang   = "/?recursive=true&alt=json&timeout_sec=10&last_etag=NONE"
 	defaultTimeout = 20 * time.Second
 	commands       = []string{"specialize", "startup", "shutdown"}
@@ -170,11 +170,18 @@ func downloadScript(ctx context.Context, path string, file *os.File) error {
 	}
 	bucket, object := findMatch(path)
 	if bucket != "" && object != "" {
-		err := downloadGSURL(ctx, bucket, object, file)
-		if err == nil {
-			return nil
+		// Retry up to 3 times, only wait 1 second between retries.
+		for i := 1; ; i++ {
+			err := downloadGSURL(ctx, bucket, object, file)
+			if err == nil {
+				return nil
+			}
+			if err != nil && i > 3 {
+				logger.Infof("Failed to download GCS path: %v", err)
+				break
+			}
+			time.Sleep(1 * time.Second)
 		}
-		logger.Infof("Failed to download GCS path: %v", err)
 		logger.Info("Trying unauthenticated download")
 		return downloadURL(fmt.Sprintf("https://%s/%s/%s", storageURL, bucket, object), file)
 	}
@@ -184,9 +191,18 @@ func downloadScript(ctx context.Context, path string, file *os.File) error {
 }
 
 func downloadURL(url string, file *os.File) error {
-	res, err := http.Get(url)
-	if err != nil {
-		return err
+	// Retry up to 3 times, only wait 1 second between retries.
+	var res *http.Response
+	var err error
+	for i := 1; ; i++ {
+		res, err = http.Get(url)
+		if err != nil && i > 3 {
+			return err
+		}
+		if err == nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
 	}
 
 	defer res.Body.Close()
@@ -209,19 +225,31 @@ func getMetadata() (map[string]string, error) {
 		Timeout: defaultTimeout,
 	}
 
-	req, err := http.NewRequest("GET", metadataServer+metadataHang, nil)
+	req, err := http.NewRequest("GET", metadataURL+metadataHang, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Add("Metadata-Flavor", "Google")
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
+	var res *http.Response
+	// Retry up to five times, increase sleep between retries in order to wait
+	// for slow network initialization.
+	retry := 3
+	for i := 1; ; i++ {
+		res, err = client.Do(req)
+		if err != nil && i > 5 {
+			return nil, fmt.Errorf("error connecting to metadata server: %v", err)
+		}
+		if err == nil {
+			break
+		}
+		rt := time.Duration(retry*i) * time.Second
+		logger.Errorf("error connecting to metadata server, retrying in %s, error: %v", rt, err)
+		time.Sleep(rt)
 	}
+	defer res.Body.Close()
 
-	md, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
+	md, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
