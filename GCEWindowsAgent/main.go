@@ -17,11 +17,10 @@ package main
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"sync"
 	"time"
-
-	"io/ioutil"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 	"github.com/go-ini/ini"

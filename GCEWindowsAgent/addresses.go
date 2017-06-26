@@ -15,12 +15,11 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"reflect"
 	"strconv"
 	"strings"
-
-	"fmt"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 	"github.com/go-ini/ini"
