@@ -128,6 +128,11 @@ func run(ctx context.Context) {
 				time.Sleep(5 * time.Second)
 				continue
 			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 			runUpdate(newMetadata, &oldMetadata)
 			oldMetadata = *newMetadata
 			printWebException = true

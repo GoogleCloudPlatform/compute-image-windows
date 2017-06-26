@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 
+	"fmt"
+
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 	"github.com/go-ini/ini"
 )
@@ -185,16 +187,35 @@ func (a *addresses) set() error {
 
 		toAdd, toRm := compareIPs(regFwdIPs, ni.ForwardedIps, cfgIPs)
 		if len(toAdd) != 0 || len(toRm) != 0 {
-			logger.Infof("Changing forwarded IPs for %s from %q to %q by adding %q and removing %q.", mac, regFwdIPs, ni.ForwardedIps, toAdd, toRm)
+			// Remove non configured IPs from registry list.
+			for _, ip := range toAdd {
+				for i, rIP := range regFwdIPs {
+					if ip == rIP {
+						regFwdIPs = append(regFwdIPs[:i], regFwdIPs[i+1:]...)
+						break
+					}
+				}
+			}
+			msg := fmt.Sprintf("Changing forwarded IPs for %s from %q to %q by", mac, regFwdIPs, ni.ForwardedIps)
+			if len(toAdd) != 0 {
+				msg += fmt.Sprintf(" adding %q", toAdd)
+			}
+			if len(toRm) != 0 {
+				if len(toAdd) != 0 {
+					msg += " and"
+				}
+				msg += fmt.Sprintf(" removing %q", toRm)
+			}
+			logger.Info(msg, ".")
 		}
 
 		reg := ni.ForwardedIps
 		for _, ip := range toAdd {
-			if err := addIPAddress(net.ParseIP(ip), net.ParseIP("255.255.255.255"), iface.Index); err != nil {
+			if err := addAddress(net.ParseIP(ip), net.ParseIP("255.255.255.255"), uint32(iface.Index)); err != nil {
 				logger.Error(err)
 				for i, rIP := range reg {
 					if rIP == ip {
-						reg = append(regFwdIPs[:i], regFwdIPs[i+1:]...)
+						reg = append(reg[:i], reg[i+1:]...)
 						break
 					}
 				}
@@ -202,7 +223,7 @@ func (a *addresses) set() error {
 		}
 
 		for _, ip := range toRm {
-			if err := deleteIPAddress(net.ParseIP(ip)); err != nil {
+			if err := removeAddress(net.ParseIP(ip), uint32(iface.Index)); err != nil {
 				logger.Error(err)
 				reg = append(reg, ip)
 			}

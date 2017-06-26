@@ -29,9 +29,131 @@ var (
 	ipHlpAPI            = windows.NewLazySystemDLL("iphlpapi.dll")
 	procAddIPAddress    = ipHlpAPI.NewProc("AddIPAddress")
 	procDeleteIPAddress = ipHlpAPI.NewProc("DeleteIPAddress")
+
+	procCreateUnicastIpAddressEntry     = ipHlpAPI.NewProc("CreateUnicastIpAddressEntry")
+	procInitializeUnicastIpAddressEntry = ipHlpAPI.NewProc("InitializeUnicastIpAddressEntry")
+	procGetUnicastIpAddressEntry        = ipHlpAPI.NewProc("GetUnicastIpAddressEntry")
+	procDeleteUnicastIpAddressEntry     = ipHlpAPI.NewProc("DeleteUnicastIpAddressEntry")
 )
 
-func addIPAddress(ip, mask net.IP, index int) error {
+const (
+	AF_NET   = 2
+	AF_INET6 = 23
+)
+
+type in_addr struct {
+	S_un struct {
+		S_addr uint32
+	}
+}
+
+type in6_addr struct {
+	u struct {
+		Word [8]uint16
+	}
+}
+
+type SOCKADDR_IN6 struct {
+	sin6_family   int16
+	sin6_port     uint16
+	sin6_flowinfo uint32
+	sin6_addr     in6_addr
+	sin6_scope_id uint32
+}
+
+type SOCKADDR_IN struct {
+	sin_family int16
+	sin_addr   in_addr
+}
+
+type SOCKADDR_INET struct {
+	Ipv4      SOCKADDR_IN
+	Ipv6      SOCKADDR_IN6
+	si_family int16
+}
+
+type NET_LUID struct {
+	Value uint64
+	Info  struct {
+		NetLuidIndex uint64
+		IfType       uint64
+	}
+}
+
+type MIB_UNICASTIPADDRESS_ROW struct {
+	Address            SOCKADDR_INET
+	InterfaceLuid      NET_LUID
+	InterfaceIndex     uint32
+	PrefixOrigin       uint32
+	SuffixOrigin       uint32
+	ValidLifetime      uint32
+	PreferredLifetime  uint32
+	OnLinkPrefixLength uint8
+	SkipAsSource       bool
+}
+
+func addAddress(ip, mask net.IP, index uint32) error {
+	// CreateUnicastIpAddressEntry only available Vista onwards.
+	if err := procCreateUnicastIpAddressEntry.Find(); err != nil {
+		return addIPAddress(ip, mask, index)
+	}
+	return createUnicastIpAddressEntry(ip, 32, index)
+}
+
+func removeAddress(ip net.IP, index uint32) error {
+	// DeleteUnicastIpAddressEntry only available Vista onwards.
+	if err := procDeleteUnicastIpAddressEntry.Find(); err != nil {
+		return deleteIPAddress(ip)
+	}
+	return deleteUnicastIpAddressEntry(ip, index)
+}
+
+func createUnicastIpAddressEntry(ip net.IP, prefix uint8, index uint32) error {
+	ipRow := new(MIB_UNICASTIPADDRESS_ROW)
+	// No return value.
+	procInitializeUnicastIpAddressEntry.Call(uintptr(unsafe.Pointer(ipRow)))
+
+	ipRow.InterfaceIndex = index
+	ipRow.OnLinkPrefixLength = prefix
+	// https://blogs.technet.microsoft.com/rmilne/2012/02/08/fine-grained-control-when-registering-multiple-ip-addresses-on-a-network-card/
+	ipRow.SkipAsSource = true
+	ipRow.Address.si_family = AF_NET
+	ipRow.Address.Ipv4.sin_family = AF_NET
+	ipRow.Address.Ipv4.sin_addr.S_un.S_addr = binary.LittleEndian.Uint32(ip.To4())
+
+	if ret, _, _ := procCreateUnicastIpAddressEntry.Call(uintptr(unsafe.Pointer(ipRow))); ret != 0 {
+		return fmt.Errorf("nonzero return code from CreateUnicastIpAddressEntry: %d", ret)
+	}
+	return nil
+}
+
+func deleteUnicastIpAddressEntry(ip net.IP, index uint32) error {
+	ipRow := new(MIB_UNICASTIPADDRESS_ROW)
+
+	ipRow.InterfaceIndex = index
+	ipRow.Address.si_family = AF_NET
+	ipRow.Address.Ipv4.sin_family = AF_NET
+	ipRow.Address.Ipv4.sin_addr.S_un.S_addr = binary.LittleEndian.Uint32(ip.To4())
+
+	ret, _, _ := procGetUnicastIpAddressEntry.Call(uintptr(unsafe.Pointer(ipRow)))
+
+	// ERROR_NOT_FOUND
+	if ret == 1168 {
+		// This address was added by addIPAddress(), need to remove with deleteIPAddress()
+		return deleteIPAddress(ip)
+	}
+
+	if ret != 0 {
+		return fmt.Errorf("nonzero return code from GetUnicastIpAddressEntry: %d", ret)
+	}
+
+	if ret, _, _ := procDeleteUnicastIpAddressEntry.Call(uintptr(unsafe.Pointer(ipRow))); ret != 0 {
+		return fmt.Errorf("nonzero return code from DeleteUnicastIpAddressEntry: %d", ret)
+	}
+	return nil
+}
+
+func addIPAddress(ip, mask net.IP, index uint32) error {
 	ip = ip.To4()
 	mask = mask.To4()
 	var nteC int
