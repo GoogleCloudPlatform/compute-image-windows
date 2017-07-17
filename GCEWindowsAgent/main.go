@@ -17,11 +17,10 @@ package main
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"sync"
 	"time"
-
-	"io/ioutil"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 	"github.com/go-ini/ini"
@@ -127,6 +126,11 @@ func run(ctx context.Context) {
 				}
 				time.Sleep(5 * time.Second)
 				continue
+			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
 			}
 			runUpdate(newMetadata, &oldMetadata)
 			oldMetadata = *newMetadata

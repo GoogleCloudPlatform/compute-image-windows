@@ -37,11 +37,11 @@ func writeRegMultiString(key, name string, value []string) error {
 	return nil
 }
 
-func addIPAddress(ip, mask net.IP, index int) error {
+func addAddress(ip, mask net.IP, index uint32) error {
 	return nil
 }
 
-func deleteIPAddress(ip net.IP) error {
+func removeAddress(ip net.IP, index uint32) error {
 	return nil
 }
 
