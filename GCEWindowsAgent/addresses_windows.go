@@ -47,20 +47,6 @@ type in_addr struct {
 	}
 }
 
-type in6_addr struct {
-	u struct {
-		Word [8]uint16
-	}
-}
-
-type SOCKADDR_IN6 struct {
-	sin6_family   int16
-	sin6_port     uint16
-	sin6_flowinfo uint32
-	sin6_addr     in6_addr
-	sin6_scope_id uint32
-}
-
 type SOCKADDR_IN struct {
 	sin_family int16
 	sin_addr   in_addr
@@ -68,7 +54,6 @@ type SOCKADDR_IN struct {
 
 type SOCKADDR_INET struct {
 	Ipv4      SOCKADDR_IN
-	Ipv6      SOCKADDR_IN6
 	si_family int16
 }
 
