@@ -84,7 +84,7 @@ if ($help) {
 
 # Import Modules
 try {
-  Import-Module $PSScriptRoot\gce_base.psm1 -ErrorAction Stop 3>$null
+  Import-Module $PSScriptRoot\gce_base.psm1 -ErrorAction Stop 3> $null
 }
 catch [System.Management.Automation.ActionPreferenceStopException] {
   Write-Host $_.Exception.GetBaseException().Message

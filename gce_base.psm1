@@ -103,7 +103,7 @@ function Clear-TempFolders {
     .DESCRIPTION
       This function calls an array variable which contain location of all the
       temp files and folder which needs to be cleared out. We use the
-      Remove-Item routine to delete the files in the temp directorys.
+      Remove-Item routine to delete the files in the temp directories.
   #>
 
   # Array of files and folder that need to be deleted.

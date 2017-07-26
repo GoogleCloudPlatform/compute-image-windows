@@ -45,7 +45,7 @@ $script:show_msgs = $false
 $script:write_to_serial = $false
 
 try {
-  Import-Module $script:gce_base_loc -ErrorAction Stop 3>$null
+  Import-Module $script:gce_base_loc -ErrorAction Stop 3> $null
 }
 catch [System.Management.Automation.ActionPreferenceStopException] {
   Write-Host $_.Exception.GetBaseException().Message
