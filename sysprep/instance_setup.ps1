@@ -32,7 +32,7 @@ param (
 
 Set-StrictMode -Version Latest
 
-$global:logger = 'InstanceSetup'
+$global:logger = 'GCEInstanceSetup'
 $script:disable_built_in_user = $false
 $script:gce_install_dir = 'C:\Program Files\Google\Compute Engine'
 $script:gce_base_loc = "$script:gce_install_dir\sysprep\gce_base.psm1"
@@ -45,7 +45,7 @@ $script:show_msgs = $false
 $script:write_to_serial = $false
 
 try {
-  Import-Module $script:gce_base_loc -ErrorAction Stop
+  Import-Module $script:gce_base_loc -ErrorAction Stop 3>$null
 }
 catch [System.Management.Automation.ActionPreferenceStopException] {
   Write-Host $_.Exception.GetBaseException().Message
@@ -260,9 +260,7 @@ else {
   Run-Command schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
   Run-Command schtasks /run /tn GCEStartup
 
-  Write-Log '-' * 80
-  Write-Log "Instance setup finished. $global:hostname is ready to use. Activation will continue in the background."
-  Write-Log '-' * 80
+  Write-Log "Instance setup finished. $global:hostname is ready to use. Activation will continue in the background." -important
 
   if (Test-Path $script:setupcomplete_loc) {
     Remove-Item -Path $script:setupcomplete_loc -Force

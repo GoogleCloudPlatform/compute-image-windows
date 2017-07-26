@@ -86,12 +86,9 @@ function Clear-EventLogs {
 
   try {
     Write-Log 'Clearing events in EventViewer.'
-    $logs = Get-WinEvent -ComputerName $global:hostname -ListLog * | `
-      Where-Object {($_.IsEnabled -eq 'True') -and ($_.RecordCount -gt 0) } | `
-      foreach {$_.LogName}
-    $logs | foreach {
-      [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($_)
-    }
+    Get-WinEvent -ComputerName $global:hostname -ListLog * |
+      Where-Object {($_.IsEnabled -eq 'True') -and ($_.RecordCount -gt 0)} |
+      ForEach-Object {[System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($_.LogName)}
   }
   catch {
     _PrintError
@@ -115,7 +112,7 @@ function Clear-TempFolders {
     "C:\Users\*\Appdata\Local\Temp\*\*",
     "C:\Users\*\Appdata\Local\Microsoft\Internet Explorer\*",
     "C:\Users\*\Appdata\LocalLow\Temp\*\*",
-    "C:\Users\*\Appdata\LocalLow\Microsoft\Internet Explorer\*") | ForEachItem {
+    "C:\Users\*\Appdata\LocalLow\Microsoft\Internet Explorer\*") | ForEach-Object {
     if (Test-Path $_) {
       Remove-Item $_ -recurse -force -ErrorAction SilentlyContinue
     }
@@ -335,9 +332,13 @@ function Run-Command {
                ValueFromPipelineByPropertyName=$true)]
       $Arguments = $null
   )
-  Write-Log "Running $Executable with arguments $Arguments."
-  $out = &$executable $arguments 2>&1 | Out-String
-  $out.TrimEnd() | ForEach-Object { Write-Log "--> $_" }
+  Write-Log "Running '$Executable' with arguments '$Arguments'"
+  $out = &$Executable $Arguments 2>&1 | Out-String
+  if ($out.Trim()) {
+    $out.Trim().Split("`n") | ForEach-Object {
+      Write-Log "--> $_"
+    }
+  }
 }
 
 
