@@ -114,11 +114,11 @@ function Change-InstanceProperties {
 
   $netkvm = Get-CimInstance Win32_NetworkAdapter -filter "ServiceName='netkvm'"
   $netkvm | ForEach-Object {
-    Run-Command netsh interface ipv4 set interface $_.NetConnectionID mtu=1460 | Out-Null
+    Invoke-ExternalCommand netsh interface ipv4 set interface $_.NetConnectionID mtu=1460 | Out-Null
   }
   Write-Log 'MTU set to 1460.'
 
-  Run-Command route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $netkvm[0].InterfaceIndex metric 1 -ErrorAction SilentlyContinue
+  Invoke-ExternalCommand route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $netkvm[0].InterfaceIndex metric 1 -ErrorAction SilentlyContinue
   Write-Log 'Added persistent route to metadata netblock via first netkvm adapter.'
 
   # Enable access to Windows administrative file share.
@@ -148,7 +148,7 @@ function Enable-RemoteDesktop {
   Write-Log 'Disabled Ctrl + Alt + Del.'
 
   Write-Log 'Enable RDP firewall rules.'
-  Run-Command netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
+  Invoke-ExternalCommand netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
 
   try {
     Write-Log 'Restarting Terminal Service services, to enable RDP.'
@@ -211,7 +211,7 @@ function Configure-WinRM {
 
   # Open the firewall.
   $rule = 'Windows Remote Management (HTTPS-In)'
-  Run-Command netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
+  Invoke-ExternalCommand netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
   Restart-Service WinRM
   Write-Log 'Setup of WinRM complete.'
 }
@@ -257,8 +257,8 @@ else {
   # Schedule startup script.
   Write-Log 'Running startup scripts from metadata server.'
   $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
-  Run-Command schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
-  Run-Command schtasks /run /tn GCEStartup
+  Invoke-ExternalCommand schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
+  Invoke-ExternalCommand schtasks /run /tn GCEStartup
 
   Write-Log "Instance setup finished. $global:hostname is ready to use. Activation will continue in the background." -important
 

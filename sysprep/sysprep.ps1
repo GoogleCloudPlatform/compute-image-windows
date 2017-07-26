@@ -130,7 +130,7 @@ if (-not($ans_file)) {
 # Run Sysprep
 try {
   # Delete the startup task so it doesn't fire before sysprep completes.
-  Run-Command schtasks /delete /tn GCEStartup /f -ErrorAction SilentlyContinue
+  Invoke-ExternalCommand schtasks /delete /tn GCEStartup /f -ErrorAction SilentlyContinue
 
   # Do some clean up.
   Clear-TempFolders
@@ -142,7 +142,7 @@ try {
   }
 
   # Run sysprep.
-  Run-Command C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /quit /unattend:$ans_file
+  Invoke-ExternalCommand C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /quit /unattend:$ans_file
 
   Write-Log 'Waiting for sysprep to complete.'
   while (-not (Test-Path $script:sysprep_tag)) {
@@ -169,7 +169,7 @@ try {
   }
 
   Write-Log 'Shutting down.'
-  Run-Command shutdown /s /t 00
+  Invoke-ExternalCommand shutdown /s /t 00
 }
 catch {
   _PrintError

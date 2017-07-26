@@ -311,7 +311,7 @@ function _PrintError {
 }
 
 
-function Run-Command {
+function Invoke-ExternalCommand {
   <#
     .SYNOPSIS
       Run External Command.
@@ -322,7 +322,7 @@ function Run-Command {
     .PARAMETER Arguments
       Arguments for the executable. Default is NULL.
     .EXAMPLE
-      Run-Command dir c:\
+      Invoke-ExternalCommand dir c:\
   #>
  [CmdletBinding(SupportsShouldProcess=$true)]
   param (
@@ -593,7 +593,7 @@ function Set-LogFile {
 
 # Export all modules.
 New-Alias -Name _WriteToSerialPort -Value Write-SerialPort
-New-Alias -Name _RunExternalCMD -Value Run-Command
+New-Alias -Name _RunExternalCMD -Value Invoke-ExternalCommand
 New-Alias -Name _ClearEventLogs -Value Clear-EventLogs
 New-Alias -Name _ClearTempFolders -Value Clear-TempFolders
 New-Alias -Name _FetchFromMetadata -Value Get-Metadata
