@@ -67,6 +67,7 @@ param (
 $ErrorActionPreference = 'Stop'
 
 # Script Default Values
+$global:logger = 'GCESysprep'
 $script:hostname = [System.Net.Dns]::GetHostName()
 $script:psversion = $PSVersionTable.PSVersion.Major
 $script:sysprep_dir = "$scripts_location\sysprep"
@@ -134,11 +135,11 @@ if (-not($ans_file)) {
 # Run Sysprep
 try {
   # Delete the startup task so it doesn't fire before sysprep completes.
-  _RunExternalCMD schtasks /delete /tn GCEStartup /f
+  Run-Command schtasks /delete /tn GCEStartup /f
 
   # Do some clean up.
-  _ClearTempFolders
-  _ClearEventLogs
+  Clear-TempFolders
+  Clear-EventLogs
 
   # Delete the tag file so we don't think it already succeeded.
   if (Test-Path $script:sysprep_tag) {
@@ -146,7 +147,7 @@ try {
   }
 
   # Run sysprep.
-  _RunExternalCMD C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /quit /unattend:$ans_file
+  Run-Command C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /quit /unattend:$ans_file
 
   Write-Log 'Waiting for sysprep to complete.'
   while (-not (Test-Path $script:sysprep_tag)) {
@@ -173,7 +174,7 @@ try {
   }
 
   Write-Log 'Shutting down.'
-  shutdown /s /t 00
+  Run-Command shutdown /s /t 00
 }
 catch {
   _PrintError
