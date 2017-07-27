@@ -194,12 +194,20 @@ type credsJSON struct {
 	Modulus           string `json:"modulus,omitempty"`
 }
 
-func printCreds(creds *credsJSON) error {
+func (a *accounts) parseSerialPort() string {
+	port := a.config.Section("accountManager").Key("serialPort").String()
+	if len(port) > 0 {
+		return port
+	}
+	return "COM4"
+}
+
+func (a *accounts) printCreds(creds *credsJSON) error {
 	data, err := json.Marshal(creds)
 	if err != nil {
 		return err
 	}
-	return writeSerial("COM4", append(data, []byte("\n")...))
+	return writeSerial(a.parseSerialPort(), append(data, []byte("\n")...))
 }
 
 var badReg []string
@@ -269,7 +277,7 @@ func (a *accounts) set() error {
 	for _, key := range toAdd {
 		creds, err := key.createOrResetPwd()
 		if err == nil {
-			printCreds(creds)
+			a.printCreds(creds)
 			continue
 		}
 		logger.Error(err)
@@ -280,7 +288,7 @@ func (a *accounts) set() error {
 			UserName:      key.UserName,
 			ErrorMessage:  err.Error(),
 		}
-		printCreds(creds)
+		a.printCreds(creds)
 	}
 
 	var jsonKeys []string
