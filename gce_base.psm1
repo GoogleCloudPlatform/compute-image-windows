@@ -17,9 +17,6 @@
     GCE Base Modules.
   .DESCRIPTION
     Base modules needed for GCE Powershell scripts to run scripts to run.
-  .NOTES
-    LastModifiedDate: $Date: 2015/05/18 $
-    Version: $Revision: #26 $
 
   #requires -version 3.0
 #>
@@ -78,25 +75,20 @@ function _AddToPath {
 }
 
 
-function _ClearEventLogs {
+function Clear-EventLogs {
   <#
     .SYNOPSIS
       Clear all eventlog enteries.
     .DESCRIPTION
       This uses the Get-Eventlog and Clear-EventLog powershell functions to
       clean the eventlogs for a machine.
-    .EXAMPLE
-      _ClearEventLogs
   #>
 
   try {
     Write-Log 'Clearing events in EventViewer.'
-    $logs = Get-WinEvent -ComputerName $global:hostname -ListLog * | `
-      Where-Object {($_.IsEnabled -eq 'True') -and ($_.RecordCount -gt 0) } | `
-      foreach {$_.LogName}
-    $logs | foreach {
-      [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($_)
-    }
+    Get-WinEvent -ComputerName $global:hostname -ListLog * |
+      Where-Object {($_.IsEnabled -eq 'True') -and ($_.RecordCount -gt 0)} |
+      ForEach-Object {[System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($_.LogName)}
   }
   catch {
     _PrintError
@@ -104,60 +96,31 @@ function _ClearEventLogs {
 }
 
 
-function _ClearTempFolders {
+function Clear-TempFolders {
   <#
     .SYNOPSIS
       Delete all files from temp folder location.
     .DESCRIPTION
       This function calls an array variable which contain location of all the
       temp files and folder which needs to be cleared out. We use the
-      Remove-Item routine to delete the files in the temp directorys.
-    .EXAMPLE
-      _ClearTempFolders
+      Remove-Item routine to delete the files in the temp directories.
   #>
 
   # Array of files and folder that need to be deleted.
-  $temp_folders = @("C:\Windows\Temp\*", "C:\Windows\Prefetch\*",
-                   "C:\Documents and Settings\*\Local Settings\temp\*\*",
-                   "C:\Users\*\Appdata\Local\Temp\*\*",
-                   "C:\Users\*\Appdata\Local\Microsoft\Internet Explorer\*",
-                   "C:\Users\*\Appdata\LocalLow\Temp\*\*",
-                   "C:\Users\*\Appdata\LocalLow\Microsoft\Internet Explorer\*")
-
-  _DeleteFiles $temp_folders
-}
-
-
-function _DeleteFiles {
-  <#
-    .SYNOPSIS
-      Filenames that need to be deleted.
-    .DESCRIPTION
-      This function can take multiple filenames as argument. If the file(s)
-      exist they are deleted.
-    .PARAMETER filenames
-      filenames to be deleted.
-    .EXAMPLE
-      _DeleteFiles foo.txt
-  #>
-  param (
-    [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
-    [Alias('files')]
-      $filenames
-  )
-
-  try {
-    if (Test-Path $filenames) {
-      Remove-Item $filenames -recurse -force  -ErrorAction SilentlyContinue
+  @("C:\Windows\Temp\*", "C:\Windows\Prefetch\*",
+    "C:\Documents and Settings\*\Local Settings\temp\*\*",
+    "C:\Users\*\Appdata\Local\Temp\*\*",
+    "C:\Users\*\Appdata\Local\Microsoft\Internet Explorer\*",
+    "C:\Users\*\Appdata\LocalLow\Temp\*\*",
+    "C:\Users\*\Appdata\LocalLow\Microsoft\Internet Explorer\*") | ForEach-Object {
+    if (Test-Path $_) {
+      Remove-Item $_ -recurse -force -ErrorAction SilentlyContinue
     }
   }
-  catch {
-    _PrintError
-  }
 }
 
 
-function _FetchFromMetaData {
+function Get-MetaData {
   <#
     .SYNOPSIS
       Get attributes from GCE instances metadata.
@@ -169,7 +132,7 @@ function _FetchFromMetaData {
       Name of file to save metadata contents to.  If left out, returns contents.
     .EXAMPLE
       $hostname = _FetchFromMetaData -property 'hostname'
-      _FetchFromMetaData -property 'startup-script' -file 'script.bat'
+      Get-MetaData -property 'startup-script' -file 'script.bat'
   #>
   param (
     [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
@@ -348,86 +311,32 @@ function _PrintError {
 }
 
 
-function _RunExternalCMD {
+function Invoke-ExternalCommand {
   <#
     .SYNOPSIS
       Run External Command.
     .DESCRIPTION
-      This function calls an external command outside of the powershell script.
-    .PARAMETER executable
+      This function calls an external command outside of the powershell script and logs the output.
+    .PARAMETER Executable
       Executable that needs to be run.
-    .PARAMETER arguments
+    .PARAMETER Arguments
       Arguments for the executable. Default is NULL.
-    .RETURNS
-      $result: The resulting output if any for the command which was run.
     .EXAMPLE
-      _RunExternalCMD dir c:\
+      Invoke-ExternalCommand dir c:\
   #>
-  [CmdletBinding(supportsshouldprocess=$true)]
+ [CmdletBinding(SupportsShouldProcess=$true)]
   param (
     [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
-    [Alias('exe')]
-      [string]$executable,
+      [string]$Executable,
     [Parameter(ValueFromRemainingArguments=$true,
                ValueFromPipelineByPropertyName=$true)]
-      $arguments = $null
+      $Arguments = $null
   )
-
-  $output = $null
-  Write-Log "Running $executable with arguments $arguments"
-  try {
-    $output = &$executable $arguments 2>&1 | Out-String
-    if ($output) {
-      # Log output from external command --> shows external output in logs.
-      Write-Log "--> $output".TrimEnd()
-    }
-  }
-  catch {
-    _PrintError
-  }
-  return $output
-}
-
-
-function _RunMetadataScript {
-  <#
-    .SYNOPSIS
-      Runs a script from the metadata server.
-    .DESCRIPTION
-      Downloads scripts of supported extensions and executes them.  Requires
-      a base name, e.g. startup-script, from which it will look for metadata
-      attributes of the form startup-script-cmd, startup-script-ps1, and any
-      other supported extensions.
-    .PARAMETER base
-      Base name of script you wish to run.  Will run a set of scripts with
-      attribute names of the form base-extension.
-    .EXAMPLE
-      _RunMetadataScript -base windows-startup-script
-  #>
-  param (
-    [String]$base = $(Throw '-base is required.')
-  )
-
-  $exts = @('bat', 'cmd', 'ps1')
-
-  $filename = [IO.Path]::GetTempFileName()
-  Remove-Item $filename
-
-  # If metadata server is reachable.
-  if (Test-Connection $global:metadata_server -Count 1 -ErrorAction SilentlyContinue) {
-    foreach ($ext in $exts) {
-      $renamed = $filename -replace 'tmp$', $ext
-
-      try {
-        _FetchFromMetadata -property ('attributes/' + $base + '-' + $ext) -file $renamed
-
-        &$renamed
-
-        Remove-Item $renamed
-      }
-      catch {
-        # Script doesn't exist; swallow exception and ignore.
-      }
+  Write-Log "Running '$Executable' with arguments '$Arguments'"
+  $out = &$Executable $Arguments 2>&1 | Out-String
+  if ($out.Trim()) {
+    $out.Trim().Split("`n") | ForEach-Object {
+      Write-Log "--> $_"
     }
   }
 }
@@ -511,7 +420,7 @@ function _TestTCPPort {
 }
 
 
-function _WriteToSerialPort {
+function Write-SerialPort {
   <#
     .SYNOPSIS
       Sending data to serial port.
@@ -545,10 +454,10 @@ function _WriteToSerialPort {
       Remote close connection.
     .EXAMPLE
       Send data to serial port and exit.
-      _WriteToSerialPort -portname COM1 -data 'Hello World'
+      Write-SerialPort -portname COM1 -data 'Hello World'
     .EXAMPLE
       Send data to serial port and wait for respond.
-      _WriteToSerialPort -portname COM1 -data 'dir C:\' -wait_for_respond
+      Write-SerialPort -portname COM1 -data 'dir C:\' -wait_for_respond
   #>
   [CmdletBinding(supportsshouldprocess=$true)]
   param (
@@ -617,18 +526,21 @@ function Write-Log {
     [Switch] $is_warning
   )
   $timestamp = $(Get-Date -Format 'yyyy/MM/dd HH:mm:ss')
+  if (-not ($global:logger)) {
+    $global:logger = ''
+  }
   try {
     # Add a boundary around an important message.
     if ($is_important) {
       $boundary = '-' * 60
       $timestampped_msg = @"
-$timestamp  $boundary
-$timestamp  $msg
-$timestamp  $boundary
+${timestamp} ${global:logger}: ${boundary}
+${timestamp} ${global:logger}: ${msg}
+${timestamp} ${global:logger}: ${boundary}
 "@
     }
     else {
-      $timestampped_msg = "$timestamp  $msg"
+      $timestampped_msg = "${timestamp} ${global:logger}: ${msg}"
     }
     # If a log file is set, use it.
     if ($global:log_file) {
@@ -636,7 +548,7 @@ $timestamp  $boundary
     }
     # If COM1 exists write msg to console.
     if ($global:write_to_serial) {
-      _WriteToSerialPort -portname 'COM1' -data "$timestampped_msg" -ErrorAction SilentlyContinue
+      Write-SerialPort -portname 'COM1' -data "$timestampped_msg" -ErrorAction SilentlyContinue
     }
     if ($is_error) {
       Write-Host "$timestampped_msg" -foregroundcolor red
@@ -680,6 +592,11 @@ function Set-LogFile {
 
 
 # Export all modules.
+New-Alias -Name _WriteToSerialPort -Value Write-SerialPort
+New-Alias -Name _RunExternalCMD -Value Invoke-ExternalCommand
+New-Alias -Name _ClearEventLogs -Value Clear-EventLogs
+New-Alias -Name _ClearTempFolders -Value Clear-TempFolders
+New-Alias -Name _FetchFromMetadata -Value Get-Metadata
 Export-ModuleMember -Function * -Alias *
 
 if (_GetCOMPorts -portname 'COM1') {

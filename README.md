@@ -100,7 +100,7 @@ On installation GooGet adds content to the system environment, launch a new Powe
 console after installation or provide the full path to googet.exe
 (C:\ProgramData\GooGet\googet.exe).
 
-Add the `google-compute-engine-stable` repo:
+Add the `google-compute-engine-stable` repo, **_this must be done in a new console if you just installed GooGet_**:
 ```
 googet addrepo google-compute-engine-stable https://packages.cloud.google.com/yuck/repos/google-compute-engine-stable
 ```
@@ -129,9 +129,7 @@ it accepted.
 
 1.  Please sign our [Contributor License Agreement](CONTRIB.md).
 1.  Fork this Git repository and make your changes.
-1.  Create a Pull Request against the
-    [development](https://github.com/GoogleCloudPlatform/compute-image-packages/tree/development)
-    branch.
+1.  Create a Pull Request.
 1.  Incorporate review feedback to your changes.
 1.  Accepted!
 

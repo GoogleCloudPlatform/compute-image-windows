@@ -32,7 +32,7 @@ param (
 
 Set-StrictMode -Version Latest
 
-# Default Values
+$global:logger = 'GCEInstanceSetup'
 $script:disable_built_in_user = $false
 $script:gce_install_dir = 'C:\Program Files\Google\Compute Engine'
 $script:gce_base_loc = "$script:gce_install_dir\sysprep\gce_base.psm1"
@@ -44,9 +44,8 @@ $script:setupcomplete_loc = "$script:setupscripts_dir_loc\SetupComplete.cmd"
 $script:show_msgs = $false
 $script:write_to_serial = $false
 
-# Import Modules
 try {
-  Import-Module $script:gce_base_loc -ErrorAction Stop
+  Import-Module $script:gce_base_loc -ErrorAction Stop 3> $null
 }
 catch [System.Management.Automation.ActionPreferenceStopException] {
   Write-Host $_.Exception.GetBaseException().Message
@@ -55,8 +54,6 @@ catch [System.Management.Automation.ActionPreferenceStopException] {
   exit 2
 }
 
-
-# Functions
 function Change-InstanceName {
   <#
     .SYNOPSIS
@@ -75,7 +72,7 @@ function Change-InstanceName {
 
   $count = 1
   do {
-    $hostname_parts = (_FetchFromMetaData -property 'hostname') -split '\.'
+    $hostname_parts = (Get-Metadata -property 'hostname') -split '\.'
     if ($hostname_parts.Length -le 1) {
       Write-Log "Waiting for metadata server, attempt $count."
       Start-Sleep -Seconds 1
@@ -102,7 +99,6 @@ function Change-InstanceName {
   }
 }
 
-
 function Change-InstanceProperties {
   <#
     .SYNOPSIS
@@ -118,18 +114,17 @@ function Change-InstanceProperties {
 
   $netkvm = Get-CimInstance Win32_NetworkAdapter -filter "ServiceName='netkvm'"
   $netkvm | ForEach-Object {
-    _RunExternalCMD netsh interface ipv4 set interface $_.NetConnectionID mtu=1460
+    Invoke-ExternalCommand netsh interface ipv4 set interface $_.NetConnectionID mtu=1460 | Out-Null
   }
   Write-Log 'MTU set to 1460.'
 
-  _RunExternalCMD route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $netkvm[0].InterfaceIndex metric 1 -ErrorAction SilentlyContinue
+  Invoke-ExternalCommand route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $netkvm[0].InterfaceIndex metric 1 -ErrorAction SilentlyContinue
   Write-Log 'Added persistent route to metadata netblock via first netkvm adapter.'
 
   # Enable access to Windows administrative file share.
   Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
       -Name 'LocalAccountTokenFilterPolicy' -Value 1 -Force
 }
-
 
 function Enable-RemoteDesktop {
   <#
@@ -153,7 +148,7 @@ function Enable-RemoteDesktop {
   Write-Log 'Disabled Ctrl + Alt + Del.'
 
   Write-Log 'Enable RDP firewall rules.'
-  _RunExternalCMD netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
+  Invoke-ExternalCommand netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
 
   try {
     Write-Log 'Restarting Terminal Service services, to enable RDP.'
@@ -166,7 +161,6 @@ function Enable-RemoteDesktop {
         'Try restarting this instance from the Cloud Console.')
   }
 }
-
 
 function Configure-WinRM {
   <#
@@ -217,18 +211,16 @@ function Configure-WinRM {
 
   # Open the firewall.
   $rule = 'Windows Remote Management (HTTPS-In)'
-  _RunExternalCMD netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
+  Invoke-ExternalCommand netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
   Restart-Service WinRM
   Write-Log 'Setup of WinRM complete.'
 }
 
-
 # Check if COM1 exists.
 if (-not ($global:write_to_serial)) {
-  Write-Log 'COM1 does not exist on this machine. Logs will not be written to GCE console.' -warning
+  Write-Log 'COM1 does not exist on this machine. Logs will not be written to GCE console.'
 }
 
-# Check the args.
 if ($specialize) {
   Write-Log 'Starting sysprep specialize phase.'
 
@@ -263,10 +255,10 @@ else {
   Configure-WinRM
 
   # Schedule startup script.
-  Write-Log 'Adding startup scripts from metadata server.'
+  Write-Log 'Running startup scripts from metadata server.'
   $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
-  _RunExternalCMD schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
-  _RunExternalCMD schtasks /run /tn GCEStartup
+  Invoke-ExternalCommand schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
+  Invoke-ExternalCommand schtasks /run /tn GCEStartup
 
   Write-Log "Instance setup finished. $global:hostname is ready to use. Activation will continue in the background." -important
 

@@ -67,6 +67,7 @@ param (
 $ErrorActionPreference = 'Stop'
 
 # Script Default Values
+$global:logger = 'GCESysprep'
 $script:hostname = [System.Net.Dns]::GetHostName()
 $script:psversion = $PSVersionTable.PSVersion.Major
 $script:sysprep_dir = "$scripts_location\sysprep"
@@ -83,7 +84,7 @@ if ($help) {
 
 # Import Modules
 try {
-  Import-Module $PSScriptRoot\gce_base.psm1 -ErrorAction Stop
+  Import-Module $PSScriptRoot\gce_base.psm1 -ErrorAction Stop 3> $null
 }
 catch [System.Management.Automation.ActionPreferenceStopException] {
   Write-Host $_.Exception.GetBaseException().Message
@@ -118,12 +119,7 @@ if (-not(_TestAdmin)) {
   exit
 }
 
-# Check if PowerShell version is correct.
-if (-not ($script:psversion -ge 3)) {
-  $script:show_msgs = $true
-  Write-Log ('Powershell version should be at least Version 3 or higher. ' +
-    "Current version is $script:psversion. This script will run but might have errors.") -is_error
-}
+Write-Log 'Beginning GCESysprep.'
 
 # Check Unattended.xml file.
 if (-not($ans_file)) {
@@ -134,11 +130,11 @@ if (-not($ans_file)) {
 # Run Sysprep
 try {
   # Delete the startup task so it doesn't fire before sysprep completes.
-  _RunExternalCMD schtasks /delete /tn GCEStartup /f
+  Invoke-ExternalCommand schtasks /delete /tn GCEStartup /f -ErrorAction SilentlyContinue
 
   # Do some clean up.
-  _ClearTempFolders
-  _ClearEventLogs
+  Clear-TempFolders
+  Clear-EventLogs
 
   # Delete the tag file so we don't think it already succeeded.
   if (Test-Path $script:sysprep_tag) {
@@ -146,7 +142,7 @@ try {
   }
 
   # Run sysprep.
-  _RunExternalCMD C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /quit /unattend:$ans_file
+  Invoke-ExternalCommand C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /quit /unattend:$ans_file
 
   Write-Log 'Waiting for sysprep to complete.'
   while (-not (Test-Path $script:sysprep_tag)) {
@@ -173,7 +169,7 @@ try {
   }
 
   Write-Log 'Shutting down.'
-  shutdown /s /t 00
+  Invoke-ExternalCommand shutdown /s /t 00
 }
 catch {
   _PrintError
