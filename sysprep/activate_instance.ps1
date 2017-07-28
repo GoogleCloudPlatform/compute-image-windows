@@ -29,8 +29,8 @@ try {
   Import-Module $PSScriptRoot\gce_base.psm1 -ErrorAction Stop 3> $null
 }
 catch [System.Management.Automation.ActionPreferenceStopException] {
-  Write-Host $_.Exception.GetBaseException().Message
-  Write-Host ("Unable to import GCE module from $PSScriptRoot. " +
+  Write-Output $_.Exception.GetBaseException().Message
+  Write-Output ("Unable to import GCE module from $PSScriptRoot. " +
     'Check error message, or ensure module is present.')
   exit 2
 }
