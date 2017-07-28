@@ -25,6 +25,15 @@ Set-StrictMode -Version Latest
 $script:kms_server = 'kms.windows.googlecloud.com'
 $script:kms_server_port = 1688
 
+try {
+  Import-Module $PSScriptRoot\gce_base.psm1 -ErrorAction Stop 3> $null
+}
+catch [System.Management.Automation.ActionPreferenceStopException] {
+  Write-Output $_.Exception.GetBaseException().Message
+  Write-Output ("Unable to import GCE module from $PSScriptRoot. " +
+    'Check error message, or ensure module is present.')
+  exit 2
+}
 
 function Activate-Instance {
   <#
@@ -40,16 +49,16 @@ function Activate-Instance {
   [string]$license_key = $null
   [int]$retry_count = 3 # Try activation three times.
 
-  Write-Host 'Checking instance license activation status.'
+  Write-Output 'Checking instance license activation status.'
   if (Verify-ActivationStatus) {
-    Write-Host "$global:hostname is already licensed and activated."
+    Write-Output "$global:hostname is already licensed and activated."
     return
   }
-  Write-Host "$global:hostname needs to be activated by a KMS Server."
+  Write-Output "$global:hostname needs to be activated by a KMS Server."
   # Get the LicenseKey.
   $license_key = Get-ProductKmsClientKey
   if (-not $license_key) {
-    Write-Host 'Could not get the License Key for the instance. Activation skipped.'
+    Write-Output 'Could not get the License Key for the instance. Activation skipped.'
     return
   }
   # Set the KMS server.
@@ -62,34 +71,34 @@ function Activate-Instance {
   $get_product_details = (Get-ItemProperty -Path $reg_query -Name ProductName).ProductName
   $known_editions_regex = 'Windows (Web )?Server (2008 R2|2012|2012 R2|2016)'
   if ($get_product_details -notmatch $known_editions_regex) {
-    Write-Host ("$get_product_details activations are currently not " +
+    Write-Output ("$get_product_details activations are currently not " +
         'supported on GCE. Activation request will be skipped.')
     return
   }
 
   # Check if the KMS server is reachable.
   if (-not (_TestTCPPort -host $script:kms_server -port $script:kms_server_port)) {
-    Write-Host 'Could not contact activation server. Will retry activation later.'
+    Write-Output 'Could not contact activation server. Will retry activation later.'
     return
   }
   # KMS Server is reachable try to activate the server.
   while ($retry_count -gt 0) {
     # Activate the instance.
-    Write-Host 'Activating instance...'
+    Write-Output 'Activating instance...'
     & cscript //nologo $env:windir\system32\slmgr.vbs /ato
     # Helps to avoid activation failures.
     Start-Sleep -Seconds 1
     # Check activation status.
     if (Verify-ActivationStatus) {
-      Write-Host 'Activation successful.' -important
+      Write-Output 'Activation successful.'
       break
     }
     else {
-      Write-Host 'Activation failed.'
+      Write-Output 'Activation failed.'
       $retry_count = $retry_count - 1
     }
     if ($retry_count -gt 0) {
-      Write-Host "Retrying activation. Will try $retry_count more time(s)"
+      Write-Output "Retrying activation. Will try $retry_count more time(s)"
     }
   }
 }
@@ -220,7 +229,6 @@ function Verify-ActivationStatus {
   }
   # Check the output.
   $status = $slmgr_status.Split("`n") | Select-String -Pattern '^License Status:'
-  Write-Host "Activation status - $status"
   if ($status -match 'Licensed') {
     $active = $true
   }
