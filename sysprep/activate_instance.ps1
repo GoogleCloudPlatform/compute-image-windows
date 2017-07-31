@@ -25,12 +25,13 @@ Set-StrictMode -Version Latest
 $script:kms_server = 'kms.windows.googlecloud.com'
 $script:kms_server_port = 1688
 
+$module = 'C:\Program Files\Google\Compute Engine\sysprep\gce_base.psm1'
 try {
-  Import-Module $PSScriptRoot\gce_base.psm1 -ErrorAction Stop 3> $null
+  Import-Module $module -ErrorAction Stop 3> $null
 }
 catch [System.Management.Automation.ActionPreferenceStopException] {
   Write-Output $_.Exception.GetBaseException().Message
-  Write-Output ("Unable to import GCE module from $PSScriptRoot. " +
+  Write-Output ("Unable to import GCE module from $module. " +
     'Check error message, or ensure module is present.')
   exit 2
 }
