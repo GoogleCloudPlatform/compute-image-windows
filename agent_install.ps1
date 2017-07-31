@@ -21,8 +21,8 @@ if (-not (Test-Path $config)) {
   @'
 # GCE Instance Configuration
 
-# See https://cloud.google.com/compute/docs/instances/windows/creating-managing-windows-instances#configure-windows-features
-# for details on what can be configured.
+# For details on what can be configured, see:
+# https://cloud.google.com/compute/docs/instances/windows/creating-managing-windows-instances#configure-windows-features
 
 # [accountManager]
 # disable=false
