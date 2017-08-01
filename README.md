@@ -106,11 +106,11 @@ Add the `google-compute-engine-stable` repo, **_this must be done in a new conso
 googet addrepo google-compute-engine-stable https://packages.cloud.google.com/yuck/repos/google-compute-engine-stable
 ```
 
-Install the core packages `google-compute-engine-windows` and
-`google-compute-engine-sysprep`, `google-compute-engine-sysprep` and
-`google-compute-engine-sysprep` will also be installed as dependencies:
+Install the core packages `google-compute-engine-windows`, 
+`google-compute-engine-metadata-scripts`,`google-compute-engine-sysprep`,
+and `google-compute-engine-vss`.
 ```
-googet -noconfirm install google-compute-engine-windows google-compute-engine-sysprep google-compute-engine-vss
+googet -noconfirm install google-compute-engine-windows google-compute-engine-sysprep google-compute-engine-metadata-scripts google-compute-engine-vss
 ```
 
 Install optional packages, `google-compute-engine-auto-updater`:
