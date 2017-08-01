@@ -83,6 +83,7 @@ We build and install the following packages for the Windows guest environment:
     used by other packages.
 *   `google-compute-engine-auto-updater` - Automatic updater for core Google
     packages.
+*   `google-compute-engine-vss` - Google Compute Engine VSS agent and provider
 
 The package build specs are published in this project.
 
@@ -92,8 +93,8 @@ PowerShell prompt:**
 Download and install GooGet:
 ```
 wget https://github.com/google/googet/releases/download/v2.9.1/googet.exe -OutFile $env:temp\googet.exe
-$env:temp\googet.exe -root C:\ProgramData\GooGet -noconfirm install -sources https://packages.cloud.google.com/yuck/repos/google-compute-engine-stable googet
-rm $env:temp\googet.exe
+& "$env:temp\googet.exe" -root C:\ProgramData\GooGet -noconfirm install -sources https://packages.cloud.google.com/yuck/repos/google-compute-engine-stable googet
+rm "$env:temp\googet.exe"
 ```
 
 On installation GooGet adds content to the system environment, launch a new PowerShell
@@ -105,11 +106,11 @@ Add the `google-compute-engine-stable` repo, **_this must be done in a new conso
 googet addrepo google-compute-engine-stable https://packages.cloud.google.com/yuck/repos/google-compute-engine-stable
 ```
 
-Install the core packages `google-compute-engine-windows` and
-`google-compute-engine-sysprep`, `google-compute-engine-sysprep` and
-`google-compute-engine-sysprep` will also be installed as dependencies:
+Install the core packages `google-compute-engine-windows`, 
+`google-compute-engine-metadata-scripts`,`google-compute-engine-sysprep`,
+and `google-compute-engine-vss`.
 ```
-googet -noconfirm install google-compute-engine-windows google-compute-engine-sysprep
+googet -noconfirm install google-compute-engine-windows google-compute-engine-sysprep google-compute-engine-metadata-scripts google-compute-engine-vss
 ```
 
 Install optional packages, `google-compute-engine-auto-updater`:
