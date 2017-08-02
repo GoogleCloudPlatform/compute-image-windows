@@ -6,6 +6,7 @@ supported Compute Engine [images](https://cloud.google.com/compute/docs/images).
 
 * [Background](#background)
 * [Agent](#agent)
+    * [Configuring](#configuring)
     * [Account Setup](#account-setup)
     * [IP Forwarding](#ip-forwarding)
     * [Windows Failover Cluster Support](#windows-failover-cluster-support)
