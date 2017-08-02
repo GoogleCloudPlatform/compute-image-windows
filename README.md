@@ -31,7 +31,8 @@ Google Compute Engine.
 
 ### Configuring
 
-The agent can be configured either through [metadata or a local config file](https://cloud.google.com/compute/docs/instances/windows/creating-managing-windows-instances#configure-windows-features).
+The agent is configurable through
+[metadata or a local config file](https://cloud.google.com/compute/docs/instances/windows/creating-managing-windows-instances#configure-windows-features).
 
 #### Account Setup
 
