@@ -5,14 +5,14 @@ supported Compute Engine [images](https://cloud.google.com/compute/docs/images).
 **Table of Contents**
 
 * [Background](#background)
-* [Agent](#Agent)
+* [Agent](#agent)
+    * [Configuring](#configuring)
     * [Account Setup](#account-setup)
     * [IP Forwarding](#ip-forwarding)
     * [Windows Failover Cluster Support](#windows-failover-cluster-support)
 * [Instance Setup](#instance-setup)
 * [Metadata Scripts](#metadata-scripts)
-* [Network Setup](#network-setup)
-* [Packaging and Package Distribution](#packaging-andpackage-distribution)
+* [Packaging and Package Distribution](#packaging-and-package-distribution)
 * [Contributing](#contributing)
 * [License](#license)
 
@@ -28,6 +28,11 @@ the content of the metadata server to make a virtual machine run properly on
 Google Compute Engine.
 
 ## Agent
+
+#### Configuring
+
+The agent is configurable through
+[metadata or a local config file](https://cloud.google.com/compute/docs/instances/windows/creating-managing-windows-instances#configure-windows-features).
 
 #### Account Setup
 
