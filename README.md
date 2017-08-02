@@ -92,9 +92,9 @@ PowerShell prompt:**
 
 Download and install GooGet:
 ```
-wget https://github.com/google/googet/releases/download/v2.9.1/googet.exe -OutFile $env:temp\googet.exe
+Invoke-WebRequest https://github.com/google/googet/releases/download/v2.9.1/googet.exe -OutFile $env:temp\googet.exe
 & "$env:temp\googet.exe" -root C:\ProgramData\GooGet -noconfirm install -sources https://packages.cloud.google.com/yuck/repos/google-compute-engine-stable googet
-rm "$env:temp\googet.exe"
+Remove-Item "$env:temp\googet.exe"
 ```
 
 On installation GooGet adds content to the system environment, launch a new PowerShell
