@@ -21,9 +21,10 @@
     Some of the task performed by the scripts are:
       Change the hostname to match the GCE hostname
       Activate the GCE instance
-
-  #requires -version 3.0
 #>
+
+#requires -version 3.0
+
 [CmdletBinding()]
 param (
   [Parameter(HelpMessage = 'Sysprep specialize phase.')]
@@ -66,8 +67,10 @@ function Change-InstanceName {
   Write-Log 'Getting hostname from metadata server.'
 
   if ((Get-CimInstance Win32_BIOS).Manufacturer -cne 'Google') {
-    Write-Log 'Not running in a Google Compute Engine VM.' -error
-    return
+    if (-not (Test-Connection -Count 1 metadata.google.internal -ErrorAction SilentlyContinue)) {
+      Write-Log 'Not running in a Google Compute Engine VM.' -error
+      return
+    }
   }
 
   $count = 1

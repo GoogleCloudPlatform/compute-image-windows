@@ -1,4 +1,4 @@
-# Copyright 2015 Google Inc. All Rights Reserved.
+# Copyright 2017 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,25 +15,23 @@
 <#
   .SYNOPSIS
     Activates a GCE instance.
-
-  #requires -version 3.0
 #>
+
+#requires -version 2
 
 Set-StrictMode -Version Latest
 
-# Default Values
 $script:kms_server = 'kms.windows.googlecloud.com'
 $script:kms_server_port = 1688
-
-$module = 'C:\Program Files\Google\Compute Engine\sysprep\gce_base.psm1'
+$script:hostname = hostname
+$script:known_editions_regex = 'Windows (Web )?Server (2008 R2|2012|2012 R2|2016)'
+$reg = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
 try {
-  Import-Module $module -ErrorAction Stop 3> $null
+  $script:product_name = (Get-ItemProperty -Path $reg -Name ProductName).ProductName
 }
-catch [System.Management.Automation.ActionPreferenceStopException] {
-  Write-Output $_.Exception.GetBaseException().Message
-  Write-Output ("Unable to import GCE module from $module. " +
-    'Check error message, or ensure module is present.')
-  exit 2
+catch {
+  Write-Output 'Failed to get the product details. Skipping activation.'
+  exit
 }
 
 function Activate-Instance {
@@ -46,50 +44,45 @@ function Activate-Instance {
       for instance checkups in the future.
   #>
 
-  # Variables
   [string]$license_key = $null
   [int]$retry_count = 3 # Try activation three times.
 
   Write-Output 'Checking instance license activation status.'
   if (Verify-ActivationStatus) {
-    Write-Output "$global:hostname is already licensed and activated."
+    Write-Output "$script:hostname is already licensed and activated."
     return
   }
-  Write-Output "$global:hostname needs to be activated by a KMS Server."
-  # Get the LicenseKey.
+
+  Write-Output "$script:hostname needs to be activated by a KMS Server."
   $license_key = Get-ProductKmsClientKey
   if (-not $license_key) {
     Write-Output 'Could not get the License Key for the instance. Activation skipped.'
     return
   }
+
   # Set the KMS server.
   & cscript //nologo $env:windir\system32\slmgr.vbs /skms $script:kms_server
   # Apply the license key to the host.
   & cscript //nologo $env:windir\system32\slmgr.vbs /ipk $license_key
 
   # Check if the product can be activated.
-  $reg_query = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
-  $get_product_details = (Get-ItemProperty -Path $reg_query -Name ProductName).ProductName
-  $known_editions_regex = 'Windows (Web )?Server (2008 R2|2012|2012 R2|2016)'
-  if ($get_product_details -notmatch $known_editions_regex) {
-    Write-Output ("$get_product_details activations are currently not " +
+  if ($script:product_name -notmatch $script:known_editions_regex) {
+    Write-Output ("$script:product_name activations are currently not " +
         'supported on GCE. Activation request will be skipped.')
     return
   }
 
-  # Check if the KMS server is reachable.
-  if (-not (_TestTCPPort -host $script:kms_server -port $script:kms_server_port)) {
+  if (-not (Test-TCPPort -Address $script:kms_server -Port $script:kms_server_port)) {
     Write-Output 'Could not contact activation server. Will retry activation later.'
     return
   }
-  # KMS Server is reachable try to activate the server.
+
   while ($retry_count -gt 0) {
-    # Activate the instance.
     Write-Output 'Activating instance...'
     & cscript //nologo $env:windir\system32\slmgr.vbs /ato
     # Helps to avoid activation failures.
     Start-Sleep -Seconds 1
-    # Check activation status.
+
     if (Verify-ActivationStatus) {
       Write-Output 'Activation successful.'
       break
@@ -98,6 +91,7 @@ function Activate-Instance {
       Write-Output 'Activation failed.'
       $retry_count = $retry_count - 1
     }
+
     if ($retry_count -gt 0) {
       Write-Output "Retrying activation. Will try $retry_count more time(s)"
     }
@@ -113,26 +107,14 @@ function Get-ProductKmsClientKey {
       KMS client key to it.
     .NOTES
       Please add new license keys as we support more product versions.
-      https://technet.microsoft.com/en-us/library/jj612867.aspx has all the
-      details.
+      See https://technet.microsoft.com/en-us/library/jj612867.aspx.
     .RETURNS
       License Key.
   #>
 
-  # Variables
   $license_key = $null
-  $reg_query = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
 
-  # Get the product name and set the license key accordingly.
-  try {
-    $get_product_details = (Get-ItemProperty -Path $reg_query -Name ProductName).ProductName
-  }
-  catch {
-    Write-Host 'Failed to get the product details. Skipping activation.'
-    return
-  }
-  # KMS Client Keys: https://technet.microsoft.com/en-us/jj612867.aspx
-  switch ($get_product_details) {
+  switch ($script:product_name) {
     # Workstations
     # Currently not supported.
     'Windows 7 Professional' {
@@ -197,7 +179,6 @@ function Get-ProductKmsClientKey {
     'Windows Server 2016 Datacenter' {
       $license_key = 'CB7KF-BWN84-R7R2Y-793K2-8XDDG'
     }
-    # Default
     default {
       Write-Host ('Unable to determine the correct KMS Client Key for ' +
           $get_product_details + '; no supported matches found for GCE.')
@@ -209,31 +190,67 @@ function Get-ProductKmsClientKey {
 function Verify-ActivationStatus {
   <#
     .SYNOPSIS
-      Check if the instance in activated.
-    .DESCRIPTION
-      Checks if the localcomputer license is active and activated
+      Check if the instance is activated.
     .OUTPUTS
-      [bool]
+      [bool] Is the instance activated.
   #>
 
-  # Variables
   [bool]$active = $false
   [String]$activation_status = $null
   [String]$status = $null
 
-  # Query slmgr on the local machine.
   try {
     $slmgr_status = & cscript //nologo C:\Windows\system32\slmgr.vbs /dli
   }
   catch {
     return $active
   }
-  # Check the output.
+
   $status = $slmgr_status.Split("`n") | Select-String -Pattern '^License Status:'
   if ($status -match 'Licensed') {
     $active = $true
   }
   return $active
+}
+
+function Test-TCPPort {
+  <#
+    .SYNOPSIS
+      Test TCP port on remote server
+    .DESCRIPTION
+      Use .Net Socket connection to connect to remote host and check if port is
+      open.
+    .PARAMETER host
+      Remote host you want to check TCP port for.
+    .PARAMETER port
+      TCP port number you want to check.
+    .RETURNS
+      Return bool. $true if server is reachable at tcp port $false is not.
+  #>
+  param (
+   [string]$Address,
+   [int]$Port
+  )
+
+  $status = $false
+  $socket = New-Object Net.Sockets.TcpClient
+  $connection = $socket.BeginConnect($Address, $Port, $null, $null)
+  $wait = $connection.AsyncWaitHandle.WaitOne(3000, $false)
+  if (!$wait) {
+    # Connection failed, timeout reached.
+    $socket.Close()
+  }
+  else {
+    $socket.EndConnect($connection) | Out-Null
+    if (!$?) {
+      Write-Host $error[0]
+    }
+    else {
+      $status = $true
+    }
+    $socket.Close()
+  }
+  return $status
 }
 
 Activate-Instance
