@@ -86,6 +86,33 @@ func TestAccountsDisabled(t *testing.T) {
 	}
 }
 
+func TestAccountsSerialPort(t *testing.T) {
+	var tests = []struct {
+		name string
+		data []byte
+		md   *metadataJSON
+		want string
+	}{
+		{"default serial port", []byte(""), &metadataJSON{}, "COM4"},
+		{"set serial port", []byte("[accountManager]\nserialPort=COM2"), &metadataJSON{}, "COM2"},
+	}
+
+	for _, tt := range tests {
+		cfg, err := ini.InsensitiveLoad(tt.data)
+		if err != nil {
+			t.Errorf("test case %q: error parsing config: %v", tt.name, err)
+			continue
+		}
+		if cfg == nil {
+			cfg = &ini.File{}
+		}
+		got := (&accounts{newMetadata: tt.md, config: cfg}).parseSerialPort()
+		if got != tt.want {
+			t.Errorf("test case %q, accounts.parseSerialPort() got: %q, want: %q", tt.name, got, tt.want)
+		}
+	}
+}
+
 func TestNewPwd(t *testing.T) {
 	for i := 0; i < 100000; i++ {
 		pwd, err := newPwd()
