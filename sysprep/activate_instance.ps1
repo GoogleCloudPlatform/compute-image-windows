@@ -206,7 +206,7 @@ function Verify-ActivationStatus {
     return $active
   }
 
-  $status = $slmgr_status.Split("`n") | Select-String -Pattern '^License Status:'
+  $status = $slmgr_status | Select-String -Pattern '^License Status:'
   if ($status -match 'Licensed') {
     $active = $true
   }
