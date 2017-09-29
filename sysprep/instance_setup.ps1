@@ -113,7 +113,6 @@ function Change-InstanceProperties {
   # Set all Adapters to get IP from DHCP.
   $nics = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=True"
   $nics | Invoke-CimMethod -Name EnableDHCP
-  $nics | Invoke-CimMethod -Name EnableDHCP
 
   $netkvm = Get-CimInstance Win32_NetworkAdapter -filter "ServiceName='netkvm'"
   $netkvm | ForEach-Object {
