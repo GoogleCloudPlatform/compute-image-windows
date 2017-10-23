@@ -24,7 +24,7 @@ Set-StrictMode -Version Latest
 $script:kms_server = 'kms.windows.googlecloud.com'
 $script:kms_server_port = 1688
 $script:hostname = hostname
-$script:known_editions_regex = 'Windows (Web )?Server (2008 R2|2012|2012 R2|2016)'
+$script:known_editions_regex = 'Windows (Web )?Server (2008 R2|2012|2012 R2|2016|Standard|Datacenter)'
 $reg = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
 try {
   $script:product_name = (Get-ItemProperty -Path $reg -Name ProductName).ProductName
