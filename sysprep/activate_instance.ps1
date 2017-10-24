@@ -24,7 +24,7 @@ Set-StrictMode -Version Latest
 $script:kms_server = 'kms.windows.googlecloud.com'
 $script:kms_server_port = 1688
 $script:hostname = hostname
-$script:known_editions_regex = 'Windows (Web )?Server (2008 R2|2012|2012 R2|2016)'
+$script:known_editions_regex = 'Windows (Web )?Server (2008 R2|2012|2012 R2|2016|Standard|Datacenter)'
 $reg = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
 try {
   $script:product_name = (Get-ItemProperty -Path $reg -Name ProductName).ProductName
@@ -161,13 +161,13 @@ function Get-ProductKmsClientKey {
     'Windows Server 2008 R2 Web' {
       $license_key = '6TPJF-RBVHG-WBW2R-86QPH-6RTM4'
     }
-    'Windows Server 2012 Server Standard' {
+    'Windows Server 2012 Standard' {
       $license_key = 'XC9B7-NBPP2-83J2H-RHMBY-92BT4'
     }
     'Windows Server 2012 Datacenter' {
       $license_key = '48HP8-DN98B-MYWDG-T2DCC-8W83P'
     }
-    'Windows Server 2012 R2 Server Standard' {
+    'Windows Server 2012 R2 Standard' {
       $license_key = 'D2N9P-3P6X9-2R39C-7RTCD-MDVJX'
     }
     'Windows Server 2012 R2 Datacenter' {
@@ -179,9 +179,18 @@ function Get-ProductKmsClientKey {
     'Windows Server 2016 Datacenter' {
       $license_key = 'CB7KF-BWN84-R7R2Y-793K2-8XDDG'
     }
+
+    # Semiannual releases use the 2016 client key.
+    'Windows Server Standard' {
+      $license_key = 'WC2BQ-8NRM3-FDDYY-2BFGV-KHKQY'
+    }
+    'Windows Server Datacenter' {
+      $license_key = 'CB7KF-BWN84-R7R2Y-793K2-8XDDG'
+    }
+
     default {
       Write-Host ('Unable to determine the correct KMS Client Key for ' +
-          $get_product_details + '; no supported matches found for GCE.')
+          $script:product_name + '; no supported matches found for GCE.')
     }
   }
   return $license_key
