@@ -169,7 +169,7 @@ try {
   }
 
   Write-Log 'Shutting down.'
-  Invoke-ExternalCommand shutdown /s /t 00
+  Invoke-ExternalCommand shutdown /s /t 00 /d p:2:4
 }
 catch {
   _PrintError
