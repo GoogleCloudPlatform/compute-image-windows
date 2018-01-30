@@ -122,8 +122,8 @@ func run(ctx context.Context) {
 		for {
 			newMetadata, err := watchMetadata(ctx)
 			if err != nil {
-				// Only log the second web error to avoid transient erros and
-				// not to spam on connection failures.
+				// Only log the second web error to avoid transient errors and
+				// not to spam the log on network failures.
 				if webError == 1 {
 					if urlErr, ok := err.(*url.Error); ok {
 						if _, ok := urlErr.Err.(*net.DNSError); ok {
