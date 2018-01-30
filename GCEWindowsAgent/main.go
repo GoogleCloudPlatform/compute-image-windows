@@ -76,11 +76,11 @@ func parseConfig(file string) (*ini.File, error) {
 
 func runUpdate(newMetadata, oldMetadata *metadataJSON) {
 	cfg, err := parseConfig(configPath)
-	if err != nil && err != os.ErrNotExist {
+	if err != nil && !os.IsNotExist(err) {
 		logger.Error(err)
 	}
 	if cfg == nil {
-		cfg = &ini.File{}
+		cfg, _ = ini.InsensitiveLoad([]byte{})
 	}
 
 	var wg sync.WaitGroup
