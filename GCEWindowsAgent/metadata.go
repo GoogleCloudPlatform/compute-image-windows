@@ -59,11 +59,13 @@ type attributesJSON struct {
 	WSFCAgentPort         string `json:"wsfc-agent-port"`
 }
 
-func updateEtag(resp *http.Response) {
+func updateEtag(resp *http.Response) bool {
+	oldEtag := etag
 	etag = resp.Header.Get("etag")
 	if etag == "" {
 		etag = defaultEtag
 	}
+	return etag == oldEtag
 }
 
 func watchMetadata(ctx context.Context) (*metadataJSON, error) {
@@ -78,22 +80,27 @@ func watchMetadata(ctx context.Context) (*metadataJSON, error) {
 	req.Header.Add("Metadata-Flavor", "Google")
 	req = req.WithContext(ctx)
 
-	resp, err := client.Do(req)
-	// Don't return error on a canceled context.
-	if err != nil && ctx.Err() != nil {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
+	for {
+		resp, err := client.Do(req)
+		// Don't return error on a canceled context.
+		if err != nil && ctx.Err() != nil {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
 
-	updateEtag(resp)
+		// Only return metadata on updated etag.
+		if !updateEtag(resp) {
+			continue
+		}
 
-	md, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		return nil, err
+		md, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		var metadata metadataJSON
+		return &metadata, json.Unmarshal(md, &metadata)
 	}
-	var metadata metadataJSON
-	return &metadata, json.Unmarshal(md, &metadata)
 }

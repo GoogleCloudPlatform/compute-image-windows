@@ -18,6 +18,8 @@ package main
 import (
 	"context"
 	"io/ioutil"
+	"net"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -76,11 +78,11 @@ func parseConfig(file string) (*ini.File, error) {
 
 func runUpdate(newMetadata, oldMetadata *metadataJSON) {
 	cfg, err := parseConfig(configPath)
-	if err != nil && err != os.ErrNotExist {
+	if err != nil && !os.IsNotExist(err) {
 		logger.Error(err)
 	}
 	if cfg == nil {
-		cfg = &ini.File{}
+		cfg, _ = ini.InsensitiveLoad([]byte{})
 	}
 
 	var wg sync.WaitGroup
@@ -116,14 +118,24 @@ func run(ctx context.Context) {
 
 	go func() {
 		var oldMetadata metadataJSON
-		printWebException := true
+		webError := 0
 		for {
 			newMetadata, err := watchMetadata(ctx)
 			if err != nil {
-				if printWebException {
+				// Only log the second web error to avoid transient errors and
+				// not to spam the log on network failures.
+				if webError == 1 {
+					if urlErr, ok := err.(*url.Error); ok {
+						if _, ok := urlErr.Err.(*net.DNSError); ok {
+							logger.Error("DNS error when requesting metadata, check DNS settings and ensure metadata.internal.google is setup in your hosts file.")
+						}
+						if _, ok := urlErr.Err.(*net.OpError); ok {
+							logger.Error("Network error when requesting metadata, make sure your instance has an active network and can reach the metadata server.")
+						}
+					}
 					logger.Error(err)
-					printWebException = false
 				}
+				webError++
 				time.Sleep(5 * time.Second)
 				continue
 			}
@@ -134,7 +146,7 @@ func run(ctx context.Context) {
 			}
 			runUpdate(newMetadata, &oldMetadata)
 			oldMetadata = *newMetadata
-			printWebException = true
+			webError = 0
 		}
 	}()
 

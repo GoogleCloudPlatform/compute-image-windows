@@ -18,12 +18,11 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
-
-	"io"
 
 	"github.com/tarm/serial"
 )
