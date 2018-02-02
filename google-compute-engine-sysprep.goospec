@@ -1,6 +1,6 @@
 {
   "name": "google-compute-engine-sysprep",
-  "version": "3.7.2@1",
+  "version": "3.7.3@1",
   "arch": "noarch",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
@@ -15,6 +15,7 @@
     "path": "sysprep_uninstall.ps1"
   },
   "releaseNotes": [
+    "3.7.3 - Set DNS on all adapters to use DHCP in instance_setup.ps1",
     "3.7.0 - Add support for semiannual release activation",
     "3.6.3 - Don't set min password length in instance setup, set mtu to 1460",
     "3.6.2 - Clear self signed RDP and WinRM certs during gcesysprep",
