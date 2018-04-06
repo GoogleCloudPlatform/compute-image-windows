@@ -28,16 +28,16 @@ import (
 const diagnosticsCmd = `C:\Program Files\Google\Compute Engine\diagnostics\diagnostics.exe`
 
 var (
-	diagnosticsDisabled = false
+	diagnosticsDisabled = true
 )
 
-type diagnosticsKeyJSON struct {
+type diagnosticsEntryJSON struct {
 	SignedUrl string
 	ExpireOn  string
 	TraceFlag bool
 }
 
-func (k diagnosticsKeyJSON) expired() bool {
+func (k diagnosticsEntryJSON) expired() bool {
 	t, err := time.Parse(time.RFC3339, k.ExpireOn)
 	if err != nil {
 		if !containsString(k.ExpireOn, badExpire) {
@@ -55,7 +55,7 @@ type diagnostics struct {
 }
 
 func (a *diagnostics) diff() bool {
-	return !reflect.DeepEqual(a.newMetadata.Instance.Attributes.DiagnosticsKeys, a.oldMetadata.Instance.Attributes.DiagnosticsKeys)
+	return !reflect.DeepEqual(a.newMetadata.Instance.Attributes.Diagnostics, a.oldMetadata.Instance.Attributes.Diagnostics)
 }
 
 func (a *diagnostics) disabled() (disabled bool) {
@@ -66,45 +66,46 @@ func (a *diagnostics) disabled() (disabled bool) {
 		}
 	}()
 
+	// Diagnostics are opt-in and disabled by default.
 	var err error
-	disabled, err = strconv.ParseBool(a.config.Section("diagnostics").Key("disable").String())
+	var enabled bool
+	enabled, err = strconv.ParseBool(a.config.Section("diagnostics").Key("enable").String())
 	if err == nil {
-		return disabled
+		return !enabled
 	}
-	disabled, err = strconv.ParseBool(a.newMetadata.Instance.Attributes.DisableDiagnostics)
+	enabled, err = strconv.ParseBool(a.newMetadata.Instance.Attributes.EnableDiagnostics)
 	if err == nil {
-		return disabled
+		return !enabled
 	}
-	disabled, err = strconv.ParseBool(a.newMetadata.Project.Attributes.DisableDiagnostics)
+	enabled, err = strconv.ParseBool(a.newMetadata.Project.Attributes.EnableDiagnostics)
 	if err == nil {
-		return disabled
+		return !enabled
 	}
 	return diagnosticsDisabled
 }
 
-var diagnosticsKeys []string
+var diagnosticsEntries []string
 
 func (a *diagnostics) set() error {
-	var key diagnosticsKeyJSON
-	strKey := a.newMetadata.Instance.Attributes.DiagnosticsKeys
-	if containsString(strKey, diagnosticsKeys) {
+	var entry diagnosticsEntryJSON
+	strEntry := a.newMetadata.Instance.Attributes.Diagnostics
+	if containsString(strEntry, diagnosticsEntries) {
 		return nil
 	}
 
-	diagnosticsKeys = append(diagnosticsKeys, strKey)
-	if err := json.Unmarshal([]byte(strKey), &key); err != nil {
-		logger.Error(err)
-		return nil
+	diagnosticsEntries = append(diagnosticsEntries, strEntry)
+	if err := json.Unmarshal([]byte(strEntry), &entry); err != nil {
+		return err
 	}
-	if key.SignedUrl == "" || key.expired() {
+	if entry.SignedUrl == "" || entry.expired() {
 		return nil
 	}
 
 	args := []string{
 		"-signedUrl",
-		key.SignedUrl,
+		entry.SignedUrl,
 	}
-	if key.TraceFlag {
+	if entry.TraceFlag {
 		args = append(args, "-trace")
 	}
 
