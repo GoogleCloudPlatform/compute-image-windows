@@ -125,7 +125,7 @@ func TestGetMetadata(t *testing.T) {
 	metadataHang = ""
 
 	want := map[string]string{"key1": "value1", "key2": "value2"}
-	got, err := getMetadata()
+	got, err := getMetadata("/instance/attributes")
 	if err != nil {
 		t.Fatalf("error running getMetadata: %v", err)
 	}

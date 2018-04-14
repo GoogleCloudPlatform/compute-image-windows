@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	metadataURL    = "http://metadata.google.internal/computeMetadata/v1/instance/attributes"
+	metadataURL    = "http://metadata.google.internal/computeMetadata/v1"
 	metadataHang   = "/?recursive=true&alt=json&timeout_sec=10&last_etag=NONE"
 	defaultTimeout = 20 * time.Second
 	commands       = []string{"specialize", "startup", "shutdown"}
@@ -220,12 +220,13 @@ func findMatch(path string) (string, string) {
 	return "", ""
 }
 
-func getMetadata() (map[string]string, error) {
+func getMetadata(key string) (map[string]string, error) {
 	client := &http.Client{
 		Timeout: defaultTimeout,
 	}
 
-	req, err := http.NewRequest("GET", metadataURL+metadataHang, nil)
+	url := metadataURL + key + metadataHang
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +259,13 @@ func getMetadata() (map[string]string, error) {
 }
 
 func getScripts(mdsm map[metadataScriptType]string) ([]metadataScript, error) {
-	md, err := getMetadata()
+	md, err := getMetadata("/instance/attributes")
+	if err != nil {
+		return nil, err
+	}
+	if md == nil {
+		md, err = getMetadata("/project/attributes")
+	}
 	if err != nil {
 		return nil, err
 	}
