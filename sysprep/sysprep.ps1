@@ -73,9 +73,6 @@ $script:psversion = $PSVersionTable.PSVersion.Major
 $script:sysprep_dir = "$scripts_location\sysprep"
 $script:sysprep_tag = 'C:\Windows\System32\Sysprep\Sysprep_succeeded.tag'
 
-
-# Main
-
 # Check if the help parameter was called.
 if ($help) {
   Get-Help $MyInvocation.InvocationName -Detailed
