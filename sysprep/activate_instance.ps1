@@ -136,13 +136,13 @@ function Get-ProductKmsClientKey {
     #>
 
     # Servers
-    'Windows Server 2008 Standard' {
+    'Windows Server (R) 2008 Standard' {
       $license_key = 'TM24T-X9RMF-VWXK6-X8JC9-BFGM2'
     }
-    'Windows Server 2008 Datacenter' {
+    'Windows Server (R) 2008 Datacenter' {
       $license_key = '7M67G-PC374-GR742-YH8V4-TCBY3'
     }
-    'Windows Server 2008 Enterprise' {
+    'Windows Server (R) 2008 Enterprise' {
       $license_key = 'YQGMW-MPWTJ-34KDK-48M3W-X4Q6V'
     }
 
