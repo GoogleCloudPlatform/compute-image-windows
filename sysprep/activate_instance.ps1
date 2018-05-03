@@ -24,7 +24,6 @@ Set-StrictMode -Version Latest
 $script:kms_server = 'kms.windows.googlecloud.com'
 $script:kms_server_port = 1688
 $script:hostname = hostname
-$script:known_editions_regex = 'Windows (Web )?Server (2008 R2|2012|2012 R2|2016|Standard|Datacenter)'
 $reg = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
 try {
   $script:product_name = (Get-ItemProperty -Path $reg -Name ProductName).ProductName
@@ -56,7 +55,7 @@ function Activate-Instance {
   Write-Output "$script:hostname needs to be activated by a KMS Server."
   $license_key = Get-ProductKmsClientKey
   if (-not $license_key) {
-    Write-Output 'Could not get the License Key for the instance. Activation skipped.'
+    Write-Output ("$script:product_name activations are currently not supported on GCE. Activation skipped.")
     return
   }
 
@@ -64,13 +63,6 @@ function Activate-Instance {
   & cscript //nologo $env:windir\system32\slmgr.vbs /skms $script:kms_server
   # Apply the license key to the host.
   & cscript //nologo $env:windir\system32\slmgr.vbs /ipk $license_key
-
-  # Check if the product can be activated.
-  if ($script:product_name -notmatch $script:known_editions_regex) {
-    Write-Output ("$script:product_name activations are currently not " +
-        'supported on GCE. Activation request will be skipped.')
-    return
-  }
 
   if (-not (Test-TCPPort -Address $script:kms_server -Port $script:kms_server_port)) {
     Write-Output 'Could not contact activation server. Will retry activation later.'
@@ -116,39 +108,44 @@ function Get-ProductKmsClientKey {
 
   switch ($script:product_name) {
     # Workstations
-    # Currently not supported.
+    <#  Currently not supported.
     'Windows 7 Professional' {
       $license_key = 'FJ82H-XT6CR-J8D7P-XQJJ2-GPDD4'
     }
-    # Currently not supported.
     'Windows 7 Enterprise' {
       $license_key = '33PXH-7Y6KF-2VJC9-XBBR8-HVTHH'
     }
-    # Currently not supported.
     'Windows 8 Professional' {
       $license_key = 'NG4HW-VH26C-733KW-K6F98-J8CK4'
     }
-    # Currently not supported.
     'Windows 8 Enterprise' {
       $license_key = '32JNW-9KQ84-P47T8-D8GGY-CWCK7'
     }
-    # Currently not supported.
     'Windows 8.1 Professional' {
       $license_key = 'GCRJD-8NW9H-F2CDX-CCM8D-9D6T9'
     }
-    # Currently not supported.
     'Windows 8.1 Enterprise' {
       $license_key = 'MHF9N-XY6XB-WVXMC-BTDCT-MKKG7'
     }
-    # Currently not supported.
     'Windows 10 Professional' {
       $license_key = 'W269N-WFGWX-YVC9B-4J6C9-T83GX'
     }
     'Windows 10 Enterprise' {
       $license_key = 'NPPR9-FWDCX-D2C8J-H872K-2YT43'
     }
+    #>
 
     # Servers
+    'Windows Server 2008 Standard' {
+      $license_key = 'TM24T-X9RMF-VWXK6-X8JC9-BFGM2'
+    }
+    'Windows Server 2008 Datacenter' {
+      $license_key = '7M67G-PC374-GR742-YH8V4-TCBY3'
+    }
+    'Windows Server 2008 Enterprise' {
+      $license_key = 'YQGMW-MPWTJ-34KDK-48M3W-X4Q6V'
+    }
+
     'Windows Server 2008 R2 Datacenter' {
       $license_key = '74YFP-3QFB3-KQT8W-PMXWJ-7M648'
     }
@@ -161,18 +158,21 @@ function Get-ProductKmsClientKey {
     'Windows Server 2008 R2 Web' {
       $license_key = '6TPJF-RBVHG-WBW2R-86QPH-6RTM4'
     }
+
     'Windows Server 2012 Standard' {
       $license_key = 'XC9B7-NBPP2-83J2H-RHMBY-92BT4'
     }
     'Windows Server 2012 Datacenter' {
       $license_key = '48HP8-DN98B-MYWDG-T2DCC-8W83P'
     }
+
     'Windows Server 2012 R2 Standard' {
       $license_key = 'D2N9P-3P6X9-2R39C-7RTCD-MDVJX'
     }
     'Windows Server 2012 R2 Datacenter' {
       $license_key = 'W3GGN-FT8W3-Y4M27-J84CP-Q3VJ9'
     }
+
     'Windows Server 2016 Standard' {
       $license_key = 'WC2BQ-8NRM3-FDDYY-2BFGV-KHKQY'
     }
@@ -180,17 +180,11 @@ function Get-ProductKmsClientKey {
       $license_key = 'CB7KF-BWN84-R7R2Y-793K2-8XDDG'
     }
 
-    # Semiannual releases use the 2016 client key.
     'Windows Server Standard' {
-      $license_key = 'WC2BQ-8NRM3-FDDYY-2BFGV-KHKQY'
+      $license_key = 'DPCNP-XQFKJ-BJF7R-FRC8D-GF6G4'
     }
     'Windows Server Datacenter' {
-      $license_key = 'CB7KF-BWN84-R7R2Y-793K2-8XDDG'
-    }
-
-    default {
-      Write-Host ('Unable to determine the correct KMS Client Key for ' +
-          $script:product_name + '; no supported matches found for GCE.')
+      $license_key = '6Y6KB-N82V8-D8CQV-23MJW-BWTG6'
     }
   }
   return $license_key
