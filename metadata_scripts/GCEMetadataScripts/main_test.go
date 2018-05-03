@@ -202,6 +202,8 @@ func TestGetScripts(t *testing.T) {
 			fmt.Fprintln(w, `{"test":"instance"}`)
 		} else if r.URL.String() == "/project/attributes?project" {
 			fmt.Fprintln(w, `{"test":"project"}`)
+		} else if r.URL.String() == "/instance/attributes?project" {
+			fmt.Fprintln(w, `{"some-metadata":"instance"}`)
 		} else if r.URL.String() == "/instance/attributes?both" {
 			fmt.Fprintln(w, `{"test":"instance"}`)
 		} else if r.URL.String() == "/project/attributes?both" {
