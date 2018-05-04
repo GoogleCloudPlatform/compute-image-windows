@@ -15,11 +15,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
 	"reflect"
+	"regexp"
+	"strings"
 	"testing"
+
+	"cloud.google.com/go/storage"
+	"google.golang.org/api/option"
 )
 
 func TestValidateArgs(t *testing.T) {
@@ -125,12 +134,173 @@ func TestGetMetadata(t *testing.T) {
 	metadataHang = ""
 
 	want := map[string]string{"key1": "value1", "key2": "value2"}
-	got, err := getMetadata()
+	got, err := getMetadata("")
 	if err != nil {
 		t.Fatalf("error running getMetadata: %v", err)
 	}
 
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("metadata does not match expectation, got: %q, want: %q", got, want)
+	}
+}
+
+func TestTempFile(t *testing.T) {
+	want := "bar"
+	file, err := tempFile("foo", "bar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(file)
+	got, err := ioutil.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != want {
+		t.Errorf("got != want: %q, %q", string(got), want)
+	}
+}
+
+func TestRunBat(t *testing.T) {
+	var got string
+	want := "run"
+	runner := func(_ *exec.Cmd, s string) error {
+		got = s
+		return nil
+	}
+	if err := runBat(runner, &metadataScript{Metadata: want}); err != nil {
+		t.Fatal(err)
+	}
+	if got == "" {
+		t.Fatal("runner did not run")
+	}
+	if want != got {
+		t.Errorf("runBat did not pass metadata name as expected, got: %q, want: %q", got, want)
+	}
+}
+
+func TestRunPS1(t *testing.T) {
+	var got string
+	want := "run"
+	runner := func(_ *exec.Cmd, s string) error {
+		got = s
+		return nil
+	}
+	if err := runPs1(runner, &metadataScript{Metadata: want}); err != nil {
+		t.Fatal(err)
+	}
+	if got == "" {
+		t.Fatal("runner did not run")
+	}
+	if want != got {
+		t.Errorf("runPs1 did not pass metadata name as expected, got: %q, want: %q", got, want)
+	}
+}
+
+func TestGetScripts(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.String() == "/instance/attributes?instance" {
+			fmt.Fprintln(w, `{"test":"instance"}`)
+		} else if r.URL.String() == "/project/attributes?project" {
+			fmt.Fprintln(w, `{"test":"project"}`)
+		} else if r.URL.String() == "/instance/attributes?project" {
+			fmt.Fprintln(w, `{"some-metadata":"instance"}`)
+		} else if r.URL.String() == "/instance/attributes?both" {
+			fmt.Fprintln(w, `{"test":"instance"}`)
+		} else if r.URL.String() == "/project/attributes?both" {
+			fmt.Fprintln(w, `{"test":"project"}`)
+		} else {
+			fmt.Fprintln(w, "{}")
+		}
+	}))
+	defer ts.Close()
+	metadataURL = ts.URL
+
+	mdsm := map[metadataScriptType]string{
+		cmd: "test",
+	}
+
+	tests := []struct {
+		desc, hang, script string
+	}{
+		{"just instance", "?instance", "instance"},
+		{"just project", "?project", "project"},
+		{"instance overrides project", "?both", "instance"},
+	}
+
+	for _, tt := range tests {
+		metadataHang = tt.hang
+		msdd, err := getScripts(mdsm)
+		if err != nil {
+			t.Fatalf("%s error: %v", tt.desc, err)
+		}
+
+		if len(msdd) != 1 {
+			t.Errorf("%s len(msdd) != 1", tt.desc)
+		}
+		if msdd[0].Script != tt.script {
+			t.Errorf("%s Script (%q) != %q", tt.desc, msdd[0].Script, tt.script)
+		}
+		if msdd[0].Metadata != "test" {
+			t.Errorf(`%s Metadata (%q) != "test"`, tt.desc, msdd[0].Metadata)
+		}
+	}
+}
+
+func TestDownloadScript(t *testing.T) {
+	ctx := context.Background()
+	getObjRgx := regexp.MustCompile(`/b/.+/o/.+alt=json&projection=full`)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u := r.URL.String()
+		m := r.Method
+
+		if strings.Contains(u, "dne") {
+			w.WriteHeader(http.StatusNotFound)
+		} else if match := getObjRgx.FindStringSubmatch(u); m == "GET" && match != nil {
+			// Yes this object exists, we don't need to fill out the values, just return something.
+			fmt.Fprint(w, "{}")
+		} else if m == "GET" && strings.Contains(u, "test") {
+			fmt.Fprint(w, "test")
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "testGCSClient unknown request: %+v\n", r)
+		}
+	}))
+
+	var err error
+	testStorageClient, err = storage.NewClient(ctx, option.WithEndpoint(ts.URL), option.WithHTTPClient(http.DefaultClient))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		desc, url, want string
+		err             bool
+	}{
+		{"url dne", ts.URL + "/dne", "", true},
+		{"url ok", ts.URL + "/test", "test", false},
+	}
+
+	for _, tt := range tests {
+		tmpFile, err := ioutil.TempFile(os.TempDir(), "")
+		if err != nil {
+			t.Fatalf("error creating temp file: %v", err)
+		}
+		name := tmpFile.Name()
+
+		err = downloadScript(ctx, tt.url, tmpFile)
+		if err != nil && !tt.err {
+			t.Errorf("%s: unexpected error: %v", tt.desc, err)
+		} else if err == nil && tt.err {
+			t.Errorf("%s: expected error but got nil", tt.desc)
+		} else {
+			data, err := ioutil.ReadFile(name)
+			if err != nil {
+				t.Errorf("%s: error reading tmp file: %v", tt.desc, err)
+			}
+			if string(data) != tt.want {
+				t.Errorf("%s: content does not match, got: %q, want: %q", tt.desc, string(data), tt.want)
+			}
+		}
+		os.Remove(name)
 	}
 }

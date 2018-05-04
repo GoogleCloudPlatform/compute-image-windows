@@ -35,8 +35,6 @@
                 <HideEULAPage>true</HideEULAPage>
                 <!-- Setting network location to public -->
                 <NetworkLocation>Other</NetworkLocation>
-                <!-- Hide Wirelss setup -->
-                <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
                 <ProtectYourPC>1</ProtectYourPC>
                 <SkipMachineOOBE>true</SkipMachineOOBE>
                 <SkipUserOOBE>true</SkipUserOOBE>

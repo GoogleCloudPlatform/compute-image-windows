@@ -97,7 +97,8 @@ PowerShell prompt:**
 
 Download and install GooGet:
 ```
-Invoke-WebRequest https://github.com/google/googet/releases/download/v2.9.1/googet.exe -OutFile $env:temp\googet.exe
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Invoke-WebRequest https://github.com/google/googet/releases/download/v2.13.0/googet.exe -OutFile $env:temp\googet.exe
 & "$env:temp\googet.exe" -root C:\ProgramData\GooGet -noconfirm install -sources https://packages.cloud.google.com/yuck/repos/google-compute-engine-stable googet
 Remove-Item "$env:temp\googet.exe"
 ```

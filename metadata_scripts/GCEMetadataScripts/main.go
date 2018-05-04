@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -32,14 +33,12 @@ import (
 	"strings"
 	"time"
 
-	"io"
-
 	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 )
 
 var (
-	metadataURL    = "http://metadata.google.internal/computeMetadata/v1/instance/attributes"
+	metadataURL    = "http://metadata.google.internal/computeMetadata/v1"
 	metadataHang   = "/?recursive=true&alt=json&timeout_sec=10&last_etag=NONE"
 	defaultTimeout = 20 * time.Second
 	commands       = []string{"specialize", "startup", "shutdown"}
@@ -51,6 +50,8 @@ var (
 	}
 	version        string
 	powerShellArgs = []string{"-NoProfile", "-NoLogo", "-ExecutionPolicy", "Unrestricted", "-File"}
+
+	storageURL = "storage.googleapis.com"
 
 	bucket = `([a-z0-9][-_.a-z0-9]*)`
 	object = `(.+)`
@@ -74,6 +75,8 @@ var (
 	// http://commondatastorage.googleapis.com/<bucket>/<object>
 	// https://commondatastorage.googleapis.com/<bucket>/<object>
 	gsHTTPRegex3 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://(?:commondata)?storage\.googleapis\.com/%s/%s$`, bucket, object))
+
+	testStorageClient *storage.Client
 )
 
 const (
@@ -93,11 +96,11 @@ type metadataScript struct {
 func (ms *metadataScript) run(ctx context.Context) error {
 	switch ms.Type {
 	case ps1:
-		return runPs1(ms)
+		return runPs1(runCmd, ms)
 	case cmd:
-		return runBat(ms)
+		return runBat(runCmd, ms)
 	case bat:
-		return runBat(ms)
+		return runBat(runCmd, ms)
 	case url:
 		trimmed := strings.TrimSpace(ms.Script)
 		sType := trimmed[len(trimmed)-3:]
@@ -137,16 +140,21 @@ func (ms *metadataScript) run(ctx context.Context) error {
 	}
 }
 
+func newStorageClient(ctx context.Context) (*storage.Client, error) {
+	if testStorageClient != nil {
+		return testStorageClient, nil
+	}
+	return storage.NewClient(ctx)
+}
+
 func downloadGSURL(ctx context.Context, bucket, object string, file *os.File) error {
-	client, err := storage.NewClient(ctx)
+	client, err := newStorageClient(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create client: %v", err)
+		return fmt.Errorf("failed to create storage client: %v", err)
 	}
 	defer client.Close()
 
-	bkt := client.Bucket(bucket)
-	obj := bkt.Object(object)
-	r, err := obj.NewReader(ctx)
+	r, err := client.Bucket(bucket).Object(object).NewReader(ctx)
 	if err != nil {
 		return fmt.Errorf("error reading object %q: %v", object, err)
 	}
@@ -156,12 +164,35 @@ func downloadGSURL(ctx context.Context, bucket, object string, file *os.File) er
 	return err
 }
 
+func downloadURL(url string, file *os.File) error {
+	// Retry up to 3 times, only wait 1 second between retries.
+	var res *http.Response
+	var err error
+	for i := 1; ; i++ {
+		res, err = http.Get(url)
+		if err != nil && i > 3 {
+			return err
+		}
+		if err == nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("GET %q, bad status: %s", url, res.Status)
+	}
+
+	_, err = io.Copy(file, res.Body)
+	return err
+}
+
 func downloadScript(ctx context.Context, path string, file *os.File) error {
 	// Startup scripts may run before DNS is running on some systems,
 	// particularly once a system is promoted to a domain controller.
 	// Try to lookup storage.googleapis.com and sleep for up to 100s if
 	// we get an error.
-	storageURL := "storage.googleapis.com"
 	for i := 0; i < 20; i++ {
 		if _, err := net.LookupHost(storageURL); err == nil {
 			break
@@ -190,26 +221,6 @@ func downloadScript(ctx context.Context, path string, file *os.File) error {
 	return downloadURL(path, file)
 }
 
-func downloadURL(url string, file *os.File) error {
-	// Retry up to 3 times, only wait 1 second between retries.
-	var res *http.Response
-	var err error
-	for i := 1; ; i++ {
-		res, err = http.Get(url)
-		if err != nil && i > 3 {
-			return err
-		}
-		if err == nil {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
-
-	defer res.Body.Close()
-	_, err = io.Copy(file, res.Body)
-	return err
-}
-
 func findMatch(path string) (string, string) {
 	for _, re := range []*regexp.Regexp{gsRegex, gsHTTPRegex1, gsHTTPRegex2, gsHTTPRegex3} {
 		match := re.FindStringSubmatch(path)
@@ -220,30 +231,30 @@ func findMatch(path string) (string, string) {
 	return "", ""
 }
 
-func getMetadata() (map[string]string, error) {
+func getMetadata(key string) (map[string]string, error) {
 	client := &http.Client{
 		Timeout: defaultTimeout,
 	}
 
-	req, err := http.NewRequest("GET", metadataURL+metadataHang, nil)
+	url := metadataURL + key + metadataHang
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Add("Metadata-Flavor", "Google")
 
 	var res *http.Response
-	// Retry up to five times, increase sleep between retries in order to wait
-	// for slow network initialization.
-	retry := 3
+	// Retry forever, increase sleep between retries (up to 5 times) in order
+	// to wait for slow network initialization.
+	var rt time.Duration
 	for i := 1; ; i++ {
 		res, err = client.Do(req)
-		if err != nil && i > 5 {
-			return nil, fmt.Errorf("error connecting to metadata server: %v", err)
-		}
 		if err == nil {
 			break
 		}
-		rt := time.Duration(retry*i) * time.Second
+		if i < 6 {
+			rt = time.Duration(3*i) * time.Second
+		}
 		logger.Errorf("error connecting to metadata server, retrying in %s, error: %v", rt, err)
 		time.Sleep(rt)
 	}
@@ -258,7 +269,16 @@ func getMetadata() (map[string]string, error) {
 }
 
 func getScripts(mdsm map[metadataScriptType]string) ([]metadataScript, error) {
-	md, err := getMetadata()
+	md, err := getMetadata("/instance/attributes")
+	if err != nil {
+		return nil, err
+	}
+	msdd := parseMetadata(mdsm, md)
+	if len(msdd) != 0 {
+		return msdd, nil
+	}
+
+	md, err = getMetadata("/project/attributes")
 	if err != nil {
 		return nil, err
 	}
@@ -324,17 +344,17 @@ func runCmd(c *exec.Cmd, name string) error {
 	return c.Wait()
 }
 
-func runBat(ms *metadataScript) error {
+func runBat(runner func(c *exec.Cmd, name string) error, ms *metadataScript) error {
 	tmpFile, err := tempFile(ms.Metadata+".bat", ms.Script)
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(filepath.Dir(tmpFile))
 
-	return runCmd(exec.Command(tmpFile), ms.Metadata)
+	return runner(exec.Command(tmpFile), ms.Metadata)
 }
 
-func runPs1(ms *metadataScript) error {
+func runPs1(runner func(c *exec.Cmd, name string) error, ms *metadataScript) error {
 	tmpFile, err := tempFile(ms.Metadata+".ps1", ms.Script)
 	if err != nil {
 		return err
@@ -342,7 +362,7 @@ func runPs1(ms *metadataScript) error {
 	defer os.RemoveAll(filepath.Dir(tmpFile))
 
 	c := exec.Command("powershell.exe", append(powerShellArgs, tmpFile)...)
-	return runCmd(c, ms.Metadata)
+	return runner(c, ms.Metadata)
 }
 
 func tempFile(name, content string) (string, error) {
