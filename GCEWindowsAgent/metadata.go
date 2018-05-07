@@ -52,8 +52,10 @@ type projectJSON struct {
 
 type attributesJSON struct {
 	WindowsKeys           string `json:"windows-keys"`
+	Diagnostics           string `json:"diagnostics"`
 	DisableAddressManager string `json:"disable-address-manager"`
 	DisableAccountManager string `json:"disable-account-manager"`
+	EnableDiagnostics     string `json:"enable-diagnostics"`
 	EnableWSFC            string `json:"enable-wsfc"`
 	WSFCAddresses         string `json:"wsfc-addrs"`
 	WSFCAgentPort         string `json:"wsfc-agent-port"`
