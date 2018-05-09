@@ -91,9 +91,10 @@ def UpdateWindowsKeys(old_metadata, metadata_entry):
     # want to append new lines to the metadata value and remove any expired
     # entries.
     new_metadata = copy.deepcopy(old_metadata)
-    for item in new_metadata['items']:
-        if item['key'] == 'windows-keys':
-            item['value'] = metadata_entry
+    new_metadata['items'] = [{
+        'key': "windows-keys",
+        'value': metadata_entry
+    }]
     return new_metadata
 
 
