@@ -31,8 +31,6 @@ import (
 
 	daisyCompute "github.com/GoogleCloudPlatform/compute-image-tools/daisy/compute"
 	"google.golang.org/api/compute/v1"
-	"google.golang.org/api/option"
-	"google.golang.org/api/transport"
 )
 
 var (
@@ -146,17 +144,7 @@ func resetPassword(client daisyCompute.Client, i, z, p, u string) (string, error
 	}
 
 	fmt.Println("Setting new 'windows-keys' metadata")
-
-	hc, _, err := transport.NewHTTPClient(context.Background(), option.WithScopes(compute.ComputeScope))
-	if err != nil {
-		log.Fatalf("Error creating HTTP client: %v", err)
-	}
-
-	svc, err := compute.New(hc)
-	if err != nil {
-		log.Fatalf("Error creating compute service: %v", err)
-	}
-	if _, err := svc.Instances.SetMetadata(p, z, i, md).Do(); err != nil {
+	if err := client.SetInstanceMetadata(p, z, i, md); err != nil {
 		return "", err
 	}
 
