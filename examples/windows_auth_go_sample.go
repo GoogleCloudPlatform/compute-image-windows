@@ -62,6 +62,8 @@ func generateKey(priv *rsa.PublicKey, u string) (*windowsKeyJSON, error) {
 
 	return &windowsKeyJSON{
 		ExpireOn: time.Now().Add(5 * time.Minute).Format(time.RFC3339),
+		// This is different that what the other tools produce,
+		// AQAB vs AQABAA==, both are decoded as 65537.
 		Exponent: base64.StdEncoding.EncodeToString(bs),
 		Modulus:  base64.StdEncoding.EncodeToString(priv.N.Bytes()),
 		UserName: u,
