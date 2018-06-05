@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
-	"github.com/go-ini/ini"
 )
 
 var (
@@ -32,47 +31,44 @@ var (
 	oldWSFCEnable    bool
 )
 
-type addresses struct {
-	newMetadata, oldMetadata *metadataJSON
-	config                   *ini.File
-}
+type addressMgr struct{}
 
-func (a *addresses) parseWSFCAddresses() string {
-	wsfcAddresses := a.config.Section("wsfc").Key("addresses").String()
+func (a *addressMgr) parseWSFCAddresses() string {
+	wsfcAddresses := config.Section("wsfc").Key("addresses").String()
 	if len(wsfcAddresses) > 0 {
 		return wsfcAddresses
 	}
-	if len(a.newMetadata.Instance.Attributes.WSFCAddresses) > 0 {
-		return a.newMetadata.Instance.Attributes.WSFCAddresses
+	if len(newMetadata.Instance.Attributes.WSFCAddresses) > 0 {
+		return newMetadata.Instance.Attributes.WSFCAddresses
 	}
-	if len(a.newMetadata.Project.Attributes.WSFCAddresses) > 0 {
-		return a.newMetadata.Project.Attributes.WSFCAddresses
+	if len(newMetadata.Project.Attributes.WSFCAddresses) > 0 {
+		return newMetadata.Project.Attributes.WSFCAddresses
 	}
 
 	return ""
 }
 
-func (a *addresses) parseWSFCEnable() bool {
-	wsfcEnable, err := a.config.Section("wsfc").Key("enable").Bool()
+func (a *addressMgr) parseWSFCEnable() bool {
+	wsfcEnable, err := config.Section("wsfc").Key("enable").Bool()
 	if err == nil {
 		return wsfcEnable
 	}
-	wsfcEnable, err = strconv.ParseBool(a.newMetadata.Instance.Attributes.EnableWSFC)
+	wsfcEnable, err = strconv.ParseBool(newMetadata.Instance.Attributes.EnableWSFC)
 	if err == nil {
 		return wsfcEnable
 	}
-	wsfcEnable, err = strconv.ParseBool(a.newMetadata.Project.Attributes.EnableWSFC)
+	wsfcEnable, err = strconv.ParseBool(newMetadata.Project.Attributes.EnableWSFC)
 	if err == nil {
 		return wsfcEnable
 	}
 	return false
 }
 
-func (a *addresses) diff() bool {
+func (a *addressMgr) diff() bool {
 	wsfcAddresses := a.parseWSFCAddresses()
 	wsfcEnable := a.parseWSFCEnable()
 
-	diff := !reflect.DeepEqual(a.newMetadata.Instance.NetworkInterfaces, a.oldMetadata.Instance.NetworkInterfaces) ||
+	diff := !reflect.DeepEqual(newMetadata.Instance.NetworkInterfaces, oldMetadata.Instance.NetworkInterfaces) ||
 		wsfcEnable != oldWSFCEnable || wsfcAddresses != oldWSFCAddresses
 
 	oldWSFCAddresses = wsfcAddresses
@@ -80,7 +76,16 @@ func (a *addresses) diff() bool {
 	return diff
 }
 
-func (a *addresses) disabled() (disabled bool) {
+func (a *addressMgr) timeout() bool {
+	select {
+	case <-ticker:
+		return true
+	default:
+		return false
+	}
+}
+
+func (a *addressMgr) disabled() (disabled bool) {
 	var err error
 
 	defer func() {
@@ -90,15 +95,15 @@ func (a *addresses) disabled() (disabled bool) {
 		}
 	}()
 
-	disabled, err = strconv.ParseBool(a.config.Section("addressManager").Key("disable").String())
+	disabled, err = strconv.ParseBool(config.Section("addressManager").Key("disable").String())
 	if err == nil {
 		return disabled
 	}
-	disabled, err = strconv.ParseBool(a.newMetadata.Instance.Attributes.DisableAddressManager)
+	disabled, err = strconv.ParseBool(newMetadata.Instance.Attributes.DisableAddressManager)
 	if err == nil {
 		return disabled
 	}
-	disabled, err = strconv.ParseBool(a.newMetadata.Project.Attributes.DisableAddressManager)
+	disabled, err = strconv.ParseBool(newMetadata.Project.Attributes.DisableAddressManager)
 	if err == nil {
 		return disabled
 	}
@@ -123,7 +128,7 @@ func compareIPs(regFwdIPs, mdFwdIPs, cfgIPs []string) (toAdd []string, toRm []st
 
 var badMAC []string
 
-func (a *addresses) set() error {
+func (a *addressMgr) set() error {
 	ifs, err := net.Interfaces()
 	if err != nil {
 		return err
@@ -131,7 +136,7 @@ func (a *addresses) set() error {
 
 	a.applyWSFCFilter()
 
-	for _, ni := range a.newMetadata.Instance.NetworkInterfaces {
+	for _, ni := range newMetadata.Instance.NetworkInterfaces {
 		mac, err := net.ParseMAC(ni.Mac)
 		if err != nil {
 			if !containsString(ni.Mac, badMAC) {
@@ -239,7 +244,7 @@ func (a *addresses) set() error {
 // Filter out forwarded ips based on WSFC (Windows Failover Cluster Settings).
 // If only EnableWSFC is set, all ips in the ForwardedIps will be ignored.
 // If WSFCAddresses is set (with or without EnableWSFC), only ips in the list will be filtered out.
-func (a *addresses) applyWSFCFilter() {
+func (a *addressMgr) applyWSFCFilter() {
 	wsfcAddresses := a.parseWSFCAddresses()
 
 	var wsfcAddrs []string
@@ -257,7 +262,7 @@ func (a *addresses) applyWSFCFilter() {
 	}
 
 	if len(wsfcAddrs) != 0 {
-		interfaces := a.newMetadata.Instance.NetworkInterfaces
+		interfaces := newMetadata.Instance.NetworkInterfaces
 		for idx := range interfaces {
 			var filteredList []string
 			for _, ip := range interfaces[idx].ForwardedIps {
@@ -271,8 +276,8 @@ func (a *addresses) applyWSFCFilter() {
 	} else {
 		wsfcEnable := a.parseWSFCEnable()
 		if wsfcEnable {
-			for idx := range a.newMetadata.Instance.NetworkInterfaces {
-				a.newMetadata.Instance.NetworkInterfaces[idx].ForwardedIps = nil
+			for idx := range newMetadata.Instance.NetworkInterfaces {
+				newMetadata.Instance.NetworkInterfaces[idx].ForwardedIps = nil
 			}
 		}
 	}

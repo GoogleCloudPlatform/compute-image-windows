@@ -15,14 +15,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"reflect"
 	"testing"
-
-	"bytes"
-
-	"fmt"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 	"github.com/go-ini/ini"
@@ -93,7 +91,9 @@ func TestAddressDisabled(t *testing.T) {
 		if cfg == nil {
 			cfg = &ini.File{}
 		}
-		got := (&addresses{newMetadata: tt.md, config: cfg}).disabled()
+		newMetadata = tt.md
+		config = cfg
+		got := (&addressMgr{}).disabled()
 		if got != tt.want {
 			t.Errorf("test case %q, disabled? got: %t, want: %t", tt.name, got, tt.want)
 		}
@@ -119,7 +119,6 @@ func TestAddressDiff(t *testing.T) {
 		{"disabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{EnableWSFC: "false"}}}, false},
 	}
 
-	oldMetadata := &metadataJSON{}
 	for _, tt := range tests {
 		cfg, err := ini.InsensitiveLoad(tt.data)
 		if err != nil {
@@ -130,7 +129,10 @@ func TestAddressDiff(t *testing.T) {
 			cfg = &ini.File{}
 		}
 		oldWSFCEnable = false
-		got := (&addresses{oldMetadata: oldMetadata, newMetadata: tt.md, config: cfg}).diff()
+		oldMetadata = &metadataJSON{}
+		newMetadata = tt.md
+		config = cfg
+		got := (&addressMgr{}).diff()
 		if got != tt.want {
 			t.Errorf("test case %q, addresses.diff() got: %t, want: %t", tt.name, got, tt.want)
 		}
@@ -154,17 +156,19 @@ func TestWsfcFilter(t *testing.T) {
 		{[]byte(`{"instance":{"attributes":{"wsfc-addrs":"192.168.0"}, "networkInterfaces":[{"forwardedIps":["192.168.0.0", "192.168.0.1"]}]}}`), []string{"192.168.0.0", "192.168.0.1"}},
 	}
 
+	config = ini.Empty()
 	for _, tt := range tests {
 		var metadata metadataJSON
 		if err := json.Unmarshal(tt.metaData, &metadata); err != nil {
 			t.Error("invalid test case:", tt, err)
 		}
 
-		testAddress := addresses{&metadata, nil, ini.Empty()}
+		newMetadata = &metadata
+		testAddress := addressMgr{}
 		testAddress.applyWSFCFilter()
 
 		forwardedIps := []string{}
-		for _, ni := range testAddress.newMetadata.Instance.NetworkInterfaces {
+		for _, ni := range newMetadata.Instance.NetworkInterfaces {
 			forwardedIps = append(forwardedIps, ni.ForwardedIps...)
 		}
 
@@ -185,9 +189,12 @@ func TestWsfcFlagTriggerAddressDiff(t *testing.T) {
 		{&metadataJSON{Project: projectJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.1"}}}, &metadataJSON{Project: projectJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.2"}}}},
 	}
 
+	config = ini.Empty()
 	for _, tt := range tests {
 		oldWSFCAddresses = tt.oldMetadata.Instance.Attributes.WSFCAddresses
-		testAddress := addresses{tt.newMetadata, tt.oldMetadata, ini.Empty()}
+		newMetadata = tt.newMetadata
+		oldMetadata = tt.oldMetadata
+		testAddress := addressMgr{}
 		if !testAddress.diff() {
 			t.Errorf("old: %q new: %q doesn't tirgger diff.", tt.oldMetadata, tt.newMetadata)
 		}
@@ -201,7 +208,9 @@ func TestAddressLogStatus(t *testing.T) {
 
 	// Disable it.
 	addressDisabled = false
-	disabled := (&addresses{newMetadata: &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: "true"}}}, config: ini.Empty()}).disabled()
+	newMetadata = &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: "true"}}}
+	config = ini.Empty()
+	disabled := (&addressMgr{}).disabled()
 	if !disabled {
 		t.Fatal("expected true but got", disabled)
 	}
@@ -212,7 +221,8 @@ func TestAddressLogStatus(t *testing.T) {
 	buf.Reset()
 
 	// Enable it.
-	disabled = (&addresses{newMetadata: &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: "false"}}}, config: ini.Empty()}).disabled()
+	newMetadata = &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: "false"}}}
+	disabled = (&addressMgr{}).disabled()
 	if disabled {
 		t.Fatal("expected false but got", disabled)
 	}

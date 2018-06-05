@@ -22,11 +22,11 @@ import (
 	"time"
 )
 
-const metadataServer = "http://metadata.google.internal/computeMetadata/v1"
-const metadataHang = "/?recursive=true&alt=json&wait_for_change=true&timeout_sec=60&last_etag="
 const defaultEtag = "NONE"
 
 var (
+	metadataURL    = "http://metadata.google.internal/computeMetadata/v1"
+	metadataHang   = "/?recursive=true&alt=json&wait_for_change=true&timeout_sec=60&last_etag="
 	defaultTimeout = 70 * time.Second
 	etag           = defaultEtag
 )
@@ -67,7 +67,7 @@ func updateEtag(resp *http.Response) bool {
 	if etag == "" {
 		etag = defaultEtag
 	}
-	return etag == oldEtag
+	return etag != oldEtag
 }
 
 func watchMetadata(ctx context.Context) (*metadataJSON, error) {
@@ -75,34 +75,30 @@ func watchMetadata(ctx context.Context) (*metadataJSON, error) {
 		Timeout: defaultTimeout,
 	}
 
-	req, err := http.NewRequest("GET", metadataServer+metadataHang+etag, nil)
+	req, err := http.NewRequest("GET", metadataURL+metadataHang+etag, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Add("Metadata-Flavor", "Google")
 	req = req.WithContext(ctx)
 
-	for {
-		resp, err := client.Do(req)
-		// Don't return error on a canceled context.
-		if err != nil && ctx.Err() != nil {
-			return nil, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		// Only return metadata on updated etag.
-		if !updateEtag(resp) {
-			continue
-		}
-
-		md, err := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			return nil, err
-		}
-		var metadata metadataJSON
-		return &metadata, json.Unmarshal(md, &metadata)
+	resp, err := client.Do(req)
+	// Don't return error on a canceled context.
+	if err != nil && ctx.Err() != nil {
+		return nil, nil
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	// We return the response even if the etag has not been updated.
+	updateEtag(resp)
+
+	md, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	var metadata metadataJSON
+	return &metadata, json.Unmarshal(md, &metadata)
 }

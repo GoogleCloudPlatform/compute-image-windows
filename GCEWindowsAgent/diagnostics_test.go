@@ -67,7 +67,9 @@ func TestDiagnosticsDisabled(t *testing.T) {
 		if cfg == nil {
 			cfg = &ini.File{}
 		}
-		got := (&diagnostics{newMetadata: tt.md, config: cfg}).disabled()
+		newMetadata = tt.md
+		config = cfg
+		got := (&diagnosticsMgr{}).disabled()
 		if got != tt.want {
 			t.Errorf("test case %q, diagnostics.disabled() got: %t, want: %t", tt.name, got, tt.want)
 		}

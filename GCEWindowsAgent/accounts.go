@@ -30,11 +30,10 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
-	"github.com/go-ini/ini"
 )
 
 var (
-	regName         = "PublicKeys"
+	accountRegKey   = "PublicKeys"
 	accountDisabled = false
 )
 
@@ -152,16 +151,17 @@ func createcredsJSON(k windowsKeyJSON, pwd string) (*credsJSON, error) {
 	}, nil
 }
 
-type accounts struct {
-	newMetadata, oldMetadata *metadataJSON
-	config                   *ini.File
+type accountsMgr struct{}
+
+func (a *accountsMgr) diff() bool {
+	return !reflect.DeepEqual(newMetadata.Instance.Attributes.WindowsKeys, oldMetadata.Instance.Attributes.WindowsKeys)
 }
 
-func (a *accounts) diff() bool {
-	return !reflect.DeepEqual(a.newMetadata.Instance.Attributes.WindowsKeys, a.oldMetadata.Instance.Attributes.WindowsKeys)
+func (a *accountsMgr) timeout() bool {
+	return false
 }
 
-func (a *accounts) disabled() (disabled bool) {
+func (a *accountsMgr) disabled() (disabled bool) {
 	defer func() {
 		if disabled != accountDisabled {
 			accountDisabled = disabled
@@ -170,15 +170,15 @@ func (a *accounts) disabled() (disabled bool) {
 	}()
 
 	var err error
-	disabled, err = strconv.ParseBool(a.config.Section("accountManager").Key("disable").String())
+	disabled, err = strconv.ParseBool(config.Section("accountManager").Key("disable").String())
 	if err == nil {
 		return disabled
 	}
-	disabled, err = strconv.ParseBool(a.newMetadata.Instance.Attributes.DisableAccountManager)
+	disabled, err = strconv.ParseBool(newMetadata.Instance.Attributes.DisableAccountManager)
 	if err == nil {
 		return disabled
 	}
-	disabled, err = strconv.ParseBool(a.newMetadata.Project.Attributes.DisableAccountManager)
+	disabled, err = strconv.ParseBool(newMetadata.Project.Attributes.DisableAccountManager)
 	if err == nil {
 		return disabled
 	}
@@ -243,9 +243,9 @@ func compareAccounts(newKeys []windowsKeyJSON, oldStrKeys []string) []windowsKey
 
 var badKeys []string
 
-func (a *accounts) set() error {
+func (a *accountsMgr) set() error {
 	var newKeys []windowsKeyJSON
-	for _, s := range strings.Split(a.newMetadata.Instance.Attributes.WindowsKeys, "\n") {
+	for _, s := range strings.Split(newMetadata.Instance.Attributes.WindowsKeys, "\n") {
 		var key windowsKeyJSON
 		if err := json.Unmarshal([]byte(s), &key); err != nil {
 			if !containsString(s, badKeys) {
@@ -259,7 +259,7 @@ func (a *accounts) set() error {
 		}
 	}
 
-	regKeys, err := readRegMultiString(regKeyBase, regName)
+	regKeys, err := readRegMultiString(regKeyBase, accountRegKey)
 	if err != nil && err != errRegNotExist {
 		return err
 	}
@@ -293,5 +293,5 @@ func (a *accounts) set() error {
 		}
 		jsonKeys = append(jsonKeys, string(jsn))
 	}
-	return writeRegMultiString(regKeyBase, regName, jsonKeys)
+	return writeRegMultiString(regKeyBase, accountRegKey, jsonKeys)
 }

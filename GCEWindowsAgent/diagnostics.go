@@ -22,17 +22,17 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
-	"github.com/go-ini/ini"
 )
 
 const diagnosticsCmd = `C:\Program Files\Google\Compute Engine\diagnostics\diagnostics.exe`
 
 var (
+	diagnosticsRegKey   = "Diagnostics"
 	diagnosticsDisabled = true
 )
 
 type diagnosticsEntryJSON struct {
-	SignedUrl string
+	SignedURL string
 	ExpireOn  string
 	TraceFlag bool
 }
@@ -49,16 +49,17 @@ func (k diagnosticsEntryJSON) expired() bool {
 	return t.Before(time.Now())
 }
 
-type diagnostics struct {
-	newMetadata, oldMetadata *metadataJSON
-	config                   *ini.File
+type diagnosticsMgr struct{}
+
+func (d *diagnosticsMgr) diff() bool {
+	return !reflect.DeepEqual(newMetadata.Instance.Attributes.Diagnostics, oldMetadata.Instance.Attributes.Diagnostics)
 }
 
-func (a *diagnostics) diff() bool {
-	return !reflect.DeepEqual(a.newMetadata.Instance.Attributes.Diagnostics, a.oldMetadata.Instance.Attributes.Diagnostics)
+func (d *diagnosticsMgr) timeout() bool {
+	return false
 }
 
-func (a *diagnostics) disabled() (disabled bool) {
+func (d *diagnosticsMgr) disabled() (disabled bool) {
 	defer func() {
 		if disabled != diagnosticsDisabled {
 			diagnosticsDisabled = disabled
@@ -69,41 +70,44 @@ func (a *diagnostics) disabled() (disabled bool) {
 	// Diagnostics are opt-in and disabled by default.
 	var err error
 	var enabled bool
-	enabled, err = strconv.ParseBool(a.config.Section("diagnostics").Key("enable").String())
+	enabled, err = strconv.ParseBool(config.Section("diagnostics").Key("enable").String())
 	if err == nil {
 		return !enabled
 	}
-	enabled, err = strconv.ParseBool(a.newMetadata.Instance.Attributes.EnableDiagnostics)
+	enabled, err = strconv.ParseBool(newMetadata.Instance.Attributes.EnableDiagnostics)
 	if err == nil {
 		return !enabled
 	}
-	enabled, err = strconv.ParseBool(a.newMetadata.Project.Attributes.EnableDiagnostics)
+	enabled, err = strconv.ParseBool(newMetadata.Project.Attributes.EnableDiagnostics)
 	if err == nil {
 		return !enabled
 	}
 	return diagnosticsDisabled
 }
 
-var diagnosticsEntries []string
+func (d *diagnosticsMgr) set() error {
+	diagnosticsEntries, err := readRegMultiString(regKeyBase, diagnosticsRegKey)
+	if err != nil && err != errRegNotExist {
+		return err
+	}
 
-func (a *diagnostics) set() error {
-	var entry diagnosticsEntryJSON
-	strEntry := a.newMetadata.Instance.Attributes.Diagnostics
+	strEntry := newMetadata.Instance.Attributes.Diagnostics
 	if containsString(strEntry, diagnosticsEntries) {
 		return nil
 	}
-
 	diagnosticsEntries = append(diagnosticsEntries, strEntry)
+
+	var entry diagnosticsEntryJSON
 	if err := json.Unmarshal([]byte(strEntry), &entry); err != nil {
 		return err
 	}
-	if entry.SignedUrl == "" || entry.expired() {
+	if entry.SignedURL == "" || entry.expired() {
 		return nil
 	}
 
 	args := []string{
 		"-signedUrl",
-		entry.SignedUrl,
+		entry.SignedURL,
 	}
 	if entry.TraceFlag {
 		args = append(args, "-trace")
@@ -119,5 +123,5 @@ func (a *diagnostics) set() error {
 		}
 	}()
 
-	return nil
+	return writeRegMultiString(regKeyBase, diagnosticsRegKey, diagnosticsEntries)
 }

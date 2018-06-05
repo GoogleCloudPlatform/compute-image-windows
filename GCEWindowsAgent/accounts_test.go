@@ -15,19 +15,18 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
 	"unicode"
-
-	"bytes"
-	"fmt"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 	"github.com/go-ini/ini"
@@ -79,7 +78,9 @@ func TestAccountsDisabled(t *testing.T) {
 		if cfg == nil {
 			cfg = &ini.File{}
 		}
-		got := (&accounts{newMetadata: tt.md, config: cfg}).disabled()
+		newMetadata = tt.md
+		config = cfg
+		got := (&accountsMgr{}).disabled()
 		if got != tt.want {
 			t.Errorf("test case %q, accounts.disabled() got: %t, want: %t", tt.name, got, tt.want)
 		}
@@ -185,7 +186,10 @@ func TestAccountsLogStatus(t *testing.T) {
 
 	// Disable it.
 	accountDisabled = false
-	disabled := (&accounts{newMetadata: &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "true"}}}, config: ini.Empty()}).disabled()
+
+	newMetadata = &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "true"}}}
+	config = ini.Empty()
+	disabled := (&accountsMgr{}).disabled()
 	if !disabled {
 		t.Fatal("expected true but got", disabled)
 	}
@@ -196,7 +200,8 @@ func TestAccountsLogStatus(t *testing.T) {
 	buf.Reset()
 
 	// Enable it.
-	disabled = (&accounts{newMetadata: &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "false"}}}, config: ini.Empty()}).disabled()
+	newMetadata = &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "false"}}}
+	disabled = (&accountsMgr{}).disabled()
 	if disabled {
 		t.Fatal("expected false but got", disabled)
 	}

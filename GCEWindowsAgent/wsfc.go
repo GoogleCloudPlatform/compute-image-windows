@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
-	"github.com/go-ini/ini"
 )
 
 const wsfcDefaultAgentPort = "59998"
@@ -50,7 +49,7 @@ type wsfcManager struct {
 // running if one of the following is true:
 // - EnableWSFC is set
 // - WSFCAddresses is set (As an advanced setting, it will always override EnableWSFC flag)
-func newWsfcManager(newMetadata *metadataJSON, config *ini.File) *wsfcManager {
+func newWsfcManager() *wsfcManager {
 	newState := stopped
 
 	enabled, err := config.Section("wsfc").Key("enabled").Bool()
@@ -90,6 +89,10 @@ func (m *wsfcManager) diff() bool {
 // wsfc manager is always enabled. The manager is just a broker which manages the state of wsfcAgent. User
 // can disable the wsfc feature by setting the metadata. If the manager is disabled, the agent will stop.
 func (m *wsfcManager) disabled() bool {
+	return false
+}
+
+func (m *wsfcManager) timeout() bool {
 	return false
 }
 

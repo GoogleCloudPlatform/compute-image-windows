@@ -1,6 +1,6 @@
 {
   "name": "google-compute-engine-windows",
-  "version": "4.3.0@1",
+  "version": "4.4.0@1",
   "arch": "x86_64",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
@@ -15,6 +15,8 @@
     "path": "agent_uninstall.ps1"
   },
   "releaseNotes": [
+    "4.4.0 - Run updates on every metadata return, including timeout"
+           - Add individual manager timeout to address manager",
     "4.3.0 - Add diagnostics support for optional log extraction",
     "4.2.3 - Don't error on lack of config file, only run update on updated metadata",
     "      - Make DNS and Network errors more user friendly",
