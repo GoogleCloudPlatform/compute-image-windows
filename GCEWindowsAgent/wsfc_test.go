@@ -60,8 +60,10 @@ func TestNewWsfcManager(t *testing.T) {
 		{"wsfc addrs is set", args{setWSFCAddresses(testMetadata, "0.0.0.0")}, &wsfcManager{agentNewState: running, agentNewPort: wsfcDefaultAgentPort, agent: testAgent}},
 		{"wsfc port is set", args{setWSFCAgentPort(testMetadata, "1818")}, &wsfcManager{agentNewState: stopped, agentNewPort: "1818", agent: testAgent}},
 	}
+	config = ini.Empty()
 	for _, tt := range tests {
-		if got := newWsfcManager(tt.args.newMetadata, ini.Empty()); !reflect.DeepEqual(got, tt.want) {
+		newMetadata = tt.args.newMetadata
+		if got := newWsfcManager(); !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("test case %q: newWsfcManager() = %v, want %v", tt.name, got, tt.want)
 		}
 	}

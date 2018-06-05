@@ -29,7 +29,12 @@ import (
 	"github.com/tarm/serial"
 )
 
-var version string
+var (
+	version                  string
+	ticker                   = time.Tick(70 * time.Second)
+	oldMetadata, newMetadata *metadataJSON
+	config                   *ini.File
+)
 
 const (
 	configPath = `C:\Program Files\Google\Compute Engine\instance_configs.cfg`
@@ -55,6 +60,7 @@ type manager interface {
 	diff() bool
 	disabled() bool
 	set() error
+	timeout() bool
 }
 
 func logStatus(name string, disabled bool) {
@@ -76,7 +82,7 @@ func parseConfig(file string) (*ini.File, error) {
 	return ini.InsensitiveLoad(d)
 }
 
-func runUpdate(newMetadata, oldMetadata *metadataJSON) {
+func runUpdate() {
 	cfg, err := parseConfig(configPath)
 	if err != nil && !os.IsNotExist(err) {
 		logger.Error(err)
@@ -85,29 +91,14 @@ func runUpdate(newMetadata, oldMetadata *metadataJSON) {
 		cfg, _ = ini.InsensitiveLoad([]byte{})
 	}
 
-	var wg sync.WaitGroup
-	addressMgr := &addresses{
-		oldMetadata: oldMetadata,
-		newMetadata: newMetadata,
-		config:      cfg,
-	}
-	acctMgr := &accounts{
-		oldMetadata: oldMetadata,
-		newMetadata: newMetadata,
-		config:      cfg,
-	}
-	diagMgr := &diagnostics{
-		oldMetadata: oldMetadata,
-		newMetadata: newMetadata,
-		config:      cfg,
-	}
-	wsfcMgr := newWsfcManager(newMetadata, cfg)
+	config = cfg
 
-	for _, mgr := range []manager{addressMgr, acctMgr, wsfcMgr, diagMgr} {
+	var wg sync.WaitGroup
+	for _, mgr := range []manager{newWsfcManager(), &addressMgr{}, &accountsMgr{}, &diagnosticsMgr{}} {
 		wg.Add(1)
 		go func(mgr manager) {
 			defer wg.Done()
-			if mgr.disabled() || !mgr.diff() {
+			if mgr.disabled() || (!mgr.timeout() && !mgr.diff()) {
 				return
 			}
 			if err := mgr.set(); err != nil {
@@ -122,10 +113,11 @@ func run(ctx context.Context) {
 	logger.Infof("GCE Agent Started (version %s)", version)
 
 	go func() {
-		var oldMetadata metadataJSON
+		oldMetadata = &metadataJSON{}
 		webError := 0
 		for {
-			newMetadata, err := watchMetadata(ctx)
+			var err error
+			newMetadata, err = watchMetadata(ctx)
 			if err != nil {
 				// Only log the second web error to avoid transient errors and
 				// not to spam the log on network failures.
@@ -149,8 +141,8 @@ func run(ctx context.Context) {
 				return
 			default:
 			}
-			runUpdate(newMetadata, &oldMetadata)
-			oldMetadata = *newMetadata
+			runUpdate()
+			oldMetadata = newMetadata
 			webError = 0
 		}
 	}()
