@@ -39,6 +39,9 @@
     operation, the default is c:\. If you change this location make sure you
     also change the <ans_file>.xml file to reflect these changes.
     Alias destination
+  .PARAMETER no_shutdown
+    Don't shutdown after sysprep completes.
+    Alias NoShutdown
   .PARAMETER help
     Print help message which is derived from the script definition.
 
@@ -58,6 +61,10 @@ param (
              'Ignored if an answer file is specified.')]
   [alias('generated')]
   $generated_ans_file = "$env:WinDir\Panther\unattend.xml",
+
+  [Parameter(HelpMessage = "Don't shutdown after sysprep completes.")]
+  [alias('NoShutdown')]
+  [switch] $no_shutdown=$false,
 
   [Parameter(HelpMessage = 'Display help message.')]
   [switch] $help=$false
@@ -163,6 +170,11 @@ try {
     if (Test-Path $_) {
       Get-ChildItem $_ | Where-Object {$_.Subject -eq $_.Issuer} | Remove-Item
     }
+  }
+
+  if ($no_shutdown) {
+    Write-Log 'GCESysprep complete, not shutting down.'
+    exit 0
   }
 
   Write-Log 'Shutting down.'
