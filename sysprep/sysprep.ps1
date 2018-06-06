@@ -173,6 +173,7 @@ try {
   }
 
   if ($no_shutdown) {
+    Write-Log 'GCESysprep complete, not shutting down.'
     exit 0
   }
 
