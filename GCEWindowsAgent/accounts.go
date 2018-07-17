@@ -19,9 +19,12 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"math/big"
 	"os/user"
 	"reflect"
@@ -38,11 +41,12 @@ var (
 )
 
 type windowsKeyJSON struct {
-	Email    string
-	ExpireOn string
-	Exponent string
-	Modulus  string
-	UserName string
+	Email        string
+	ExpireOn     string
+	Exponent     string
+	Modulus      string
+	UserName     string
+	HashFunction string
 }
 
 var badExpire []string
@@ -137,7 +141,19 @@ func createcredsJSON(k windowsKeyJSON, pwd string) (*credsJSON, error) {
 		E: int(new(big.Int).SetBytes(exp).Int64()),
 	}
 
-	encPwd, err := rsa.EncryptOAEP(sha1.New(), rand.Reader, key, []byte(pwd), nil)
+	var hashFunc hash.Hash
+	switch k.HashFunction {
+	case "", "sha1":
+		hashFunc = sha1.New()
+	case "sha256":
+		hashFunc = sha256.New()
+	case "sha512":
+		hashFunc = sha512.New()
+	default:
+		return nil, fmt.Errorf("unknown hash function requested: %q", k.HashFunction)
+	}
+
+	encPwd, err := rsa.EncryptOAEP(hashFunc, rand.Reader, key, []byte(pwd), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error encrypting password: %v", err)
 	}
