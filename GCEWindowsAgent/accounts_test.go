@@ -19,8 +19,11 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"fmt"
+	"hash"
 	"log"
 	"math/big"
 	"reflect"
@@ -128,28 +131,30 @@ func TestCreatecredsJSON(t *testing.T) {
 		Modulus:  base64.StdEncoding.EncodeToString(prv.PublicKey.N.Bytes()),
 		UserName: "username",
 	}
+	for name, hashFunc := range map[string]hash.Hash{"": sha1.New(), "sha1": sha1.New(), "sha256": sha256.New(), "sha512": sha512.New()} {
+		k.HashFunction = name
+		c, err := createcredsJSON(k, pwd)
+		if err != nil {
+			t.Fatalf("error running createcredsJSON: %v", err)
+		}
 
-	c, err := createcredsJSON(k, pwd)
-	if err != nil {
-		t.Fatalf("error running createcredsJSON: %v", err)
-	}
-
-	bPwd, err := base64.StdEncoding.DecodeString(c.EncryptedPassword)
-	if err != nil {
-		t.Fatalf("error base64 decoding encoded pwd: %v", err)
-	}
-	decPwd, err := rsa.DecryptOAEP(sha1.New(), rand.Reader, prv, bPwd, nil)
-	if err != nil {
-		t.Fatalf("error decrypting password: %v", err)
-	}
-	if pwd != string(decPwd) {
-		t.Errorf("decrypted password does not match expected, got: %s, want: %s", string(decPwd), pwd)
-	}
-	if k.UserName != c.UserName {
-		t.Errorf("returned credsJSON UserName field unexpected, got: %s, want: %s", c.UserName, k.UserName)
-	}
-	if !c.PasswordFound {
-		t.Error("returned credsJSON PasswordFound field is not true")
+		bPwd, err := base64.StdEncoding.DecodeString(c.EncryptedPassword)
+		if err != nil {
+			t.Fatalf("error base64 decoding encoded pwd: %v", err)
+		}
+		decPwd, err := rsa.DecryptOAEP(hashFunc, rand.Reader, prv, bPwd, nil)
+		if err != nil {
+			t.Fatalf("error decrypting password: %v", err)
+		}
+		if pwd != string(decPwd) {
+			t.Errorf("decrypted password does not match expected for hash func %q, got: %s, want: %s", name, string(decPwd), pwd)
+		}
+		if k.UserName != c.UserName {
+			t.Errorf("returned credsJSON UserName field unexpected, got: %s, want: %s", c.UserName, k.UserName)
+		}
+		if !c.PasswordFound {
+			t.Error("returned credsJSON PasswordFound field is not true")
+		}
 	}
 }
 

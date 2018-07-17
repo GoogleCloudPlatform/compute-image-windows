@@ -1,7 +1,7 @@
 dist: trusty
 sudo: false
 language: go
-go: 1.x
+go: stable
 script:
   - go vet $(go list ./... | grep -v /vendor/)
   - ./.travis.gofmt.sh
