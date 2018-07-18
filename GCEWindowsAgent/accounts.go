@@ -141,9 +141,13 @@ func createcredsJSON(k windowsKeyJSON, pwd string) (*credsJSON, error) {
 		E: int(new(big.Int).SetBytes(exp).Int64()),
 	}
 
+	if k.HashFunction == "" {
+		k.HashFunction = "sha1"
+	}
+
 	var hashFunc hash.Hash
 	switch k.HashFunction {
-	case "", "sha1":
+	case "sha1":
 		hashFunc = sha1.New()
 	case "sha256":
 		hashFunc = sha256.New()
