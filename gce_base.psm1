@@ -84,15 +84,12 @@ function Clear-EventLogs {
       clean the eventlogs for a machine.
   #>
 
-  try {
-    Write-Log 'Clearing events in EventViewer.'
-    Get-WinEvent -ComputerName $global:hostname -ListLog * |
-      Where-Object {($_.IsEnabled -eq 'True') -and ($_.RecordCount -gt 0)} |
-      ForEach-Object {[System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($_.LogName)}
-  }
-  catch {
-    _PrintError
-  }
+  Write-Log 'Clearing events in EventViewer.'
+  Get-WinEvent -ListLog * |
+    Where-Object {($_.IsEnabled -eq 'True') -and ($_.RecordCount -gt 0)} |
+    ForEach-Object {
+      try{[System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($_.LogName)}catch{}
+    }
 }
 
 
