@@ -163,6 +163,7 @@ func createcredsJSON(k windowsKeyJSON, pwd string) (*credsJSON, error) {
 		Exponent:          k.Exponent,
 		Modulus:           k.Modulus,
 		UserName:          k.UserName,
+		HashFunction:      k.HashFunction,
 		EncryptedPassword: base64.StdEncoding.EncodeToString(encPwd),
 	}, nil
 }
@@ -208,6 +209,7 @@ type credsJSON struct {
 	PasswordFound     bool   `json:"passwordFound,omitempty"`
 	Exponent          string `json:"exponent,omitempty"`
 	Modulus           string `json:"modulus,omitempty"`
+	HashFunction      string `json:"hashFunction,omitempty"`
 }
 
 func printCreds(creds *credsJSON) error {
