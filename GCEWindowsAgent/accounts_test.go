@@ -137,6 +137,9 @@ func TestCreatecredsJSON(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error running createcredsJSON: %v", err)
 		}
+		if k.HashFunction == "" {
+			k.HashFunction = "sha1"
+		}
 
 		bPwd, err := base64.StdEncoding.DecodeString(c.EncryptedPassword)
 		if err != nil {
@@ -151,6 +154,9 @@ func TestCreatecredsJSON(t *testing.T) {
 		}
 		if k.UserName != c.UserName {
 			t.Errorf("returned credsJSON UserName field unexpected, got: %s, want: %s", c.UserName, k.UserName)
+		}
+		if k.HashFunction != c.HashFunction {
+			t.Errorf("returned credsJSON HashFunction field unexpected, got: %s, want: %s", c.HashFunction, k.HashFunction)
 		}
 		if !c.PasswordFound {
 			t.Error("returned credsJSON PasswordFound field is not true")
