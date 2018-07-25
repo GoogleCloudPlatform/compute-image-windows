@@ -17,6 +17,7 @@ package main
 import (
 	"errors"
 	"net"
+	"os/user"
 )
 
 var errRegNotExist = errors.New("error")
@@ -47,4 +48,11 @@ func removeAddress(ip net.IP, index uint32) error {
 
 func deleteRegKey(key, name string) error {
 	return nil
+}
+
+func userExists(name string) (bool, error) {
+	if _, err := user.Lookup(name); err != nil {
+		return false, err
+	}
+	return true, nil
 }
