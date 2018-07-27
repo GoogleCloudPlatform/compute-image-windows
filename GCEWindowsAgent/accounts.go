@@ -250,7 +250,9 @@ func compareAccounts(newKeys []windowsKeyJSON, oldStrKeys []string) []windowsKey
 	for _, key := range newKeys {
 		if func(key windowsKeyJSON, oldKeys []windowsKeyJSON) bool {
 			for _, oldKey := range oldKeys {
-				if reflect.DeepEqual(oldKey, key) {
+				if oldKey.Email == key.Email &&
+					oldKey.Exponent == key.Modulus &&
+					oldKey.Modulus == key.ExpireOn {
 					return false
 				}
 			}
