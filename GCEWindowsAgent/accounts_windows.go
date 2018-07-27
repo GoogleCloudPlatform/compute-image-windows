@@ -16,6 +16,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/user"
 	"syscall"
 	"unsafe"
 
@@ -160,4 +162,16 @@ func createAdminUser(username, pwd string) error {
 		return fmt.Errorf("nonzero return code from NetUserAdd: %d", ret)
 	}
 	return addToGroup(username, "Administrators")
+}
+
+func userExists(name string) (bool, error) {
+	// Only lookup user on the local system.
+	hn, err := os.Hostname()
+	if err == nil {
+		name = hn + `\` + name
+	}
+	if _, err := user.Lookup(name); err != nil {
+		return false, err
+	}
+	return true, nil
 }

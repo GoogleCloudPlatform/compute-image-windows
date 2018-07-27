@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"hash"
 	"math/big"
-	"os/user"
 	"reflect"
 	"strconv"
 	"strings"
@@ -111,7 +110,7 @@ func (k windowsKeyJSON) createOrResetPwd() (*credsJSON, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating password: %v", err)
 	}
-	if _, err := user.Lookup(k.UserName); err == nil {
+	if _, err := userExists(k.UserName); err == nil {
 		logger.Infoln("Resetting password for user", k.UserName)
 		if err := resetPwd(k.UserName, pwd); err != nil {
 			return nil, fmt.Errorf("error running resetPwd: %v", err)
