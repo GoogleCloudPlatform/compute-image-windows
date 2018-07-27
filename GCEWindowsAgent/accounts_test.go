@@ -176,9 +176,9 @@ func TestCompareAccounts(t *testing.T) {
 		{[]windowsKeyJSON{{UserName: "foo"}}, []string{`{"UserName":"bar"}`}, []windowsKeyJSON{{UserName: "foo"}}},
 
 		// These should return nothing:
-		// In Reg and Md
+		// In Reg and MD
 		{[]windowsKeyJSON{{UserName: "foo"}}, []string{`{"UserName":"foo"}`}, nil},
-		// In Md, not Reg
+		// In Reg, not MD
 		{nil, []string{`{UserName":"foo"}`}, nil},
 	}
 
