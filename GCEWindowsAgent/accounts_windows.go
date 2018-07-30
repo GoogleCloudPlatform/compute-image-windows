@@ -16,8 +16,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/user"
 	"syscall"
 	"unsafe"
 
@@ -27,6 +25,7 @@ import (
 var (
 	netAPI32                    = windows.NewLazySystemDLL("netapi32.dll")
 	procNetUserAdd              = netAPI32.NewProc("NetUserAdd")
+	procNetUserGetInfo          = netAPI32.NewProc("NetUserGetInfo")
 	procNetUserSetInfo          = netAPI32.NewProc("NetUserSetInfo")
 	procNetLocalGroupAddMembers = netAPI32.NewProc("NetLocalGroupAddMembers")
 )
@@ -34,6 +33,10 @@ var (
 type (
 	DWORD  uint32
 	LPWSTR *uint16
+
+	USER_INFO_0 struct {
+		Usri0_name LPWSTR
+	}
 
 	USER_INFO_1 struct {
 		Usri1_name         LPWSTR
@@ -165,13 +168,19 @@ func createAdminUser(username, pwd string) error {
 }
 
 func userExists(name string) (bool, error) {
-	// Only lookup user on the local system.
-	hn, err := os.Hostname()
-	if err == nil {
-		name = hn + `\` + name
+	uPtr, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return false, fmt.Errorf("error encoding username to UTF16: %v", err)
 	}
-	if _, err := user.Lookup(name); err != nil {
-		return false, err
+	ret, _, _ := procNetUserGetInfo.Call(
+		uintptr(0),
+		uintptr(unsafe.Pointer(uPtr)),
+		uintptr(1),
+		uintptr(unsafe.Pointer(&USER_INFO_0{})),
+	)
+	if ret != 0 {
+		return false, fmt.Errorf("nonzero return code from NetUserGetInfo: %d", ret)
 	}
+
 	return true, nil
 }
