@@ -78,7 +78,7 @@ func TestParseMetadata(t *testing.T) {
 		"sysprep-specialize-script-cmd": "cmd",
 		"startup-script-cmd":            "cmd",
 		"shutdown-script-ps1":           "ps1",
-		"key": "value",
+		"key":                           "value",
 		"sysprep-specialize-script-url": "url",
 		"sysprep-specialize-script-ps1": "ps1",
 		"sysprep-specialize-script-bat": "bat",
