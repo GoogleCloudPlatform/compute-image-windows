@@ -12,6 +12,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+// +build !windows
+
 package logger
 
 import (
@@ -20,7 +22,7 @@ import (
 )
 
 func slSetup(src string) error {
-	// Linux stub for running tests.
+	// Stub for running tests.
 	slInfo = log.New(ioutil.Discard, "", 0)
 	slError = slInfo
 	slFatal = slInfo
