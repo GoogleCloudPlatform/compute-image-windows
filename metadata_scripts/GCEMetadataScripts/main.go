@@ -414,10 +414,9 @@ func main() {
 
 	if len(scripts) == 0 {
 		logger.Infof("No %s scripts to run.", os.Args[1])
-		os.Exit(0)
+	} else {
+		ctx := context.Background()
+		runScripts(ctx, scripts)
 	}
-
-	ctx := context.Background()
-	runScripts(ctx, scripts)
 	logger.Infof("Finished running %s scripts.", os.Args[1])
 }
