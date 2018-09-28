@@ -15,6 +15,8 @@
 package main
 
 import (
+	"bytes"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -188,17 +190,17 @@ func (a *wsfcAgent) run() error {
 func (a *wsfcAgent) handleHealthCheckRequest(conn net.Conn) {
 	defer conn.Close()
 	defer a.waitGroup.Done()
-	conn.SetDeadline(time.Now().Add(time.Second))
+	timeoutDuration := 5 * time.Second
+	conn.SetDeadline(time.Now().Add(timeoutDuration))
 
-	buf := make([]byte, 1024)
+	var buf bytes.Buffer
 	// Read the incoming connection into the buffer.
-	reqLen, err := conn.Read(buf)
-	if err != nil {
+	if _, err := io.Copy(&buf, conn); err != nil {
 		logger.Errorln("wsfc - error on processing request:", err)
 		return
 	}
 
-	wsfcIP := strings.TrimSpace(string(buf[:reqLen]))
+	wsfcIP := strings.TrimSpace(buf.String())
 	reply, err := checkIPExist(wsfcIP)
 	if err != nil {
 		logger.Errorln("wsfc - error on checking local ip:", err)
