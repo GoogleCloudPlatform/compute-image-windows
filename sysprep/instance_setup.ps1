@@ -241,7 +241,7 @@ function Create-GCEStartup {
   $action.Path = `"$run_startup_scripts`"
   $trigger = $task.Triggers.Create(8)
   $folder = $service.GetFolder('\')
-  $folder.RegisterTaskDefinition('GCEStartup',$task,6,'System',$null,5)
+  $folder.RegisterTaskDefinition('GCEStartup',$task,6,'System',$null,5) | Out-Null
 }
 
 # Check if COM1 exists.
