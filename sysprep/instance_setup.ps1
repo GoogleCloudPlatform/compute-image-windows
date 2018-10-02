@@ -221,6 +221,29 @@ function Configure-WinRM {
   Write-Log 'Setup of WinRM complete.'
 }
 
+function Create-GCEStartup {
+   <#
+    .SYNOPSIS
+      Setup the GCEStartup scheduled task.
+    .DESCRIPTION
+      We have to use the API for this create call as schtasks.exe sets an 
+      activation time of now for a task with the onstart schedule, this causes
+      issues when the timezone is changed.
+  #>
+  $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
+  
+  $service = New-Object -ComObject("Schedule.Service")
+  $service.Connect()
+  $task = $service.NewTask(0)
+  $task.Settings.Enabled = $true
+  $task.Settings.AllowDemandStart = $true
+  $action = $task.Actions.Create(0)
+  $action.Path = "`"$run_startup_scripts`""
+  $trigger = $task.Triggers.Create(8)
+  $folder = $service.GetFolder('\')
+  $folder.RegisterTaskDefinition('GCEStartup',$task,6,'System',$null,5) | Out-Null
+}
+
 # Check if COM1 exists.
 if (-not ($global:write_to_serial)) {
   Write-Log 'COM1 does not exist on this machine. Logs will not be written to GCE console.'
@@ -261,8 +284,7 @@ else {
 
   # Schedule startup script.
   Write-Log 'Running startup scripts from metadata server.'
-  $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
-  Invoke-ExternalCommand schtasks /create /tn GCEStartup /tr "'$run_startup_scripts'" /sc onstart /ru System /f
+  Create-GCEStartup
   Invoke-ExternalCommand schtasks /run /tn GCEStartup
 
   Write-Log "Instance setup finished. $global:hostname is ready to use. Activation will continue in the background." -important

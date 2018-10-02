@@ -1,6 +1,6 @@
 {
   "name": "google-compute-engine-sysprep",
-  "version": "3.9.1@1",
+  "version": "3.9.2@1",
   "arch": "noarch",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
