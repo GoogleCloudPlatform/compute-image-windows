@@ -180,6 +180,13 @@ function Get-ProductKmsClientKey {
       $license_key = 'CB7KF-BWN84-R7R2Y-793K2-8XDDG'
     }
 
+    'Windows Server 2019 Standard' {
+      $license_key = 'N69G4-B89J2-4G8F4-WWYCC-J464C'
+    }
+    'Windows Server 2019 Datacenter' {
+      $license_key = 'WMDGN-G9PQG-XVVXX-R3X43-63DFG'
+    }
+
     'Windows Server Standard' {
       $license_key = 'DPCNP-XQFKJ-BJF7R-FRC8D-GF6G4'
     }
