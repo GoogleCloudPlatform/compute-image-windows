@@ -21,6 +21,11 @@
 
 Set-StrictMode -Version Latest
 
+if (Test-Path 'C:\Program Files\Google\Compute Engine\sysprep\byol_image') {
+  Write-Output 'Image imported into GCE via BYOL workflow, skipping GCE activation'
+  exit
+}
+
 $script:kms_server = 'kms.windows.googlecloud.com'
 $script:kms_server_port = 1688
 $script:hostname = hostname

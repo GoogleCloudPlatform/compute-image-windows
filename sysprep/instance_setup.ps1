@@ -287,7 +287,7 @@ else {
   Create-GCEStartup
   Invoke-ExternalCommand schtasks /run /tn GCEStartup
 
-  Write-Log "Instance setup finished. $global:hostname is ready to use. Activation will continue in the background." -important
+  Write-Log "Instance setup finished. $global:hostname is ready to use." -important
 
   if (Test-Path $script:setupcomplete_loc) {
     Remove-Item -Path $script:setupcomplete_loc -Force

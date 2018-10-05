@@ -1,6 +1,6 @@
 {
   "name": "google-compute-engine-sysprep",
-  "version": "3.9.3@1",
+  "version": "3.10.0@1",
   "arch": "noarch",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
@@ -15,6 +15,7 @@
     "path": "sysprep_uninstall.ps1"
   },
   "releaseNotes": [
+    "3.10.0- Support BYOL images by skipping GCE activation",
     "3.9.1 - Let gcesysprep pass /f to shutdown.exe to avoid an error on shutdown",
     "3.9.0 - Add -NoShutdown flag to gcesysprep",
     "3.8.0 - Simplify activation script and unattend.xml",
