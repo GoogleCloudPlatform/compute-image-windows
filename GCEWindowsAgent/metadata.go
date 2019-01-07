@@ -42,8 +42,9 @@ type instanceJSON struct {
 }
 
 type networkInterfacesJSON struct {
-	ForwardedIps []string
-	Mac          string
+	ForwardedIps      []string
+	TargetInstanceIps []string
+	Mac               string
 }
 
 type projectJSON struct {

@@ -189,7 +189,8 @@ func (a *addressMgr) set() error {
 			cfgIPs = append(cfgIPs, strings.TrimSuffix(addr.String(), "/32"))
 		}
 
-		toAdd, toRm := compareIPs(regFwdIPs, ni.ForwardedIps, cfgIPs)
+		wantIps := append(ni.ForwardedIps, ni.TargetInstanceIps...)
+		toAdd, toRm := compareIPs(regFwdIPs, wantIps, cfgIPs)
 		if len(toAdd) != 0 || len(toRm) != 0 {
 			// Remove non configured IPs from registry list.
 			for _, ip := range toAdd {
@@ -200,7 +201,7 @@ func (a *addressMgr) set() error {
 					}
 				}
 			}
-			msg := fmt.Sprintf("Changing forwarded IPs for %s from %q to %q by", mac, regFwdIPs, ni.ForwardedIps)
+			msg := fmt.Sprintf("Changing forwarded IPs for %s from %q to %q by", mac, regFwdIPs, wantIps)
 			if len(toAdd) != 0 {
 				msg += fmt.Sprintf(" adding %q", toAdd)
 			}
@@ -213,7 +214,7 @@ func (a *addressMgr) set() error {
 			logger.Info(msg, ".")
 		}
 
-		reg := ni.ForwardedIps
+		reg := wantIps
 		for _, ip := range toAdd {
 			if err := addAddress(net.ParseIP(ip), net.ParseIP("255.255.255.255"), uint32(iface.Index)); err != nil {
 				logger.Error(err)
@@ -242,7 +243,7 @@ func (a *addressMgr) set() error {
 }
 
 // Filter out forwarded ips based on WSFC (Windows Failover Cluster Settings).
-// If only EnableWSFC is set, all ips in the ForwardedIps will be ignored.
+// If only EnableWSFC is set, all ips in the ForwardedIps and TargetInstanceIps will be ignored.
 // If WSFCAddresses is set (with or without EnableWSFC), only ips in the list will be filtered out.
 func (a *addressMgr) applyWSFCFilter() {
 	wsfcAddresses := a.parseWSFCAddresses()
@@ -264,20 +265,28 @@ func (a *addressMgr) applyWSFCFilter() {
 	if len(wsfcAddrs) != 0 {
 		interfaces := newMetadata.Instance.NetworkInterfaces
 		for idx := range interfaces {
-			var filteredList []string
+			var filteredForwardedIps []string
 			for _, ip := range interfaces[idx].ForwardedIps {
 				if !containsString(ip, wsfcAddrs) {
-					filteredList = append(filteredList, ip)
+					filteredForwardedIps = append(filteredForwardedIps, ip)
 				}
 			}
+			interfaces[idx].ForwardedIps = filteredForwardedIps
 
-			interfaces[idx].ForwardedIps = filteredList
+			var filteredTargetInstanceIps []string
+			for _, ip := range interfaces[idx].TargetInstanceIps {
+				if !containsString(ip, wsfcAddrs) {
+					filteredTargetInstanceIps = append(filteredTargetInstanceIps, ip)
+				}
+			}
+			interfaces[idx].TargetInstanceIps = filteredTargetInstanceIps
 		}
 	} else {
 		wsfcEnable := a.parseWSFCEnable()
 		if wsfcEnable {
 			for idx := range newMetadata.Instance.NetworkInterfaces {
 				newMetadata.Instance.NetworkInterfaces[idx].ForwardedIps = nil
+				newMetadata.Instance.NetworkInterfaces[idx].TargetInstanceIps = nil
 			}
 		}
 	}
