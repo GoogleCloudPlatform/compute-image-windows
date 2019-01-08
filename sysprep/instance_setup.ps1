@@ -237,6 +237,7 @@ function Create-GCEStartup {
   $task = $service.NewTask(0)
   $task.Settings.Enabled = $true
   $task.Settings.AllowDemandStart = $true
+  $task.Settings.Priority = 5
   $action = $task.Actions.Create(0)
   $action.Path = "`"$run_startup_scripts`""
   $trigger = $task.Triggers.Create(8)
