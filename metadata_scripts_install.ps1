@@ -20,7 +20,17 @@ if ($path -notlike "*${install_dir}*") {
   Set-ItemProperty $machine_env -Name 'Path' -Value ($path + ";${install_dir}")
 }
 
-& schtasks /create /tn GCEStartup /tr "'${install_dir}\run_startup_scripts.cmd'" /sc onstart /ru System /f
+$run_startup_scripts = "${install_dir}\run_startup_scripts.cmd"
+$service = New-Object -ComObject("Schedule.Service")
+$service.Connect()
+$task = $service.NewTask(0)
+$task.Settings.Enabled = $true
+$task.Settings.AllowDemandStart = $true
+$action = $task.Actions.Create(0)
+$action.Path = "`"$run_startup_scripts`""
+$trigger = $task.Triggers.Create(8)
+$folder = $service.GetFolder('\')
+$folder.RegisterTaskDefinition('GCEStartup',$task,6,'System',$null,5) | Out-Null
 
 $gpt_ini = "${env:SystemRoot}\System32\GroupPolicy\gpt.ini"
 $scripts_ini = "${env:SystemRoot}\System32\GroupPolicy\Machine\Scripts\scripts.ini"
