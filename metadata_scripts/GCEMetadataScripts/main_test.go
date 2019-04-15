@@ -277,8 +277,8 @@ func TestPrepareURIExec(t *testing.T) {
 		{"url dne", ts.URL + "/dne", "", "", nil, true},
 		{"url ok ps1", ts.URL + "/test.ps1", ".ps1", "test", exec.Command("powershell.exe", powerShellArgs...), false},
 		{"url ok cmd", ts.URL + "/test.cmd", ".cmd", "test", nil, false},
-		{"url ok bat", ts.URL + "/test.bat", ".bat", "test", nil, false},
-		//{"gs url ok", "gs://foo/test.cmd", ".cmd", "test", nil, false},
+		{"url ok bat", ts.URL + "/test.bat?some=thing", ".bat", "test", nil, false},
+		//{"gs url ok", "gs://foo/test.cmd?some=thing", ".cmd", "test", nil, false},
 		{"bad ext", ts.URL + "/test.bad", "", "", nil, true},
 	}
 
