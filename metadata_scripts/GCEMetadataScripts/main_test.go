@@ -22,10 +22,11 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
-	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/option"
@@ -40,19 +41,19 @@ func TestValidateArgs(t *testing.T) {
 			bat: "sysprep-specialize-script-bat",
 			cmd: "sysprep-specialize-script-cmd",
 			ps1: "sysprep-specialize-script-ps1",
-			url: "sysprep-specialize-script-url"},
+			uri: "sysprep-specialize-script-url"},
 		},
 		{"startup", map[metadataScriptType]string{
 			bat: "windows-startup-script-bat",
 			cmd: "windows-startup-script-cmd",
 			ps1: "windows-startup-script-ps1",
-			url: "windows-startup-script-url"},
+			uri: "windows-startup-script-url"},
 		},
 		{"shutdown", map[metadataScriptType]string{
 			bat: "windows-shutdown-script-bat",
 			cmd: "windows-shutdown-script-cmd",
 			ps1: "windows-shutdown-script-ps1",
-			url: "windows-shutdown-script-url"},
+			uri: "windows-shutdown-script-url"},
 		},
 	}
 
@@ -72,7 +73,7 @@ func TestParseMetadata(t *testing.T) {
 		bat: "sysprep-specialize-script-bat",
 		cmd: "sysprep-specialize-script-cmd",
 		ps1: "sysprep-specialize-script-ps1",
-		url: "sysprep-specialize-script-url",
+		uri: "sysprep-specialize-script-url",
 	}
 	md := map[string]string{
 		"sysprep-specialize-script-cmd": "cmd",
@@ -88,7 +89,7 @@ func TestParseMetadata(t *testing.T) {
 		{Type: ps1, Script: "ps1", Metadata: "sysprep-specialize-script-ps1"},
 		{Type: cmd, Script: "cmd", Metadata: "sysprep-specialize-script-cmd"},
 		{Type: bat, Script: "bat", Metadata: "sysprep-specialize-script-bat"},
-		{Type: url, Script: "url", Metadata: "sysprep-specialize-script-url"},
+		{Type: uri, Script: "url", Metadata: "sysprep-specialize-script-url"},
 	}
 	got := parseMetadata(mdsm, md)
 	if !reflect.DeepEqual(got, want) {
@@ -246,18 +247,14 @@ func TestGetScripts(t *testing.T) {
 	}
 }
 
-func TestDownloadScript(t *testing.T) {
+func TestPrepareURIExec(t *testing.T) {
 	ctx := context.Background()
-	getObjRgx := regexp.MustCompile(`/b/.+/o/.+alt=json&projection=full`)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u := r.URL.String()
 		m := r.Method
 
 		if strings.Contains(u, "dne") {
 			w.WriteHeader(http.StatusNotFound)
-		} else if match := getObjRgx.FindStringSubmatch(u); m == "GET" && match != nil {
-			// Yes this object exists, we don't need to fill out the values, just return something.
-			fmt.Fprint(w, "{}")
 		} else if m == "GET" && strings.Contains(u, "test") {
 			fmt.Fprint(w, "test")
 		} else {
@@ -267,40 +264,53 @@ func TestDownloadScript(t *testing.T) {
 	}))
 
 	var err error
-	testStorageClient, err = storage.NewClient(ctx, option.WithEndpoint(ts.URL), option.WithHTTPClient(http.DefaultClient))
+	testStorageClient, err = storage.NewClient(ctx, option.WithEndpoint(ts.URL), option.WithHTTPClient(&http.Client{Timeout: 1 * time.Second}))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	tests := []struct {
-		desc, url, want string
-		err             bool
+		desc, url, wExt, want string
+		cmd                   *exec.Cmd
+		err                   bool
 	}{
-		{"url dne", ts.URL + "/dne", "", true},
-		{"url ok", ts.URL + "/test", "test", false},
+		{"url dne", ts.URL + "/dne", "", "", nil, true},
+		{"url ok ps1", ts.URL + "/test.ps1", ".ps1", "test", exec.Command("powershell.exe", powerShellArgs...), false},
+		{"url ok cmd", ts.URL + "/test.cmd", ".cmd", "test", nil, false},
+		{"url ok bat", ts.URL + "/test.bat?some=thing", ".bat", "test", nil, false},
+		//{"gs url ok", "gs://foo/test.cmd?some=thing", ".cmd", "test", nil, false},
+		{"bad ext", ts.URL + "/test.bad", "", "", nil, true},
 	}
 
+	name := "foo"
 	for _, tt := range tests {
-		tmpFile, err := ioutil.TempFile(os.TempDir(), "")
-		if err != nil {
-			t.Fatalf("error creating temp file: %v", err)
+		c, dir, err := prepareURIExec(ctx, &metadataScript{Script: tt.url, Metadata: name})
+		if dir != "" {
+			defer os.RemoveAll(dir)
 		}
-		name := tmpFile.Name()
-
-		err = downloadScript(ctx, tt.url, tmpFile)
 		if err != nil && !tt.err {
 			t.Errorf("%s: unexpected error: %v", tt.desc, err)
 		} else if err == nil && tt.err {
 			t.Errorf("%s: expected error but got nil", tt.desc)
+		} else if err != nil && tt.err {
+			continue
 		} else {
-			data, err := ioutil.ReadFile(name)
+			path := filepath.Join(dir, name+tt.wExt)
+			data, err := ioutil.ReadFile(path)
 			if err != nil {
 				t.Errorf("%s: error reading tmp file: %v", tt.desc, err)
 			}
 			if string(data) != tt.want {
 				t.Errorf("%s: content does not match, got: %q, want: %q", tt.desc, string(data), tt.want)
 			}
+			if tt.cmd != nil {
+				tt.cmd.Args = append(tt.cmd.Args, path)
+			} else {
+				tt.cmd = exec.Command(path)
+			}
+			if !reflect.DeepEqual(c, tt.cmd) {
+				t.Errorf("%s: exec does not match:\n got: %+v\n want: %+v", tt.desc, c, tt.cmd)
+			}
 		}
-		os.Remove(name)
 	}
 }

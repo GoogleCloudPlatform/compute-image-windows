@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,7 +47,7 @@ var (
 		ps1: "%s-script-ps1",
 		cmd: "%s-script-cmd",
 		bat: "%s-script-bat",
-		url: "%s-script-url",
+		uri: "%s-script-url",
 	}
 	version        string
 	powerShellArgs = []string{"-NoProfile", "-NoLogo", "-ExecutionPolicy", "Unrestricted", "-File"}
@@ -83,7 +84,7 @@ const (
 	ps1 metadataScriptType = iota
 	cmd
 	bat
-	url
+	uri
 )
 
 type metadataScriptType int
@@ -91,6 +92,52 @@ type metadataScriptType int
 type metadataScript struct {
 	Type             metadataScriptType
 	Script, Metadata string
+}
+
+func prepareURIExec(ctx context.Context, ms *metadataScript) (*exec.Cmd, string, error) {
+	trimmed := strings.TrimSpace(ms.Script)
+	bucket, object := findMatch(trimmed)
+	if bucket != "" && object != "" {
+		trimmed = fmt.Sprintf("https://%s/%s/%s", storageURL, bucket, object)
+	}
+
+	var c *exec.Cmd
+	dir, err := ioutil.TempDir("", "metadata-scripts")
+	if err != nil {
+		return nil, "", err
+	}
+	tmpFile := filepath.Join(dir, ms.Metadata)
+
+	u, err := url.Parse(trimmed)
+	if err != nil {
+		return nil, dir, err
+	}
+	sType := u.Path[len(u.Path)-3:]
+	switch sType {
+	case "ps1":
+		tmpFile = tmpFile + ".ps1"
+		c = exec.Command("powershell.exe", append(powerShellArgs, tmpFile)...)
+	case "cmd":
+		tmpFile = tmpFile + ".cmd"
+		c = exec.Command(tmpFile)
+	case "bat":
+		tmpFile = tmpFile + ".bat"
+		c = exec.Command(tmpFile)
+	default:
+		return nil, dir, fmt.Errorf("error getting script type from url path, path: %q, parsed type: %q", trimmed, sType)
+	}
+
+	file, err := os.Create(tmpFile)
+	if err != nil {
+		return nil, dir, fmt.Errorf("error opening temp file: %v", err)
+	}
+	if err := downloadScript(ctx, trimmed, file); err != nil {
+		return nil, dir, fmt.Errorf("error downloading script: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		return nil, dir, fmt.Errorf("error closing temp file: %v", err)
+	}
+	return c, dir, nil
 }
 
 func (ms *metadataScript) run(ctx context.Context) error {
@@ -101,40 +148,16 @@ func (ms *metadataScript) run(ctx context.Context) error {
 		return runBat(runCmd, ms)
 	case bat:
 		return runBat(runCmd, ms)
-	case url:
-		trimmed := strings.TrimSpace(ms.Script)
-		sType := trimmed[len(trimmed)-3:]
-		var c *exec.Cmd
-		dir, err := ioutil.TempDir("", "metadata-scripts")
+	case uri:
+		c, dir, err := prepareURIExec(ctx, ms)
+		if dir != "" {
+			defer os.RemoveAll(dir)
+		}
 		if err != nil {
 			return err
 		}
-		defer os.RemoveAll(dir)
-		tmpFile := filepath.Join(dir, ms.Metadata)
-		switch sType {
-		case "ps1":
-			tmpFile = tmpFile + ".ps1"
-			c = exec.Command("powershell.exe", append(powerShellArgs, tmpFile)...)
-		case "cmd":
-			tmpFile = tmpFile + ".cmd"
-			c = exec.Command(tmpFile)
-		case "bat":
-			tmpFile = tmpFile + ".bat"
-			c = exec.Command(tmpFile)
-		default:
-			return fmt.Errorf("error getting script type from url path, path: %q, parsed type: %q", trimmed, sType)
-		}
-		file, err := os.Create(tmpFile)
-		if err != nil {
-			return fmt.Errorf("error opening temp file: %v", err)
-		}
-		if err := downloadScript(ctx, trimmed, file); err != nil {
-			return fmt.Errorf("error downloading script: %v", err)
-		}
-		if err := file.Close(); err != nil {
-			return fmt.Errorf("error closing temp file: %v", err)
-		}
 		return runCmd(c, ms.Metadata)
+
 	default:
 		return fmt.Errorf("unknown script type: %q", ms.Script)
 	}
