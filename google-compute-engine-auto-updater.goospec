@@ -25,7 +25,8 @@
       "include": [
         "auto_updater.ps1",
         "auto_updater_install.ps1",
-        "auto_updater_uninstall.ps1"
+        "auto_updater_uninstall.ps1",
+        "constants.ps1"
       ]
   }]
 }

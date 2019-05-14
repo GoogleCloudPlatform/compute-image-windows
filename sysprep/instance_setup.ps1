@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+. "constants.ps1"
+
 <#
   .SYNOPSIS
     Setup GCE instance.
@@ -234,15 +236,19 @@ function Create-GCEStartup {
   
   $service = New-Object -ComObject("Schedule.Service")
   $service.Connect()
-  $task = $service.NewTask(0)
+
+  $task = $service.NewTask(0) # This parameter is reserved for future use and must be set to 0.
   $task.Settings.Enabled = $true
   $task.Settings.AllowDemandStart = $true
   $task.Settings.Priority = 5
-  $action = $task.Actions.Create(0)
+
+  $action = $task.Actions.Create($TASK_ACTION_EXEC)
   $action.Path = "`"$run_startup_scripts`""
-  $trigger = $task.Triggers.Create(8)
+
+  $trigger = $task.Triggers.Create($TASK_TRIGGER_BOOT)
+
   $folder = $service.GetFolder('\')
-  $folder.RegisterTaskDefinition('GCEStartup',$task,6,'System',$null,5) | Out-Null
+  $folder.RegisterTaskDefinition('GCEStartup', $task, $TASK_CREATE_OR_UPDATE, 'System', $null, $TASK_LOGON_SERVICE_ACCOUNT) | Out-Null
 }
 
 # Check if COM1 exists.

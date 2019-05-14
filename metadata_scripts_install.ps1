@@ -12,6 +12,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+. ".\constants.ps1"
+
 $install_dir = "${env:ProgramFiles}\Google\Compute Engine\metadata_scripts"
 $machine_env = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
 
@@ -23,14 +25,18 @@ if ($path -notlike "*${install_dir}*") {
 $run_startup_scripts = "${install_dir}\run_startup_scripts.cmd"
 $service = New-Object -ComObject("Schedule.Service")
 $service.Connect()
-$task = $service.NewTask(0)
+
+$task = $service.NewTask(0) # This parameter is reserved for future use and must be set to 0.
 $task.Settings.Enabled = $true
 $task.Settings.AllowDemandStart = $true
-$action = $task.Actions.Create(0)
+
+$action = $task.Actions.Create($TASK_ACTION_EXEC)
 $action.Path = "`"$run_startup_scripts`""
-$trigger = $task.Triggers.Create(8)
+
+$trigger = $task.Triggers.Create($TASK_TRIGGER_BOOT)
+
 $folder = $service.GetFolder('\')
-$folder.RegisterTaskDefinition('GCEStartup',$task,6,'System',$null,5) | Out-Null
+$folder.RegisterTaskDefinition('GCEStartup', $task, $TASK_CREATE_OR_UPDATE, 'System', $null, $TASK_LOGON_SERVICE_ACCOUNT) | Out-Null
 
 $gpt_ini = "${env:SystemRoot}\System32\GroupPolicy\gpt.ini"
 $scripts_ini = "${env:SystemRoot}\System32\GroupPolicy\Machine\Scripts\scripts.ini"

@@ -34,7 +34,8 @@
       "include": [
         "sysprep/*",
         "sysprep_install.ps1",
-        "sysprep_uninstall.ps1"
+        "sysprep_uninstall.ps1",
+        "constants.ps1"
       ]
   }],
   "pkgDependencies": {
