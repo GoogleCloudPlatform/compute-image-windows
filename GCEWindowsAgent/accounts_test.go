@@ -15,23 +15,19 @@
 package main
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
-	"fmt"
 	"hash"
-	"log"
 	"math/big"
 	"reflect"
 	"testing"
 	"time"
 	"unicode"
 
-	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
 	"github.com/go-ini/ini"
 )
 
@@ -191,10 +187,6 @@ func TestCompareAccounts(t *testing.T) {
 }
 
 func TestAccountsLogStatus(t *testing.T) {
-	var buf bytes.Buffer
-	logger.Init("test", "")
-	logger.Log = log.New(&buf, "", 0)
-
 	// Disable it.
 	accountDisabled = false
 
@@ -204,20 +196,11 @@ func TestAccountsLogStatus(t *testing.T) {
 	if !disabled {
 		t.Fatal("expected true but got", disabled)
 	}
-	want := fmt.Sprintln("test: GCE account manager status: disabled")
-	if buf.String() != want {
-		t.Errorf("got: %q, want: %q", buf.String(), want)
-	}
-	buf.Reset()
 
 	// Enable it.
 	newMetadata = &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: "false"}}}
 	disabled = (&accountsMgr{}).disabled()
 	if disabled {
 		t.Fatal("expected false but got", disabled)
-	}
-	want = fmt.Sprintln("test: GCE account manager status: enabled")
-	if buf.String() != want {
-		t.Errorf("got: %q, want: %q", buf.String(), want)
 	}
 }

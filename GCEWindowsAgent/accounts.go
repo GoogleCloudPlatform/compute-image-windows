@@ -31,7 +31,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
+	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
 )
 
 var (
@@ -54,7 +54,7 @@ func (k windowsKeyJSON) expired() bool {
 	t, err := time.Parse(time.RFC3339, k.ExpireOn)
 	if err != nil {
 		if !containsString(k.ExpireOn, badExpire) {
-			logger.Errorln("Error parsing time:", err)
+			logger.Errorf("Error parsing time: %s", err)
 			badExpire = append(badExpire, k.ExpireOn)
 		}
 		return true
@@ -111,12 +111,12 @@ func (k windowsKeyJSON) createOrResetPwd() (*credsJSON, error) {
 		return nil, fmt.Errorf("error creating password: %v", err)
 	}
 	if _, err := userExists(k.UserName); err == nil {
-		logger.Infoln("Resetting password for user", k.UserName)
+		logger.Infof("Resetting password for user %s", k.UserName)
 		if err := resetPwd(k.UserName, pwd); err != nil {
 			return nil, fmt.Errorf("error running resetPwd: %v", err)
 		}
 	} else {
-		logger.Infoln("Creating user", k.UserName)
+		logger.Infof("Creating user %s", k.UserName)
 		if err := createAdminUser(k.UserName, pwd); err != nil {
 			return nil, fmt.Errorf("error running createUser: %v", err)
 		}
@@ -238,7 +238,7 @@ func compareAccounts(newKeys []windowsKeyJSON, oldStrKeys []string) []windowsKey
 		var key windowsKeyJSON
 		if err := json.Unmarshal([]byte(s), &key); err != nil {
 			if !containsString(s, badReg) {
-				logger.Error(err)
+				logger.Errorf(err.Error())
 				badReg = append(badReg, s)
 			}
 			continue
@@ -272,7 +272,7 @@ func (a *accountsMgr) set() error {
 		var key windowsKeyJSON
 		if err := json.Unmarshal([]byte(s), &key); err != nil {
 			if !containsString(s, badKeys) {
-				logger.Error(err)
+				logger.Errorf(err.Error())
 				badKeys = append(badKeys, s)
 			}
 			continue
@@ -295,7 +295,7 @@ func (a *accountsMgr) set() error {
 			printCreds(creds)
 			continue
 		}
-		logger.Error(err)
+		logger.Errorf(err.Error())
 		creds = &credsJSON{
 			PasswordFound: false,
 			Exponent:      key.Exponent,
@@ -311,7 +311,7 @@ func (a *accountsMgr) set() error {
 		jsn, err := json.Marshal(key)
 		if err != nil {
 			// This *should* never happen as each key was just Unmarshalled above.
-			logger.Error(err)
+			logger.Errorf(err.Error())
 			continue
 		}
 		jsonKeys = append(jsonKeys, string(jsn))

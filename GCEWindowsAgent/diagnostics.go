@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
+	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
 )
 
 const diagnosticsCmd = `C:\Program Files\Google\Compute Engine\diagnostics\diagnostics.exe`
@@ -41,7 +41,7 @@ func (k diagnosticsEntryJSON) expired() bool {
 	t, err := time.Parse(time.RFC3339, k.ExpireOn)
 	if err != nil {
 		if !containsString(k.ExpireOn, badExpire) {
-			logger.Errorln("Error parsing time:", err)
+			logger.Errorf("Error parsing time: %s", err)
 			badExpire = append(badExpire, k.ExpireOn)
 		}
 		return true
@@ -115,9 +115,9 @@ func (d *diagnosticsMgr) set() error {
 
 	cmd := exec.Command(diagnosticsCmd, args...)
 	go func() {
-		logger.Info("Collecting logs from the system:")
+		logger.Infof("Collecting logs from the system:")
 		out, err := cmd.CombinedOutput()
-		logger.Info(string(out[:]))
+		logger.Infof(string(out[:]))
 		if err != nil {
 			logger.Infof("Error collecting logs: %v", err)
 		}

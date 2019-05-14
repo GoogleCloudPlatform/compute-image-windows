@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
+	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
 )
 
 var (
@@ -140,7 +140,7 @@ func (a *addressMgr) set() error {
 		mac, err := net.ParseMAC(ni.Mac)
 		if err != nil {
 			if !containsString(ni.Mac, badMAC) {
-				logger.Error(err)
+				logger.Errorf(err.Error())
 				badMAC = append(badMAC, ni.Mac)
 			}
 			continue
@@ -148,7 +148,7 @@ func (a *addressMgr) set() error {
 
 		regFwdIPs, err := readRegMultiString(addressKey, mac.String())
 		if err != nil && err != errRegNotExist {
-			logger.Error(err)
+			logger.Errorf(err.Error())
 			continue
 		} else if err != nil && err == errRegNotExist {
 			// The old agent stored MAC addresses without the ':',
@@ -180,7 +180,7 @@ func (a *addressMgr) set() error {
 
 		addrs, err := iface.Addrs()
 		if err != nil {
-			logger.Error(err)
+			logger.Errorf(err.Error())
 			continue
 		}
 
@@ -211,13 +211,13 @@ func (a *addressMgr) set() error {
 				}
 				msg += fmt.Sprintf(" removing %q", toRm)
 			}
-			logger.Info(msg, ".")
+			logger.Infof(msg)
 		}
 
 		reg := wantIps
 		for _, ip := range toAdd {
 			if err := addAddress(net.ParseIP(ip), net.ParseIP("255.255.255.255"), uint32(iface.Index)); err != nil {
-				logger.Error(err)
+				logger.Errorf(err.Error())
 				for i, rIP := range reg {
 					if rIP == ip {
 						reg = append(reg[:i], reg[i+1:]...)
@@ -229,13 +229,13 @@ func (a *addressMgr) set() error {
 
 		for _, ip := range toRm {
 			if err := removeAddress(net.ParseIP(ip), uint32(iface.Index)); err != nil {
-				logger.Error(err)
+				logger.Errorf(err.Error())
 				reg = append(reg, ip)
 			}
 		}
 
 		if err := writeRegMultiString(addressKey, mac.String(), reg); err != nil {
-			logger.Error(err)
+			logger.Errorf(err.Error())
 		}
 	}
 
@@ -255,7 +255,7 @@ func (a *addressMgr) applyWSFCFilter() {
 		}
 
 		if net.ParseIP(wsfcAddr) == nil {
-			logger.Errorln("ip address for wsfc is not in valid form", wsfcAddr)
+			logger.Errorf("ip address for wsfc is not in valid form %s", wsfcAddr)
 			continue
 		}
 

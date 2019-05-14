@@ -35,10 +35,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
+	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
 )
 
 var (
+	programName    = "GCEMetadataScripts"
 	metadataURL    = "http://metadata.google.internal/computeMetadata/v1"
 	metadataHang   = "/?recursive=true&alt=json&timeout_sec=10&last_etag=NONE"
 	defaultTimeout = 20 * time.Second
@@ -236,7 +237,7 @@ func downloadScript(ctx context.Context, path string, file *os.File) error {
 			}
 			time.Sleep(1 * time.Second)
 		}
-		logger.Info("Trying unauthenticated download")
+		logger.Infof("Trying unauthenticated download")
 		return downloadURL(fmt.Sprintf("https://%s/%s/%s", storageURL, bucket, object), file)
 	}
 
@@ -254,12 +255,32 @@ func findMatch(path string) (string, string) {
 	return "", ""
 }
 
-func getMetadata(key string) (map[string]string, error) {
+func getMetadataKey(key string) (string, error) {
+	md, err := getMetadata(key, false)
+	if err != nil {
+		return "", err
+	}
+	return string(md), nil
+}
+
+func getMetadataAttributes(key string) (map[string]string, error) {
+	md, err := getMetadata(key, true)
+	if err != nil {
+		return nil, err
+	}
+	var att map[string]string
+	return att, json.Unmarshal(md, &att)
+}
+
+func getMetadata(key string, recurse bool) ([]byte, error) {
 	client := &http.Client{
 		Timeout: defaultTimeout,
 	}
 
-	url := metadataURL + key + metadataHang
+	url := metadataURL + key
+	if recurse {
+		url += metadataHang
+	}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -287,12 +308,11 @@ func getMetadata(key string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var att map[string]string
-	return att, json.Unmarshal(md, &att)
+	return md, nil
 }
 
 func getScripts(mdsm map[metadataScriptType]string) ([]metadataScript, error) {
-	md, err := getMetadata("/instance/attributes")
+	md, err := getMetadataAttributes("/instance/attributes")
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +321,7 @@ func getScripts(mdsm map[metadataScriptType]string) ([]metadataScript, error) {
 		return msdd, nil
 	}
 
-	md, err = getMetadata("/project/attributes")
+	md, err = getMetadataAttributes("/project/attributes")
 	if err != nil {
 		return nil, err
 	}
@@ -330,17 +350,17 @@ func parseMetadata(mdsm map[metadataScriptType]string, md map[string]string) []m
 
 func runScripts(ctx context.Context, scripts []metadataScript) {
 	for _, script := range scripts {
-		logger.Infoln("Found", script.Metadata, "in metadata.")
+		logger.Infof("Found %s in metadata.", script.Metadata)
 		err := script.run(ctx)
 		if _, ok := err.(*exec.ExitError); ok {
-			logger.Infoln(script.Metadata, err)
+			logger.Infof("%s %s", script.Metadata, err)
 			continue
 		}
 		if err == nil {
-			logger.Infoln(script.Metadata, "exit status 0")
+			logger.Infof("%s exit status 0", script.Metadata)
 			continue
 		}
-		logger.Error(err)
+		logger.Errorf(err.Error())
 	}
 }
 
@@ -361,7 +381,7 @@ func runCmd(c *exec.Cmd, name string) error {
 
 	in := bufio.NewScanner(pr)
 	for in.Scan() {
-		logger.Log.Output(3, name+": "+in.Text())
+		logger.Log(logger.LogEntry{Message: fmt.Sprintf("%s: %s", name, in.Text()), CallDepth: 3, Severity: logger.Info})
 	}
 
 	return c.Wait()
@@ -419,8 +439,21 @@ func validateArgs(args []string) (map[metadataScriptType]string, error) {
 	return nil, fmt.Errorf("No valid arguments specified. Options: %s", commands)
 }
 
+func logFormat(e logger.LogEntry) string {
+	now := time.Now().Format("2006/01/02 15:04:05")
+	return fmt.Sprintf("%s %s: %s", now, programName, e.Message)
+}
+
 func main() {
-	logger.Init("GCEMetadataScripts", "COM1")
+	ctx := context.Background()
+	opts := logger.LogOpts{LoggerName: programName, FormatFunction: logFormat}
+
+	projectID, err := getMetadataKey("/project/project-id")
+	if err == nil {
+		opts.ProjectName = projectID
+	}
+
+	logger.Init(ctx, opts)
 	metadata, err := validateArgs(os.Args)
 	if err != nil {
 		fmt.Println(err)
@@ -432,13 +465,12 @@ func main() {
 	scripts, err := getScripts(metadata)
 	if err != nil {
 		fmt.Println(err)
-		logger.Fatal(err)
+		logger.Fatalf(err.Error())
 	}
 
 	if len(scripts) == 0 {
 		logger.Infof("No %s scripts to run.", os.Args[1])
 	} else {
-		ctx := context.Background()
 		runScripts(ctx, scripts)
 	}
 	logger.Infof("Finished running %s scripts.", os.Args[1])
