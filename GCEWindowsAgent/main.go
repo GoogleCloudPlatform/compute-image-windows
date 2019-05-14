@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/url"
@@ -24,12 +25,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GoogleCloudPlatform/compute-image-windows/logger"
+	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
 	"github.com/go-ini/ini"
 	"github.com/tarm/serial"
 )
 
 var (
+	programName              = "GCEWindowsAgent"
 	version                  string
 	ticker                   = time.Tick(70 * time.Second)
 	oldMetadata, newMetadata *metadataJSON
@@ -53,6 +55,7 @@ func writeSerial(port string, msg []byte) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -85,7 +88,7 @@ func parseConfig(file string) (*ini.File, error) {
 func runUpdate() {
 	cfg, err := parseConfig(configPath)
 	if err != nil && !os.IsNotExist(err) {
-		logger.Error(err)
+		logger.Errorf(err.Error())
 	}
 	if cfg == nil {
 		cfg, _ = ini.InsensitiveLoad([]byte{})
@@ -102,7 +105,7 @@ func runUpdate() {
 				return
 			}
 			if err := mgr.set(); err != nil {
-				logger.Error(err)
+				logger.Errorf(err.Error())
 			}
 		}(mgr)
 	}
@@ -124,13 +127,13 @@ func run(ctx context.Context) {
 				if webError == 1 {
 					if urlErr, ok := err.(*url.Error); ok {
 						if _, ok := urlErr.Err.(*net.DNSError); ok {
-							logger.Error("DNS error when requesting metadata, check DNS settings and ensure metadata.internal.google is setup in your hosts file.")
+							logger.Errorf("DNS error when requesting metadata, check DNS settings and ensure metadata.internal.google is setup in your hosts file.")
 						}
 						if _, ok := urlErr.Err.(*net.OpError); ok {
-							logger.Error("Network error when requesting metadata, make sure your instance has an active network and can reach the metadata server.")
+							logger.Errorf("Network error when requesting metadata, make sure your instance has an active network and can reach the metadata server.")
 						}
 					}
-					logger.Error(err)
+					logger.Errorf(err.Error())
 				}
 				webError++
 				time.Sleep(5 * time.Second)
@@ -148,7 +151,7 @@ func run(ctx context.Context) {
 	}()
 
 	<-ctx.Done()
-	logger.Info("GCE Agent Stopped")
+	logger.Infof("GCE Agent Stopped")
 }
 
 func containsString(s string, ss []string) bool {
@@ -160,9 +163,21 @@ func containsString(s string, ss []string) bool {
 	return false
 }
 
+func logFormat(e logger.LogEntry) string {
+	now := time.Now().Format("2006/01/02 15:04:05")
+	return fmt.Sprintf("%s %s: %s", now, programName, e.Message)
+}
+
 func main() {
+	opts := logger.LogOpts{LoggerName: programName, FormatFunction: logFormat}
+
+	var err error
 	ctx := context.Background()
-	logger.Init("GCEWindowsAgent", "COM1")
+	newMetadata, err = getMetadata(ctx, false)
+	if err == nil {
+		opts.ProjectName = newMetadata.Project.ProjectID
+	}
+	logger.Init(ctx, opts)
 
 	var action string
 	if len(os.Args) < 2 {
@@ -170,11 +185,13 @@ func main() {
 	} else {
 		action = os.Args[1]
 	}
+
 	if action == "noservice" {
 		run(ctx)
 		os.Exit(0)
 	}
+
 	if err := register(ctx, "GCEAgent", "GCEAgent", "", run, action); err != nil {
-		logger.Fatal(err)
+		logger.Fatalf(err.Error())
 	}
 }
