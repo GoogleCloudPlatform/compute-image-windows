@@ -74,12 +74,12 @@ func (d *diagnosticsMgr) disabled() (disabled bool) {
 	if err == nil {
 		return !enabled
 	}
-	enabled, err = strconv.ParseBool(newMetadata.Instance.Attributes.EnableDiagnostics)
-	if err == nil {
+	if newMetadata.Instance.Attributes.EnableDiagnostics != nil {
+		enabled = *newMetadata.Instance.Attributes.EnableDiagnostics
 		return !enabled
 	}
-	enabled, err = strconv.ParseBool(newMetadata.Project.Attributes.EnableDiagnostics)
-	if err == nil {
+	if newMetadata.Project.Attributes.EnableDiagnostics != nil {
+		enabled = *newMetadata.Project.Attributes.EnableDiagnostics
 		return !enabled
 	}
 	return diagnosticsDisabled

@@ -49,13 +49,13 @@ func TestDiagnosticsDisabled(t *testing.T) {
 		{"not explicitly enabled", []byte(""), &metadataJSON{}, true},
 		{"enabled in cfg only", []byte("[diagnostics]\nenable=true"), &metadataJSON{}, false},
 		{"disabled in cfg only", []byte("[diagnostics]\nenable=false"), &metadataJSON{}, true},
-		{"disabled in cfg, enabled in instance metadata", []byte("[diagnostics]\nenable=false"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableDiagnostics: "true"}}}, true},
-		{"enabled in cfg, disabled in instance metadata", []byte("[diagnostics]\nenable=true"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableDiagnostics: "false"}}}, false},
-		{"enabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableDiagnostics: "true"}}}, false},
-		{"enabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{EnableDiagnostics: "true"}}}, false},
-		{"disabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableDiagnostics: "false"}}}, true},
-		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableDiagnostics: "true"}}, Project: projectJSON{Attributes: attributesJSON{EnableDiagnostics: "false"}}}, false},
-		{"disabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{EnableDiagnostics: "false"}}}, true},
+		{"disabled in cfg, enabled in instance metadata", []byte("[diagnostics]\nenable=false"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableDiagnostics: mkptr(true)}}}, true},
+		{"enabled in cfg, disabled in instance metadata", []byte("[diagnostics]\nenable=true"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableDiagnostics: mkptr(false)}}}, false},
+		{"enabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableDiagnostics: mkptr(true)}}}, false},
+		{"enabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{EnableDiagnostics: mkptr(true)}}}, false},
+		{"disabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableDiagnostics: mkptr(false)}}}, true},
+		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableDiagnostics: mkptr(true)}}, Project: projectJSON{Attributes: attributesJSON{EnableDiagnostics: mkptr(false)}}}, false},
+		{"disabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{EnableDiagnostics: mkptr(false)}}}, true},
 	}
 
 	for _, tt := range tests {

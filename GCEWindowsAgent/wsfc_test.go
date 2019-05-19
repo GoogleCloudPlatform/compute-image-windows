@@ -25,7 +25,7 @@ import (
 	"github.com/go-ini/ini"
 )
 
-func setEnableWSFC(metadata metadataJSON, enabled string) *metadataJSON {
+func setEnableWSFC(metadata metadataJSON, enabled *bool) *metadataJSON {
 	metadata.Instance.Attributes.EnableWSFC = enabled
 	return &metadata
 }
@@ -56,7 +56,7 @@ func TestNewWsfcManager(t *testing.T) {
 		want *wsfcManager
 	}{
 		{"empty meta config", args{&testMetadata}, &wsfcManager{agentNewState: stopped, agentNewPort: wsfcDefaultAgentPort, agent: testAgent}},
-		{"wsfc enabled", args{setEnableWSFC(testMetadata, "true")}, &wsfcManager{agentNewState: running, agentNewPort: wsfcDefaultAgentPort, agent: testAgent}},
+		{"wsfc enabled", args{setEnableWSFC(testMetadata, mkptr(true))}, &wsfcManager{agentNewState: running, agentNewPort: wsfcDefaultAgentPort, agent: testAgent}},
 		{"wsfc addrs is set", args{setWSFCAddresses(testMetadata, "0.0.0.0")}, &wsfcManager{agentNewState: running, agentNewPort: wsfcDefaultAgentPort, agent: testAgent}},
 		{"wsfc port is set", args{setWSFCAgentPort(testMetadata, "1818")}, &wsfcManager{agentNewState: stopped, agentNewPort: "1818", agent: testAgent}},
 	}
