@@ -41,8 +41,8 @@ func TestParseSystemRelease(t *testing.T) {
 		{"CentOS Linux release 7.6.1810 (Core)", release{os: "centos", version: newVer(7, 6, 1810, 3)}},
 	}
 	for _, tt := range tests {
-		if got, want := parseSystemRelease(tt.file), tt.want; !reflect.DeepEqual(got, want) {
-			t.Errorf("parseSystemRelease(%s) incorrect return: got %v, want %v", tt.file, got, want)
+		if got, err := parseSystemRelease(tt.file); err != nil || !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("parseSystemRelease(%s) incorrect return: got %v, want %v", tt.file, got, tt.want)
 		}
 	}
 }
@@ -58,8 +58,8 @@ func TestParseOSRelease(t *testing.T) {
 		{"ID=\"debian\"\nNAME=\"Debian GNU/Linux\"\nVERSION=9\nVERSION_ID=\"9\"", release{os: "debian", version: newVer(9, 0, 0, 1)}},
 	}
 	for _, tt := range tests {
-		if got, want := parseOSRelease(tt.file), tt.want; !reflect.DeepEqual(got, want) {
-			t.Errorf("parseOSRelease(%s) incorrect return: got %v, want %v", tt.file, got, want)
+		if got, err := parseOSRelease(tt.file); err != nil || !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("parseOSRelease(%s) incorrect return: got %v, want %v", tt.file, got, tt.want)
 		}
 	}
 }

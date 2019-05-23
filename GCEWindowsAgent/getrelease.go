@@ -45,7 +45,7 @@ func (v ver) String() string {
 	return ret
 }
 
-func parseOSRelease(osRelease string) release {
+func parseOSRelease(osRelease string) (release, error) {
 	var ret release
 	for _, line := range strings.Split(osRelease, "\n") {
 		var id = line
@@ -65,52 +65,60 @@ func parseOSRelease(osRelease string) release {
 			if len(id) > 0 && id[len(id)-1] == '"' {
 				id = id[:len(id)-1]
 			}
-			ret.version = parseVersion(id)
+			version, err := parseVersion(id)
+			if err != nil {
+				return ret, err
+			}
+			ret.version = version
 		}
 	}
-	return ret
+	return ret, nil
 }
 
-func parseSystemRelease(systemRelease string) release {
+func parseSystemRelease(systemRelease string) (release, error) {
 	var ret release
 	var key = " release "
 	idx := strings.Index(systemRelease, key)
 	if idx == -1 {
-		return ret
+		return ret, fmt.Errorf("SystemRelease does not match format")
 	}
 	ret.os = parseID(systemRelease[:idx])
 
-	var version string
-	version = strings.Split(systemRelease[idx+len(key):], " ")[0]
-	ret.version = parseVersion(version)
-	return ret
+	versionFromRelease := strings.Split(systemRelease[idx+len(key):], " ")[0]
+	version, err := parseVersion(versionFromRelease)
+	if err != nil {
+		return ret, err
+	}
+	ret.version = version
+	return ret, nil
 }
 
-func parseVersion(version string) ver {
+func parseVersion(version string) (ver, error) {
 	var ret ver
 	var versionsl []string
 	versionsl = strings.Split(version, ".")
 
 	vernum, err := strconv.Atoi(versionsl[0])
 	if err != nil {
-		fmt.Println("error on versionsl[0]:", err)
-		return ret
+		return ret, err
 	}
 
 	ret.major = &vernum
 	if len(versionsl) > 1 {
 		vernum, err := strconv.Atoi(versionsl[1])
-		if err == nil {
-			ret.minor = &vernum
+		if err != nil {
+			return ret, err
 		}
+		ret.minor = &vernum
 	}
 	if len(versionsl) > 2 {
 		vernum, err := strconv.Atoi(versionsl[2])
-		if err == nil {
-			ret.patch = &vernum
+		if err != nil {
+			return ret, err
 		}
+		ret.patch = &vernum
 	}
-	return ret
+	return ret, nil
 }
 
 func parseID(id string) string {
@@ -124,11 +132,8 @@ func parseID(id string) string {
 	}
 }
 
-func getRelease() release {
-	switch runtime.GOOS {
-	case "freebsd":
-		return release{os: "freebsd"}
-	case "linux":
+func getRelease() (release, error) {
+	if runtime.GOOS == "linux" {
 		releaseFile, err := ioutil.ReadFile("/etc/os-release")
 		if err == nil {
 			return parseOSRelease(string(releaseFile))
@@ -137,8 +142,6 @@ func getRelease() release {
 		if err == nil {
 			return parseSystemRelease(string(releaseFile))
 		}
-		return release{}
-	default:
-		return release{}
 	}
+	return release{}, fmt.Errorf("%s is a supported platform", runtime.GOOS)
 }
