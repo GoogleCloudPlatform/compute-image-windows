@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -39,8 +40,9 @@ var (
 )
 
 const (
-	configPath = `C:\Program Files\Google\Compute Engine\instance_configs.cfg`
-	regKeyBase = `SOFTWARE\Google\ComputeEngine`
+	winConfigPath = `C:\Program Files\Google\Compute Engine\instance_configs.cfg`
+	lxConfigPath  = `/etc/default/instance_configs.cfg`
+	regKeyBase    = `SOFTWARE\Google\ComputeEngine`
 )
 
 func writeSerial(port string, msg []byte) error {
@@ -78,26 +80,38 @@ func logStatus(name string, disabled bool) {
 }
 
 func parseConfig(file string) (*ini.File, error) {
+	empty, _ := ini.InsensitiveLoad([]byte{})
 	d, err := ioutil.ReadFile(file)
 	if err != nil {
-		return nil, err
+		return empty, err
 	}
-	return ini.InsensitiveLoad(d)
+	cfg, err := ini.InsensitiveLoad(d)
+	if err != nil {
+		return empty, err
+	}
+	return cfg, nil
 }
 
 func runUpdate() {
-	cfg, err := parseConfig(configPath)
-	if err != nil && !os.IsNotExist(err) {
-		logger.Errorf(err.Error())
-	}
-	if cfg == nil {
-		cfg, _ = ini.InsensitiveLoad([]byte{})
+	cfgPath := lxConfigPath
+	if runtime.GOOS == "windows" {
+		cfgPath = winConfigPath
 	}
 
-	config = cfg
+	var err error
+	config, err = parseConfig(cfgPath)
+	if err != nil && !os.IsNotExist(err) {
+		logger.Errorf("error parsing config %s: %s", cfgPath, err.Error())
+	}
 
 	var wg sync.WaitGroup
-	for _, mgr := range []manager{newWsfcManager(), &addressMgr{}, &accountsMgr{}, &diagnosticsMgr{}} {
+	var mgrs []manager
+	if runtime.GOOS == "windows" {
+		mgrs = []manager{newWsfcManager(), &addressMgr{}, &accountsMgr{}, &diagnosticsMgr{}}
+	} else {
+		mgrs = []manager{&addressMgr{}}
+	}
+	for _, mgr := range mgrs {
 		wg.Add(1)
 		go func(mgr manager) {
 			defer wg.Done()
@@ -105,7 +119,7 @@ func runUpdate() {
 				return
 			}
 			if err := mgr.set(); err != nil {
-				logger.Errorf(err.Error())
+				logger.Errorf("error running %v manager: %s", mgr, err.Error())
 			}
 		}(mgr)
 	}
@@ -133,7 +147,7 @@ func run(ctx context.Context) {
 							logger.Errorf("Network error when requesting metadata, make sure your instance has an active network and can reach the metadata server.")
 						}
 					}
-					logger.Errorf(err.Error())
+					logger.Errorf("Some sort of web error: %s", err.Error())
 				}
 				webError++
 				time.Sleep(5 * time.Second)
@@ -169,7 +183,12 @@ func logFormat(e logger.LogEntry) string {
 }
 
 func main() {
-	opts := logger.LogOpts{LoggerName: programName, FormatFunction: logFormat}
+	var opts logger.LogOpts
+	if runtime.GOOS == "windows" {
+		opts = logger.LogOpts{LoggerName: programName, FormatFunction: logFormat}
+	} else {
+		opts = logger.LogOpts{LoggerName: programName, Stdout: true}
+	}
 
 	var err error
 	ctx := context.Background()
@@ -192,6 +211,6 @@ func main() {
 	}
 
 	if err := register(ctx, "GCEAgent", "GCEAgent", "", run, action); err != nil {
-		logger.Fatalf(err.Error())
+		logger.Fatalf("error registering service: %s", err.Error())
 	}
 }

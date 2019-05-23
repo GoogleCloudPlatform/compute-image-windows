@@ -77,7 +77,7 @@ type MIB_UNICASTIPADDRESS_ROW struct {
 	SkipAsSource       bool
 }
 
-func addAddress(ip, mask net.IP, index uint32) error {
+func addAddressWindows(ip, mask net.IP, index uint32) error {
 	// CreateUnicastIpAddressEntry only available Vista onwards.
 	if err := procCreateUnicastIpAddressEntry.Find(); err != nil {
 		return addIPAddress(ip, mask, index)
@@ -85,7 +85,7 @@ func addAddress(ip, mask net.IP, index uint32) error {
 	return createUnicastIpAddressEntry(ip, 32, index)
 }
 
-func removeAddress(ip net.IP, index uint32) error {
+func removeAddressWindows(ip net.IP, index uint32) error {
 	// DeleteUnicastIpAddressEntry only available Vista onwards.
 	if err := procDeleteUnicastIpAddressEntry.Find(); err != nil {
 		return deleteIPAddress(ip)
