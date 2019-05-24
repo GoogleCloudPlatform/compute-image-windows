@@ -35,13 +35,13 @@ type addressMgr struct{}
 
 func (a *addressMgr) parseWSFCAddresses() string {
 	wsfcAddresses := config.Section("wsfc").Key("addresses").String()
-	if len(wsfcAddresses) > 0 {
+	if wsfcAddresses != "" {
 		return wsfcAddresses
 	}
-	if len(newMetadata.Instance.Attributes.WSFCAddresses) > 0 {
+	if newMetadata.Instance.Attributes.WSFCAddresses != "" {
 		return newMetadata.Instance.Attributes.WSFCAddresses
 	}
-	if len(newMetadata.Project.Attributes.WSFCAddresses) > 0 {
+	if newMetadata.Project.Attributes.WSFCAddresses != "" {
 		return newMetadata.Project.Attributes.WSFCAddresses
 	}
 
@@ -250,7 +250,7 @@ func (a *addressMgr) applyWSFCFilter() {
 
 	var wsfcAddrs []string
 	for _, wsfcAddr := range strings.Split(wsfcAddresses, ",") {
-		if len(wsfcAddr) == 0 {
+		if wsfcAddr == "" {
 			continue
 		}
 

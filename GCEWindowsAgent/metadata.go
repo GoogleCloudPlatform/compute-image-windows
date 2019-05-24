@@ -105,7 +105,9 @@ func getMetadata(ctx context.Context, hang bool) (*metadataJSON, error) {
 	}
 
 	// We return the response even if the etag has not been updated.
-	updateEtag(resp)
+	if hang {
+		updateEtag(resp)
+	}
 
 	md, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
