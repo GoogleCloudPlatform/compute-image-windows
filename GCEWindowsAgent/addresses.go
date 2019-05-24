@@ -53,13 +53,11 @@ func (a *addressMgr) parseWSFCEnable() bool {
 	if err == nil {
 		return wsfcEnable
 	}
-	wsfcEnable, err = strconv.ParseBool(newMetadata.Instance.Attributes.EnableWSFC)
-	if err == nil {
-		return wsfcEnable
+	if newMetadata.Instance.Attributes.EnableWSFC != nil {
+		return *newMetadata.Instance.Attributes.EnableWSFC
 	}
-	wsfcEnable, err = strconv.ParseBool(newMetadata.Project.Attributes.EnableWSFC)
-	if err == nil {
-		return wsfcEnable
+	if newMetadata.Project.Attributes.EnableWSFC != nil {
+		return *newMetadata.Project.Attributes.EnableWSFC
 	}
 	return false
 }
@@ -99,12 +97,12 @@ func (a *addressMgr) disabled() (disabled bool) {
 	if err == nil {
 		return disabled
 	}
-	disabled, err = strconv.ParseBool(newMetadata.Instance.Attributes.DisableAddressManager)
-	if err == nil {
+	if newMetadata.Instance.Attributes.DisableAddressManager != nil {
+		disabled = *newMetadata.Instance.Attributes.DisableAddressManager
 		return disabled
 	}
-	disabled, err = strconv.ParseBool(newMetadata.Project.Attributes.DisableAddressManager)
-	if err == nil {
+	if newMetadata.Project.Attributes.DisableAddressManager != nil {
+		disabled = *newMetadata.Project.Attributes.DisableAddressManager
 		return disabled
 	}
 	return addressDisabled

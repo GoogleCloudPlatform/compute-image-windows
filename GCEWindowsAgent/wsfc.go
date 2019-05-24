@@ -16,7 +16,6 @@ package main
 
 import (
 	"net"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -52,28 +51,38 @@ type wsfcManager struct {
 func newWsfcManager() *wsfcManager {
 	newState := stopped
 
-	enabled, err := config.Section("wsfc").Key("enabled").Bool()
-	if (err == nil && enabled) || len(config.Section("wsfc").Key("addresses").String()) > 0 {
-		newState = running
-	} else if err != nil {
-		enabled, err = strconv.ParseBool(newMetadata.Instance.Attributes.EnableWSFC)
-		if (err == nil && enabled) || len(newMetadata.Instance.Attributes.WSFCAddresses) > 0 {
-			newState = running
-		} else if err != nil {
-			enabled, err = strconv.ParseBool(newMetadata.Project.Attributes.EnableWSFC)
-			if (err == nil && enabled) || len(newMetadata.Project.Attributes.WSFCAddresses) > 0 {
-				newState = running
-			}
+	if func() bool {
+		enabled, err := config.Section("wsfc").Key("enabled").Bool()
+		if err == nil {
+			return enabled
 		}
+		if config.Section("wsfc").Key("addresses").String() != "" {
+			return true
+		}
+		if newMetadata.Instance.Attributes.EnableWSFC != nil {
+			return *newMetadata.Instance.Attributes.EnableWSFC
+		}
+		if newMetadata.Instance.Attributes.WSFCAddresses != "" {
+			return true
+		}
+		if newMetadata.Project.Attributes.EnableWSFC != nil {
+			return *newMetadata.Project.Attributes.EnableWSFC
+		}
+		if newMetadata.Project.Attributes.WSFCAddresses != "" {
+			return true
+		}
+		return false
+	}() {
+		newState = running
 	}
 
 	newPort := wsfcDefaultAgentPort
 	port := config.Section("wsfc").Key("port").String()
-	if len(port) > 0 {
+	if port != "" {
 		newPort = port
-	} else if len(newMetadata.Instance.Attributes.WSFCAgentPort) > 0 {
+	} else if newMetadata.Instance.Attributes.WSFCAgentPort != "" {
 		newPort = newMetadata.Instance.Attributes.WSFCAgentPort
-	} else if len(newMetadata.Project.Attributes.WSFCAgentPort) > 0 {
+	} else if newMetadata.Project.Attributes.WSFCAgentPort != "" {
 		newPort = newMetadata.Instance.Attributes.WSFCAgentPort
 	}
 

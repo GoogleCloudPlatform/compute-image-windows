@@ -32,7 +32,7 @@ func TestWatchMetadata(t *testing.T) {
 		} else {
 			w.Header().Set("etag", etag2)
 		}
-		fmt.Fprintln(w, `{"project":{"attributes":{"windows-keys":"foo"}}}`)
+		fmt.Fprintln(w, `{"project":{"attributes":{"wsfc-addrs":"foo"}}}`)
 		req++
 	}))
 	defer ts.Close()
@@ -48,8 +48,8 @@ func TestWatchMetadata(t *testing.T) {
 			t.Fatalf("error running getMetadata: %v", err)
 		}
 
-		if got.Project.Attributes.WindowsKeys != want {
-			t.Errorf("%q != %q", got.Project.Attributes.WindowsKeys, want)
+		if got.Project.Attributes.WSFCAddresses != want {
+			t.Errorf("%q != %q", got.Project.Attributes.WSFCAddresses, want)
 		}
 
 		if etag != e {

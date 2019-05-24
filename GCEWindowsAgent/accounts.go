@@ -28,7 +28,6 @@ import (
 	"math/big"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
@@ -39,18 +38,9 @@ var (
 	accountDisabled = false
 )
 
-type windowsKeyJSON struct {
-	Email        string
-	ExpireOn     string
-	Exponent     string
-	Modulus      string
-	UserName     string
-	HashFunction string
-}
-
 var badExpire []string
 
-func (k windowsKeyJSON) expired() bool {
+func (k windowsKey) expired() bool {
 	t, err := time.Parse(time.RFC3339, k.ExpireOn)
 	if err != nil {
 		if !containsString(k.ExpireOn, badExpire) {
@@ -105,7 +95,7 @@ func newPwd() (string, error) {
 	}
 }
 
-func (k windowsKeyJSON) createOrResetPwd() (*credsJSON, error) {
+func (k windowsKey) createOrResetPwd() (*credsJSON, error) {
 	pwd, err := newPwd()
 	if err != nil {
 		return nil, fmt.Errorf("error creating password: %v", err)
@@ -125,7 +115,7 @@ func (k windowsKeyJSON) createOrResetPwd() (*credsJSON, error) {
 	return createcredsJSON(k, pwd)
 }
 
-func createcredsJSON(k windowsKeyJSON, pwd string) (*credsJSON, error) {
+func createcredsJSON(k windowsKey, pwd string) (*credsJSON, error) {
 	mod, err := base64.StdEncoding.DecodeString(k.Modulus)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding modulus: %v", err)
@@ -194,12 +184,12 @@ func (a *accountsMgr) disabled() (disabled bool) {
 	if err == nil {
 		return disabled
 	}
-	disabled, err = strconv.ParseBool(newMetadata.Instance.Attributes.DisableAccountManager)
-	if err == nil {
+	if newMetadata.Instance.Attributes.DisableAccountManager != nil {
+		disabled = *newMetadata.Instance.Attributes.DisableAccountManager
 		return disabled
 	}
-	disabled, err = strconv.ParseBool(newMetadata.Project.Attributes.DisableAccountManager)
-	if err == nil {
+	if newMetadata.Project.Attributes.DisableAccountManager != nil {
+		disabled = *newMetadata.Project.Attributes.DisableAccountManager
 		return disabled
 	}
 	return accountDisabled
@@ -225,7 +215,7 @@ func printCreds(creds *credsJSON) error {
 
 var badReg []string
 
-func compareAccounts(newKeys []windowsKeyJSON, oldStrKeys []string) []windowsKeyJSON {
+func compareAccounts(newKeys windowsKeys, oldStrKeys []string) windowsKeys {
 	if len(newKeys) == 0 {
 		return nil
 	}
@@ -233,9 +223,9 @@ func compareAccounts(newKeys []windowsKeyJSON, oldStrKeys []string) []windowsKey
 		return newKeys
 	}
 
-	var oldKeys []windowsKeyJSON
+	var oldKeys windowsKeys
 	for _, s := range oldStrKeys {
-		var key windowsKeyJSON
+		var key windowsKey
 		if err := json.Unmarshal([]byte(s), &key); err != nil {
 			if !containsString(s, badReg) {
 				logger.Errorf(err.Error())
@@ -246,9 +236,9 @@ func compareAccounts(newKeys []windowsKeyJSON, oldStrKeys []string) []windowsKey
 		oldKeys = append(oldKeys, key)
 	}
 
-	var toAdd []windowsKeyJSON
+	var toAdd windowsKeys
 	for _, key := range newKeys {
-		if func(key windowsKeyJSON, oldKeys []windowsKeyJSON) bool {
+		if func(key windowsKey, oldKeys windowsKeys) bool {
 			for _, oldKey := range oldKeys {
 				if oldKey.UserName == key.UserName &&
 					oldKey.Modulus == key.Modulus &&
@@ -267,21 +257,7 @@ func compareAccounts(newKeys []windowsKeyJSON, oldStrKeys []string) []windowsKey
 var badKeys []string
 
 func (a *accountsMgr) set() error {
-	var newKeys []windowsKeyJSON
-	for _, s := range strings.Split(newMetadata.Instance.Attributes.WindowsKeys, "\n") {
-		var key windowsKeyJSON
-		if err := json.Unmarshal([]byte(s), &key); err != nil {
-			if !containsString(s, badKeys) {
-				logger.Errorf(err.Error())
-				badKeys = append(badKeys, s)
-			}
-			continue
-		}
-		if key.Exponent != "" && key.Modulus != "" && key.UserName != "" && !key.expired() {
-			newKeys = append(newKeys, key)
-		}
-	}
-
+	newKeys := newMetadata.Instance.Attributes.WindowsKeys
 	regKeys, err := readRegMultiString(regKeyBase, accountRegKey)
 	if err != nil && err != errRegNotExist {
 		return err
