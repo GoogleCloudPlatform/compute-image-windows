@@ -114,7 +114,7 @@ func getInterfaceByMAC(mac string) (net.Interface, error) {
 			return iface, nil
 		}
 	}
-	return net.Interface{}, fmt.Errorf("No interface found with MAC %s", mac)
+	return net.Interface{}, fmt.Errorf("no interface found with MAC %s", mac)
 }
 
 func getRoutes(ifname string) ([]string, error) {
@@ -122,7 +122,7 @@ func getRoutes(ifname string) ([]string, error) {
 	out, err := exec.Command("ip", strings.Split(args, " ")...).Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("Error getting routes: %s", ee.Stderr)
+			return nil, fmt.Errorf("error getting routes: %s", ee.Stderr)
 		}
 		return nil, err
 	}
@@ -142,9 +142,9 @@ func addRoute(ip, ifname string) error {
 		ip = ip + "/32"
 	}
 	args := fmt.Sprintf("route add to local %s scope host dev %s proto %d", ip, ifname, protoID)
-	_, err := exec.Command("ip", strings.Split(args, " ")...).Output()
+	err := exec.Command("ip", strings.Split(args, " ")...).Run()
 	if ee, ok := err.(*exec.ExitError); ok {
-		return fmt.Errorf("Error adding route: %s", ee.Stderr)
+		return fmt.Errorf("error adding route: %s", ee.Stderr)
 	}
 	return err
 }
@@ -154,9 +154,9 @@ func removeRoute(ip, ifname string) error {
 		ip = ip + "/32"
 	}
 	args := fmt.Sprintf("route delete to local %s scope host dev %s proto %d", ip, ifname, protoID)
-	_, err := exec.Command("ip", strings.Split(args, " ")...).Output()
+	err := exec.Command("ip", strings.Split(args, " ")...).Run()
 	if ee, ok := err.(*exec.ExitError); ok {
-		return fmt.Errorf("Error removing route: %s", ee.Stderr)
+		return fmt.Errorf("error removing route: %s", ee.Stderr)
 	}
 	return err
 }
@@ -174,7 +174,7 @@ func (a *addressMgr) applyWSFCFilter() {
 		}
 
 		if net.ParseIP(wsfcAddr) == nil {
-			logger.Errorf("ip address for wsfc is not in valid form %s", wsfcAddr)
+			logger.Errorf("Address for WSFC is not in valid form %s", wsfcAddr)
 			continue
 		}
 
@@ -270,7 +270,7 @@ func (a *addressMgr) set() error {
 		iface, err := getInterfaceByMAC(ni.Mac)
 		if err != nil {
 			if !containsString(ni.Mac, badMAC) {
-				logger.Errorf("error getting interface: %s", err)
+				logger.Errorf("Error getting interface: %s", err)
 				badMAC = append(badMAC, ni.Mac)
 			}
 			continue
@@ -286,16 +286,16 @@ func (a *addressMgr) set() error {
 		if runtime.GOOS == "windows" {
 			forwardedIPs, err = getForwardsFromRegistry(ni.Mac)
 			if err != nil {
-				logger.Errorf("error getting forwards from registry: %s", err)
+				logger.Errorf("Error getting forwards from registry: %s", err)
 				continue
 			}
 		} else {
 			forwardedIPs, err = getRoutes(iface.Name)
 			if err != nil {
 				if ee, ok := err.(*exec.ExitError); ok {
-					logger.Errorf("error getting routes: %s", ee.Stderr)
+					logger.Errorf("Error getting routes: %s", ee.Stderr)
 				} else {
-					logger.Errorf("error getting routes: %v", err)
+					logger.Errorf("Error getting routes: %v", err)
 				}
 				continue
 			}
@@ -320,7 +320,7 @@ func (a *addressMgr) set() error {
 
 		addrs, err := iface.Addrs()
 		if err != nil {
-			logger.Errorf("error getting addresses for interface %s: %s", iface.Name, err)
+			logger.Errorf("Error getting addresses for interface %s: %s", iface.Name, err)
 		}
 
 		var configuredIPs []string

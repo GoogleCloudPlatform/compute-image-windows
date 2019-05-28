@@ -41,7 +41,7 @@ var (
 
 const (
 	winConfigPath = `C:\Program Files\Google\Compute Engine\instance_configs.cfg`
-	lxConfigPath  = `/etc/default/instance_configs.cfg`
+	nixConfigPath = `/etc/default/instance_configs.cfg`
 	regKeyBase    = `SOFTWARE\Google\ComputeEngine`
 )
 
@@ -93,7 +93,7 @@ func parseConfig(file string) (*ini.File, error) {
 }
 
 func runUpdate() {
-	cfgPath := lxConfigPath
+	cfgPath := nixConfigPath
 	if runtime.GOOS == "windows" {
 		cfgPath = winConfigPath
 	}
@@ -101,7 +101,7 @@ func runUpdate() {
 	var err error
 	config, err = parseConfig(cfgPath)
 	if err != nil && !os.IsNotExist(err) {
-		logger.Errorf("error parsing config %s: %s", cfgPath, err.Error())
+		logger.Errorf("error parsing config %s: %s", cfgPath, err)
 	}
 
 	var wg sync.WaitGroup
@@ -119,7 +119,7 @@ func runUpdate() {
 				return
 			}
 			if err := mgr.set(); err != nil {
-				logger.Errorf("error running %v manager: %s", mgr, err.Error())
+				logger.Errorf("error running %v manager: %s", mgr, err)
 			}
 		}(mgr)
 	}
@@ -147,7 +147,7 @@ func run(ctx context.Context) {
 							logger.Errorf("Network error when requesting metadata, make sure your instance has an active network and can reach the metadata server.")
 						}
 					}
-					logger.Errorf("Some sort of web error: %s", err.Error())
+					logger.Errorf("Error watching metadata: %s", err)
 				}
 				webError++
 				time.Sleep(5 * time.Second)
@@ -211,6 +211,6 @@ func main() {
 	}
 
 	if err := register(ctx, "GCEAgent", "GCEAgent", "", run, action); err != nil {
-		logger.Fatalf("error registering service: %s", err.Error())
+		logger.Fatalf("error registering service: %s", err)
 	}
 }
