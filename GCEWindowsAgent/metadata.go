@@ -64,6 +64,8 @@ type project struct {
 }
 
 type attributes struct {
+	BlockProjectKeys      bool
+	SshKeys               []string
 	WindowsKeys           windowsKeys
 	Diagnostics           string
 	DisableAddressManager *bool
@@ -86,15 +88,19 @@ type windowsKey struct {
 type windowsKeys []windowsKey
 
 func (a *attributes) UnmarshalJSON(b []byte) error {
+	// Unmarshal to literal JSON types before doing anything else.
 	type inner struct {
-		WindowsKeys           windowsKeys `json:"windows-keys"`
+		BlockProjectKeys      string      `json:"block-project-ssh-keys"`
 		Diagnostics           string      `json:"diagnostics"`
-		DisableAddressManager string      `json:"disable-address-manager"`
 		DisableAccountManager string      `json:"disable-account-manager"`
+		DisableAddressManager string      `json:"disable-address-manager"`
 		EnableDiagnostics     string      `json:"enable-diagnostics"`
 		EnableWSFC            string      `json:"enable-wsfc"`
+		OldSshKeys            string      `json:"sshKeys"`
+		SshKeys               string      `json:"ssh-keys"`
 		WSFCAddresses         string      `json:"wsfc-addrs"`
 		WSFCAgentPort         string      `json:"wsfc-agent-port"`
+		WindowsKeys           windowsKeys `json:"windows-keys"`
 	}
 	var temp inner
 	if err := json.Unmarshal(b, &temp); err != nil {
@@ -103,13 +109,18 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 	a.Diagnostics = temp.Diagnostics
 	a.WSFCAddresses = temp.WSFCAddresses
 	a.WSFCAgentPort = temp.WSFCAgentPort
-	value, err := strconv.ParseBool(temp.DisableAddressManager)
+
+	value, err := strconv.ParseBool(temp.BlockProjectKeys)
 	if err == nil {
-		a.DisableAddressManager = &value
+		a.BlockProjectKeys = value
 	}
 	value, err = strconv.ParseBool(temp.DisableAccountManager)
 	if err == nil {
 		a.DisableAccountManager = &value
+	}
+	value, err = strconv.ParseBool(temp.DisableAddressManager)
+	if err == nil {
+		a.DisableAddressManager = &value
 	}
 	value, err = strconv.ParseBool(temp.EnableDiagnostics)
 	if err == nil {
@@ -118,6 +129,14 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 	value, err = strconv.ParseBool(temp.EnableWSFC)
 	if err == nil {
 		a.EnableWSFC = &value
+	}
+	// So SshKeys will be nil instead of []string{}
+	if temp.SshKeys != "" {
+		a.SshKeys = strings.Split(temp.SshKeys, "\n")
+	}
+	if temp.OldSshKeys != "" {
+		a.BlockProjectKeys = true
+		a.SshKeys = append(a.SshKeys, strings.Split(temp.OldSshKeys, "\n")...)
 	}
 	return nil
 }

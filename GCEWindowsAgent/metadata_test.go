@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -54,6 +55,35 @@ func TestWatchMetadata(t *testing.T) {
 
 		if etag != e {
 			t.Errorf("etag not updated as expected (%q != %q)", etag, e)
+		}
+	}
+}
+
+func TestBlockProjectKeys(t *testing.T) {
+	tests := []struct {
+		json string
+		res  bool
+	}{
+		{
+			`{"instance": {"attributes": {"ssh-keys": "name:ssh-rsa [KEY] hostname\nname:ssh-rsa [KEY] hostname"},"project": {"attributes": {"ssh-keys": "name:ssh-rsa [KEY] hostname\nname:ssh-rsa [KEY] hostname"}}}}`,
+			false,
+		},
+		{
+			`{"instance": {"attributes": {"sshKeys": "name:ssh-rsa [KEY] hostname\nname:ssh-rsa [KEY] hostname"},"project": {"attributes": {"ssh-keys": "name:ssh-rsa [KEY] hostname\nname:ssh-rsa [KEY] hostname"}}}}`,
+			true,
+		},
+		{
+			`{"instance": {"attributes": {"block-project-ssh-keys": "true", "ssh-keys": "name:ssh-rsa [KEY] hostname\nname:ssh-rsa [KEY] hostname"},"project": {"attributes": {"ssh-keys": "name:ssh-rsa [KEY] hostname\nname:ssh-rsa [KEY] hostname"}}}}`,
+			true,
+		},
+	}
+	for _, test := range tests {
+		var md metadataJSON
+		if err := json.Unmarshal([]byte(test.json), &md); err != nil {
+			t.Errorf("failed to unmarshal JSON: %v", err)
+		}
+		if md.Instance.Attributes.BlockProjectKeys != test.res {
+			t.Errorf("instance-level sshKeys didn't set block-project-keys (got %t expected %t)", md.Instance.Attributes.BlockProjectKeys, test.res)
 		}
 	}
 }
