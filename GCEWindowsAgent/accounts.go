@@ -30,9 +30,10 @@ import (
 	"math/big"
 	"os"
 	"os/exec"
-	"os/user"
+	osuser "os/user"
 	"path"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -42,6 +43,7 @@ import (
 
 var (
 	accountRegKey   = "PublicKeys"
+	googleUsersFile = "/var/lib/google/google_users"
 	accountDisabled = false
 )
 
@@ -307,6 +309,7 @@ func compareAccounts(newKeys windowsKeys, oldStrKeys []string) windowsKeys {
 type linuxAccountsMgr struct{}
 
 func (a *linuxAccountsMgr) diff() bool {
+	// If any have changed OR if any have expired!
 	return true
 }
 
@@ -315,123 +318,189 @@ func (a *linuxAccountsMgr) timeout() bool {
 }
 
 func (a *linuxAccountsMgr) disabled() (disabled bool) {
-	w := &winAccountsMgr{}
-	return w.disabled()
+	defer func() {
+		if disabled != accountDisabled {
+			accountDisabled = disabled
+			logStatus("account", disabled)
+		}
+	}()
+
+	var err error
+	disabled, err = config.Section("Daemons").Key("accounts_daemon").Bool()
+	if err == nil {
+		fmt.Println("found INI Daemons->accounts_daemon")
+		return !disabled
+	}
+	if newMetadata.Instance.Attributes.DisableAccountManager != nil {
+		fmt.Println("found Instances.Attributes.DisableAccountManager")
+		disabled = *newMetadata.Instance.Attributes.DisableAccountManager
+		return disabled
+	}
+	if newMetadata.Project.Attributes.DisableAccountManager != nil {
+		fmt.Println("found Project.Attributes.DisableAccountManager")
+		disabled = *newMetadata.Project.Attributes.DisableAccountManager
+		return disabled
+	}
+	return accountDisabled
 }
 
-// In-memory cache of keys for a user so we don't have to read or write the
-// file on every run.
+// sshKeys is a cache of what we have added to each managed users' authorized
+// keys file. Avoids necessity of re-reading all files on every change.
 var sshKeys map[string][]string
 
 func (a *linuxAccountsMgr) set() error {
+	// TODO: oslogin
+	// TODO: expiring SSH keys - remove from list, will appear as a diff
 	if sshKeys == nil {
 		sshKeys = make(map[string][]string)
 	}
-	usersFile, err := ioutil.ReadFile("/var/lib/google/google_users")
-	if err != nil {
-		return err
-	}
-	localUsers := strings.Split(string(usersFile), "\n")
+	createSudoersFile()
 
-	isin := func(list []string, entry string) bool {
-		for _, lEntry := range list {
-			if entry == lEntry {
-				return true
-			}
-		}
-		return false
-	}
-
-	keys := newMetadata.Instance.Attributes.SshKeys
+	mdkeys := newMetadata.Instance.Attributes.SshKeys
 	if !newMetadata.Instance.Attributes.BlockProjectKeys {
-		keys = append(keys, newMetadata.Project.Attributes.SshKeys...)
+		mdkeys = append(mdkeys, newMetadata.Project.Attributes.SshKeys...)
 	}
 
-	keysToAdd := make(map[string][]string)
-	for _, key := range keys {
+	mdKeyMap := make(map[string][]string)
+	for _, key := range mdkeys {
 		idx := strings.Index(key, ":")
 		if idx == -1 {
 			continue
 		}
 		user := key[:idx]
-		if !isin(localUsers, user) {
-			if err := createUser(user); err != nil {
+		userKeys := mdKeyMap[user]
+		userKeys = append(userKeys, key)
+		mdKeyMap[user] = userKeys
+	}
+	fmt.Printf("found %d users in metadata\n", len(mdKeyMap))
+
+	// Update SSH keys for users, creating as needed.
+	var changed bool
+	for user, userKeys := range mdKeyMap {
+		passwd, err := getPasswd(user)
+		if err != nil {
+			fmt.Printf("creating user %s\n", user)
+			if err = createUser(user); err != nil {
 				continue
 			}
-			localUsers = append(localUsers, user)
+			changed = true
 		}
-		if isin(sshKeys[user], key) {
+		if passwd.Shell == "/sbin/nologin" {
 			continue
 		}
-		keysToAddForUser := keysToAdd[user]
-		keysToAddForUser = append(keysToAddForUser, key)
-		keysToAdd[user] = keysToAddForUser
-	}
-
-	for user, keysToAddForUser := range keysToAdd {
-		if err := updateAuthorizedKeysFile(user, keysToAddForUser); err != nil {
-			continue
+		if !compareStringSlice(userKeys, sshKeys[user]) {
+			fmt.Printf("Updating authorized keys file for %s\n", user)
+			if err := updateAuthorizedKeysFile(user, userKeys); err != nil {
+				continue
+			}
+			sshKeys[user] = userKeys
 		}
-		keys := sshKeys[user]
-		keys = append(keys, keysToAddForUser...)
-		sshKeys[user] = keys
 	}
 
-	//	newKeys := newMetadata.Instance.Attributes.WindowsKeys
-	// if enable oslogin:
-	//   do what the script does today
-	// else add local users:
-	//   get local users (from google_users file)
-	//   get md users
-	//   add user (if needed)
-	//   mkhomedir
-	//   add ssh key
-	//   update google_users file
-	// remove users/keys as well
+	// Remove Google users not found in metadata.
+	gUsers, _ := ioutil.ReadFile(googleUsersFile)
+	for _, user := range strings.Split(string(gUsers), "\n") {
+		if _, ok := mdKeyMap[user]; !ok && user != "" {
+			fmt.Printf("removing user %s\n", user)
+			removeUser(user)
+			sshKeys[user] = nil
+			changed = true
+		}
+	}
+
+	if changed {
+		fmt.Printf("updating google_users file\n")
+		gfile, err := os.OpenFile(googleUsersFile, os.O_CREATE|os.O_WRONLY, 0600)
+		if err == nil {
+			defer gfile.Close()
+			for user, _ := range sshKeys {
+				if user == "" {
+					continue
+				}
+				fmt.Fprintf(gfile, "%s\n", user)
+			}
+		}
+	}
+
 	return nil
 }
 
-func createUser(userName string) error {
-	_, err := getPasswd(userName)
-	if err == nil {
-		return fmt.Errorf("user %s already exists", userName)
+func removeUser(user string) error {
+	disabled, err := config.Section("Daemons").Key("accounts_daemon").Bool()
+	if err != nil {
+		return fmt.Errorf("Invalid value in instance config: %v is not a valid boolean", config.Section("Daemons").Key("accounts_daemon").Value())
 	}
-	// TODO: get this and other commands from config.
-	if err := exec.Command("useradd", "-m", "-s", "/bin/bash", "-p", "*", userName).Run(); err != nil {
+	if disabled {
+		return nil
+	}
+	return exec.Command("userdel", "-r", user).Run()
+}
+
+// compareStringSlice returns true if two string slices are equal, false
+// otherwise. Does not modify the slices.
+func compareStringSlice(first, second []string) bool {
+	if len(first) != len(second) {
+		return false
+	}
+	for _, list := range [][]string{first, second} {
+		sortfunc := func(i, j int) bool { return list[i] < list[j] }
+		list = append([]string{}, list...)
+		sort.Slice(list, sortfunc)
+	}
+	for idx, _ := range first {
+		if first[idx] != second[idx] {
+			return false
+		}
+	}
+	return true
+}
+
+// createSudoersFile creates the google_sudoers configuration file if it does
+// not exist and specifies the group 'google-sudoers' should have all
+// permissions.
+func createSudoersFile() error {
+	sudoFile, err := os.OpenFile("/etc/sudoers.d/google_sudoers", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0440)
+	if err != nil {
 		return err
 	}
-	if _, err := user.LookupGroup("google-sudoers"); err != nil {
+	defer sudoFile.Close()
+	fmt.Fprintf(sudoFile, "%%google-sudoers ALL=(ALL:ALL) NOPASSWD:ALL\n")
+	return nil
+}
+
+// createUser creates a Google managed user account.
+func createUser(user string) error {
+	_, err := getPasswd(user)
+	if err == nil {
+		return fmt.Errorf("user %s already exists", user)
+	}
+	// TODO: get this and other commands from config.
+	if err := exec.Command("useradd", "-m", "-s", "/bin/bash", "-p", "*", user).Run(); err != nil {
+		return err
+	}
+	if _, err := osuser.LookupGroup("google-sudoers"); err != nil {
 		if err = exec.Command("groupadd", "google-sudoers").Run(); err != nil {
 			return err
 		}
 	}
-	if err = exec.Command("gpasswd", "-a", userName, "google-sudoers").Run(); err != nil {
+	// TODO: add groups from 'Accounts->groups'
+	if err = exec.Command("gpasswd", "-a", user, "google-sudoers").Run(); err != nil {
 		return err
 	}
-	if _, err := os.Stat("/etc/sudoers.d/google_sudoers"); err != nil {
-		var file *os.File
-		file, err = os.OpenFile("/etc/sudoers.d/google_sudoers", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0440)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		fmt.Fprintf(file, "google-sudoers ALL=(ALL:ALL) NOPASSWD:ALL")
-	}
-
-	// TODO: use groups from 'Accounts->groups'
 
 	return nil
 }
 
-// User is user.User with omitted passwd fields restored.
+// User is a user.User with omitted passwd fields restored.
 type User struct {
-	user.User
+	osuser.User
 	Passwd, Shell string
 }
 
 // getPasswd returns a User from the local passwd database. Code adapted from os/user
-func getPasswd(userName string) (*User, error) {
-	prefix := []byte(userName + ":")
+// TODO: cache passwd file for at least one set of consecutive runs..
+func getPasswd(user string) (*User, error) {
+	prefix := []byte(user + ":")
 	colon := []byte{':'}
 
 	parse := func(line []byte) (*User, error) {
@@ -441,13 +510,13 @@ func getPasswd(userName string) (*User, error) {
 		// kevin:x:1005:1006::/home/kevin:/usr/bin/zsh
 		parts := strings.SplitN(string(line), ":", 7)
 		if _, err := strconv.Atoi(parts[2]); err != nil {
-			return nil, fmt.Errorf("Invalid passwd entry for %s", userName)
+			return nil, fmt.Errorf("Invalid passwd entry for %s", user)
 		}
 		if _, err := strconv.Atoi(parts[3]); err != nil {
-			return nil, fmt.Errorf("Invalid passwd entry for %s", userName)
+			return nil, fmt.Errorf("Invalid passwd entry for %s", user)
 		}
 		u := &User{
-			user.User{
+			osuser.User{
 				Username: parts[0],
 				Uid:      parts[2],
 				Gid:      parts[3],
@@ -483,67 +552,84 @@ func getPasswd(userName string) (*User, error) {
 }
 
 // updateAuthorizedKeysFile appends a set of keys to the user's SSH
-// AuthorizedKeys file. The file is created if it does not exist. Uses a
-// temporary file to avoid partial updates in case of errors.
-func updateAuthorizedKeysFile(userName string, keys []string) error {
+// AuthorizedKeys file. The file and containing directory are created if it
+// does not exist. Uses a temporary file to avoid partial updates in case of
+// errors.
+func updateAuthorizedKeysFile(user string, keys []string) error {
 	gcomment := "# Added by Google"
 
-	// The os/user functions don't return login shell so we use getent.
-	// TODO: is getent safe? Should we read /etc/passwd?
-	user, err := getPasswd(userName)
+	passwd, err := getPasswd(user)
 	if err != nil {
-		return fmt.Errorf("error getting user %s: %v", userName, err)
+		return fmt.Errorf("error getting user %s: %v", user, err)
 	}
-	if user.HomeDir == "" {
-		return fmt.Errorf("user %s has no homedir set", userName)
+	uid, err := strconv.Atoi(passwd.Uid)
+	if err != nil {
+		return err
 	}
-	if user.Shell == "/sbin/nologin" {
+	gid, err := strconv.Atoi(passwd.Gid)
+	if err != nil {
+		return err
+	}
+	if passwd.HomeDir == "" {
+		return fmt.Errorf("user %s has no homedir set", user)
+	}
+	if passwd.Shell == "/sbin/nologin" {
 		return nil
 	}
 
-	akpath := path.Join(user.HomeDir, ".ssh", "authorized_keys")
-	var akcontents []byte
-	akfile, err := os.Open(akpath)
-	if err == nil {
-		defer akfile.Close()
-		var ierr error
-		akcontents, ierr = ioutil.ReadAll(akfile)
-		if ierr != nil {
-			return ierr
+	sshpath := path.Join(passwd.HomeDir, ".ssh")
+	if _, err := os.Stat(sshpath); err != nil {
+		if os.IsNotExist(err) {
+			if err = os.Mkdir(sshpath, 0700); err != nil {
+				return err
+			}
+			if err = os.Chown(sshpath, uid, gid); err != nil {
+				return err
+			}
+		} else {
+			return err
 		}
-	} else if !os.IsNotExist(err) {
+	}
+	akpath := path.Join(sshpath, "authorized_keys")
+	tempPath := akpath + ".google"
+	akcontents, err := ioutil.ReadFile(akpath)
+	if err != nil {
 		return err
 	}
 
-	var isgline bool
-	var glines []string
-	var userlines []string
-	for _, line := range strings.Split(string(akcontents), "\n") {
-		if isgline {
-			glines = append(glines, line)
-			isgline = false
+	var isgoogle bool
+	var userKeys []string
+	for _, key := range strings.Split(string(akcontents), "\n") {
+		if key == "" {
 			continue
 		}
-		if line == gcomment {
-			isgline = true
-		} else {
-			userlines = append(userlines, line)
+		if isgoogle {
+			isgoogle = false
+			continue
 		}
+		if key == gcomment {
+			isgoogle = true
+			continue
+		}
+		userKeys = append(userKeys, key)
 	}
-	glines = append(glines, keys...)
 
-	newfile, err := os.OpenFile(akpath+".google", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	newfile, err := os.OpenFile(tempPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return err
 	}
 	defer newfile.Close()
 
-	for _, line := range userlines {
-		fmt.Fprintf(newfile, line)
+	for _, key := range userKeys {
+		fmt.Fprintf(newfile, "%s\n", key)
 	}
-	for _, line := range glines {
-		fmt.Fprintf(newfile, "%s\n%s", gcomment, line)
+	for _, key := range keys {
+		fmt.Fprintf(newfile, "%s\n%s\n", gcomment, key)
 	}
-
-	return os.Rename(akpath+".google", akpath)
+	err = os.Chown(tempPath, uid, gid)
+	if err != nil {
+		os.Remove(tempPath)
+		return err
+	}
+	return os.Rename(tempPath, akpath)
 }
