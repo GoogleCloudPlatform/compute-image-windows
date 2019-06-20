@@ -95,8 +95,7 @@ func parseSystemRelease(systemRelease string) (release, error) {
 
 func parseVersion(version string) (ver, error) {
 	var ret ver
-	var versionsl []string
-	versionsl = strings.Split(version, ".")
+	versionsl := strings.Split(version, ".")
 
 	vernum, err := strconv.Atoi(versionsl[0])
 	if err != nil {

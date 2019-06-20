@@ -65,7 +65,7 @@ type project struct {
 
 type attributes struct {
 	BlockProjectKeys      bool
-	SshKeys               []string
+	SSHKeys               []string
 	WindowsKeys           windowsKeys
 	Diagnostics           string
 	DisableAddressManager *bool
@@ -96,8 +96,8 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 		DisableAddressManager string      `json:"disable-address-manager"`
 		EnableDiagnostics     string      `json:"enable-diagnostics"`
 		EnableWSFC            string      `json:"enable-wsfc"`
-		OldSshKeys            string      `json:"sshKeys"`
-		SshKeys               string      `json:"ssh-keys"`
+		OldSSHKeys            string      `json:"sshKeys"`
+		SSHKeys               string      `json:"ssh-keys"`
 		WSFCAddresses         string      `json:"wsfc-addrs"`
 		WSFCAgentPort         string      `json:"wsfc-agent-port"`
 		WindowsKeys           windowsKeys `json:"windows-keys"`
@@ -130,13 +130,13 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 	if err == nil {
 		a.EnableWSFC = &value
 	}
-	// So SshKeys will be nil instead of []string{}
-	if temp.SshKeys != "" {
-		a.SshKeys = strings.Split(temp.SshKeys, "\n")
+	// So SSHKeys will be nil instead of []string{}
+	if temp.SSHKeys != "" {
+		a.SSHKeys = strings.Split(temp.SSHKeys, "\n")
 	}
-	if temp.OldSshKeys != "" {
+	if temp.OldSSHKeys != "" {
 		a.BlockProjectKeys = true
-		a.SshKeys = append(a.SshKeys, strings.Split(temp.OldSshKeys, "\n")...)
+		a.SSHKeys = append(a.SSHKeys, strings.Split(temp.OldSSHKeys, "\n")...)
 	}
 	return nil
 }

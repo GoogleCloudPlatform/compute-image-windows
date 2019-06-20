@@ -84,7 +84,7 @@ func TestAccountsDisabled(t *testing.T) {
 		}
 		newMetadata = tt.md
 		config = cfg
-		got := (&winAccountsMgr{}).disabled()
+		got := (&winAccountsMgr{}).disabled("windows")
 		if got != tt.want {
 			t.Errorf("test case %q, accounts.disabled() got: %t, want: %t", tt.name, got, tt.want)
 		}
@@ -197,14 +197,14 @@ func TestAccountsLogStatus(t *testing.T) {
 
 	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(true)}}}
 	config = ini.Empty()
-	disabled := (&winAccountsMgr{}).disabled()
+	disabled := (&winAccountsMgr{}).disabled("windows")
 	if !disabled {
 		t.Fatal("expected true but got", disabled)
 	}
 
 	// Enable it.
 	newMetadata = &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(false)}}}
-	disabled = (&winAccountsMgr{}).disabled()
+	disabled = (&winAccountsMgr{}).disabled("windows")
 	if disabled {
 		t.Fatal("expected false but got", disabled)
 	}

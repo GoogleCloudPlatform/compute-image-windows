@@ -30,7 +30,6 @@ import (
 	"math/big"
 	"os"
 	"os/exec"
-	osuser "os/user"
 	"path"
 	"reflect"
 	"sort"
@@ -114,7 +113,7 @@ func (k windowsKey) expired() bool {
 	t, err := time.Parse(time.RFC3339, k.ExpireOn)
 	if err != nil {
 		if !containsString(k.ExpireOn, badExpire) {
-			logger.Errorf("Error parsing time: %s", err)
+			logger.Errorf("error parsing time: %s", err)
 			badExpire = append(badExpire, k.ExpireOn)
 		}
 		return true
@@ -198,28 +197,22 @@ func (a *winAccountsMgr) timeout() bool {
 	return false
 }
 
-func (a *winAccountsMgr) disabled() (disabled bool) {
-	defer func() {
-		if disabled != accountDisabled {
-			accountDisabled = disabled
-			logStatus("account", disabled)
-		}
-	}()
+func (a *winAccountsMgr) disabled(os string) (disabled bool) {
+	if os != "windows" {
+		return true
+	}
 
-	var err error
-	disabled, err = strconv.ParseBool(config.Section("accountManager").Key("disable").String())
+	disabled, err := config.Section("accountManager").Key("disable").Bool()
 	if err == nil {
 		return disabled
 	}
 	if newMetadata.Instance.Attributes.DisableAccountManager != nil {
-		disabled = *newMetadata.Instance.Attributes.DisableAccountManager
-		return disabled
+		return *newMetadata.Instance.Attributes.DisableAccountManager
 	}
 	if newMetadata.Project.Attributes.DisableAccountManager != nil {
-		disabled = *newMetadata.Project.Attributes.DisableAccountManager
-		return disabled
+		return *newMetadata.Project.Attributes.DisableAccountManager
 	}
-	return accountDisabled
+	return false
 }
 
 var badKeys []string
@@ -239,7 +232,7 @@ func (a *winAccountsMgr) set() error {
 			printCreds(creds)
 			continue
 		}
-		logger.Errorf("Error setting password: %s", err)
+		logger.Errorf("error setting password: %s", err)
 		creds = &credsJSON{
 			PasswordFound: false,
 			Exponent:      key.Exponent,
@@ -308,6 +301,10 @@ func compareAccounts(newKeys windowsKeys, oldStrKeys []string) windowsKeys {
 
 type linuxAccountsMgr struct{}
 
+func (a linuxAccountsMgr) String() string {
+	return "linux accounts manager"
+}
+
 func (a *linuxAccountsMgr) diff() bool {
 	// If any have changed OR if any have expired!
 	return true
@@ -317,8 +314,12 @@ func (a *linuxAccountsMgr) timeout() bool {
 	return false
 }
 
-func (a *linuxAccountsMgr) disabled() (disabled bool) {
-	return config.Section("Daemons").Key("accounts_daemon").MustBool(true)
+func (a *linuxAccountsMgr) disabled(os string) (disabled bool) {
+	// TODO: oslogin
+	if os == "windows" {
+		return true
+	}
+	return !config.Section("Daemons").Key("accounts_daemon").MustBool(true)
 }
 
 // sshKeys is a cache of what we have added to each managed users' authorized
@@ -326,16 +327,22 @@ func (a *linuxAccountsMgr) disabled() (disabled bool) {
 var sshKeys map[string][]string
 
 func (a *linuxAccountsMgr) set() error {
-	// TODO: oslogin
-	// TODO: expiring SSH keys - remove from list, will appear as a diff
+	// TODO: only add existing groups
+	// TODO: validate all logging and error handling
 	if sshKeys == nil {
 		sshKeys = make(map[string][]string)
 	}
-	createSudoersFile()
 
-	mdkeys := newMetadata.Instance.Attributes.SshKeys
+	if err := createSudoersFile(); err != nil {
+		logger.Errorf("error creating google-sudoers file: %v\n", err)
+	}
+	if err := createSudoersGroup(); err != nil {
+		logger.Errorf("error creating google-sudoers group: %v\n", err)
+	}
+
+	mdkeys := newMetadata.Instance.Attributes.SSHKeys
 	if !newMetadata.Instance.Attributes.BlockProjectKeys {
-		mdkeys = append(mdkeys, newMetadata.Project.Attributes.SshKeys...)
+		mdkeys = append(mdkeys, newMetadata.Project.Attributes.SSHKeys...)
 	}
 
 	mdkeys = removeExpiredKeys(mdkeys)
@@ -347,29 +354,35 @@ func (a *linuxAccountsMgr) set() error {
 			continue
 		}
 		user := key[:idx]
-		userKeys := mdKeyMap[user]
-		userKeys = append(userKeys, key)
-		mdKeyMap[user] = userKeys
-	}
-	fmt.Printf("found %d users in metadata\n", len(mdKeyMap))
-
-	// Update SSH keys for users, creating as needed.
-	var changed bool
-	for user, userKeys := range mdKeyMap {
-		passwd, err := getPasswd(user)
-		if err != nil {
-			fmt.Printf("creating user %s\n", user)
-			if err = createUser(user); err != nil {
-				continue
-			}
-			changed = true
-		}
-		if passwd.Shell == "/sbin/nologin" {
+		if user == "" {
 			continue
 		}
+		userKeys := mdKeyMap[user]
+		userKeys = append(userKeys, key[idx+1:])
+		mdKeyMap[user] = userKeys
+	}
+
+	var writeFile bool
+	gUsers, err := readGoogleUsersFile()
+	if err != nil {
+		logger.Errorf("Couldn't read google users file: %v\n", err)
+	}
+
+	// Update SSH keys, creating Google users as needed.
+	for user, userKeys := range mdKeyMap {
+		_, ok := gUsers[user]
+		_, err := getPasswd(user)
+		if !ok || err != nil {
+			logger.Infof("creating user %s\n", user)
+			if err := createGoogleUser(user); err != nil {
+				logger.Errorf("error creating user: %s\n", err)
+				continue
+			}
+			writeFile = true
+		}
 		if !compareStringSlice(userKeys, sshKeys[user]) {
-			fmt.Printf("Updating authorized keys file for %s\n", user)
 			if err := updateAuthorizedKeysFile(user, userKeys); err != nil {
+				logger.Errorf("error updating SSH keys for %s: %v\n", user, err)
 				continue
 			}
 			sshKeys[user] = userKeys
@@ -377,40 +390,68 @@ func (a *linuxAccountsMgr) set() error {
 	}
 
 	// Remove Google users not found in metadata.
-	gUsers, _ := ioutil.ReadFile(googleUsersFile)
-	for _, user := range strings.Split(string(gUsers), "\n") {
+	for user := range gUsers {
 		if _, ok := mdKeyMap[user]; !ok && user != "" {
-			fmt.Printf("removing user %s\n", user)
-			removeUser(user)
-			sshKeys[user] = nil
-			changed = true
-		}
-	}
-
-	if changed {
-		fmt.Printf("updating google_users file\n")
-		gfile, err := os.OpenFile(googleUsersFile, os.O_CREATE|os.O_WRONLY, 0600)
-		if err == nil {
-			defer gfile.Close()
-			for user := range sshKeys {
-				if user == "" {
-					continue
-				}
-				fmt.Fprintf(gfile, "%s\n", user)
+			logger.Infof("removing user %s\n", user)
+			err = removeGoogleUser(user)
+			if err != nil {
+				logger.Errorf("error removing user: %v\n", err)
 			}
+			delete(sshKeys, user)
+			writeFile = true
 		}
 	}
 
+	// Update the google_users file if we've added or removed any users.
+	if writeFile {
+		err := writeGoogleUsersFile()
+		if err != nil {
+			logger.Errorf("error writing google_users file: %v\n", err)
+		}
+	}
 	return nil
+}
+
+func writeGoogleUsersFile() error {
+	dir := path.Dir(googleUsersFile)
+	if _, err := os.Stat(dir); err != nil {
+		if err = os.Mkdir(dir, 0755); err != nil {
+			return err
+		}
+	}
+
+	gfile, err := os.OpenFile(googleUsersFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err == nil {
+		defer gfile.Close()
+		for user := range sshKeys {
+			fmt.Fprintf(gfile, "%s\n", user)
+		}
+	}
+	return err
+}
+
+func readGoogleUsersFile() (map[string]string, error) {
+	res := make(map[string]string)
+	gUsers, err := ioutil.ReadFile(googleUsersFile)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	for _, user := range strings.Split(string(gUsers), "\n") {
+		if user != "" {
+			res[user] = ""
+		}
+	}
+	return res, nil
 }
 
 type linuxKey windowsKey
 
+// expired returns true if the key's expireOn field is in the past, false otherwise.
 func (k linuxKey) expired() bool {
 	t, err := time.Parse("2006-01-02T15:04:05-0700", k.ExpireOn)
 	if err != nil {
 		if !containsString(k.ExpireOn, badExpire) {
-			logger.Errorf("Error parsing time: %s", err)
+			logger.Errorf("error parsing time: %s", err)
 			badExpire = append(badExpire, k.ExpireOn)
 		}
 		return true
@@ -418,33 +459,52 @@ func (k linuxKey) expired() bool {
 	return t.Before(time.Now())
 }
 
+// removeExpiredKeys returns the provided list of keys with expired keys removed.
 func removeExpiredKeys(keys []string) []string {
 	var res []string
 	for i := 0; i < len(keys); i++ {
 		key := strings.Trim(keys[i], " ")
+		if key == "" {
+			continue
+		}
 		fields := strings.SplitN(key, " ", 4)
 		if fields[2] != "google-ssh" {
 			res = append(res, key)
 			continue
 		}
-		lkjson := fields[len(fields)-1]
-		lk := linuxKey{}
-		if err := json.Unmarshal([]byte(lkjson), &lk); err != nil {
+		jsonkey := fields[len(fields)-1]
+		lkey := linuxKey{}
+		if err := json.Unmarshal([]byte(jsonkey), &lkey); err != nil {
 			continue
 		}
-		if !lk.expired() {
+		if !lkey.expired() {
 			res = append(res, key)
 		}
 	}
 	return res
 }
 
-func removeUser(user string) error {
+// removeGoogleUser removes Google managed users. If deprovision_remove is true, the
+// user and its home directory are removed. Otherwise, SSH keys and sudoer
+// permissions are removed but the user remains on the system. Group membership
+// is not changed.
+func removeGoogleUser(user string) error {
+	var err error
+	// TODO: userdel etc. commands from config
 	if config.Section("Accounts").Key("deprovision_remove").MustBool(true) {
-		exec.Command("userdel", "-r", user).Run()
+		err = exec.Command("userdel", "-r", user).Run()
+		if err != nil {
+			return err
+		}
 	} else {
-		updateAuthorizedKeysFile(user, []string{})
-		exec.Command("gpasswd", "-a", user, "google-sudoers").Run()
+		err = updateAuthorizedKeysFile(user, []string{})
+		if err != nil {
+			return err
+		}
+		err = exec.Command("gpasswd", "-d", user, "google-sudoers").Run()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -474,6 +534,9 @@ func compareStringSlice(first, second []string) bool {
 func createSudoersFile() error {
 	sudoFile, err := os.OpenFile("/etc/sudoers.d/google_sudoers", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0440)
 	if err != nil {
+		if os.IsExist(err) {
+			return nil
+		}
 		return err
 	}
 	defer sudoFile.Close()
@@ -481,31 +544,42 @@ func createSudoersFile() error {
 	return nil
 }
 
-// createUser creates a Google managed user account.
-func createUser(user string) error {
-	_, err := getPasswd(user)
-	if err == nil {
-		return fmt.Errorf("user %s already exists", user)
+// createSudoersGroup creates the google-sudoers group if it does not exist.
+func createSudoersGroup() error {
+	err := exec.Command("groupadd", "google-sudoers").Run()
+	if err != nil {
+		if v, ok := err.(*exec.ExitError); ok && v.ExitCode() == 9 {
+			// 9 means group already exists.
+			return nil
+		}
 	}
-	if err := exec.Command("useradd", "-m", "-s", "/bin/bash", "-p", "*", user).Run(); err != nil {
-		return err
-	}
-	if _, err := osuser.LookupGroup("google-sudoers"); err != nil {
-		if err = exec.Command("groupadd", "google-sudoers").Run(); err != nil {
+	return err
+}
+
+// createGoogleUser creates a Google managed user account if needed and adds it to the appropriate groups.
+func createGoogleUser(user string) error {
+	err := exec.Command("useradd", "-m", "-s", "/bin/bash", "-p", "*", user).Run()
+	if err != nil {
+		if v, ok := err.(*exec.ExitError); !ok || v.ExitCode() != 9 {
 			return err
 		}
 	}
 	groups := config.Section("Accounts").Key("groups").MustString("adm,dip,docker,lxd,plugdev,video")
-	exec.Command("usermod", "-G", groups, user).Run()
-	exec.Command("gpasswd", "-a", user, "google-sudoers").Run()
-
-	return nil
+	for _, group := range strings.Split(groups, ",") {
+		exec.Command("gpasswd", "-a", user, group).Run()
+	}
+	return exec.Command("gpasswd", "-a", user, "google-sudoers").Run()
 }
 
 // User is a user.User with omitted passwd fields restored.
 type User struct {
-	osuser.User
-	Passwd, Shell string
+	Username string
+	Passwd   string
+	UID      int
+	GID      int
+	Name     string
+	HomeDir  string
+	Shell    string
 }
 
 // getPasswd returns a User from the local passwd database. Code adapted from os/user
@@ -520,22 +594,22 @@ func getPasswd(user string) (*User, error) {
 		}
 		// kevin:x:1005:1006::/home/kevin:/usr/bin/zsh
 		parts := strings.SplitN(string(line), ":", 7)
-		if _, err := strconv.Atoi(parts[2]); err != nil {
-			return nil, fmt.Errorf("Invalid passwd entry for %s", user)
+		uid, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return nil, fmt.Errorf("invalid passwd entry for %s", user)
 		}
-		if _, err := strconv.Atoi(parts[3]); err != nil {
-			return nil, fmt.Errorf("Invalid passwd entry for %s", user)
+		gid, err := strconv.Atoi(parts[3])
+		if err != nil {
+			return nil, fmt.Errorf("invalid passwd entry for %s", user)
 		}
 		u := &User{
-			osuser.User{
-				Username: parts[0],
-				Uid:      parts[2],
-				Gid:      parts[3],
-				Name:     parts[4],
-				HomeDir:  parts[5],
-			},
-			parts[1],
-			parts[6],
+			Username: parts[0],
+			Passwd:   parts[1],
+			UID:      uid,
+			GID:      gid,
+			Name:     parts[4],
+			HomeDir:  parts[5],
+			Shell:    parts[6],
 		}
 		return u, nil
 	}
@@ -562,7 +636,7 @@ func getPasswd(user string) (*User, error) {
 	return nil, fmt.Errorf("User not found")
 }
 
-// updateAuthorizedKeysFile appends a set of keys to the user's SSH
+// updateAuthorizedKeysFile appends provided keys to the user's SSH
 // AuthorizedKeys file. The file and containing directory are created if it
 // does not exist. Uses a temporary file to avoid partial updates in case of
 // errors.
@@ -570,14 +644,6 @@ func updateAuthorizedKeysFile(user string, keys []string) error {
 	gcomment := "# Added by Google"
 
 	passwd, err := getPasswd(user)
-	if err != nil {
-		return fmt.Errorf("error getting user %s: %v", user, err)
-	}
-	uid, err := strconv.Atoi(passwd.Uid)
-	if err != nil {
-		return err
-	}
-	gid, err := strconv.Atoi(passwd.Gid)
 	if err != nil {
 		return err
 	}
@@ -594,7 +660,7 @@ func updateAuthorizedKeysFile(user string, keys []string) error {
 			if err = os.Mkdir(sshpath, 0700); err != nil {
 				return err
 			}
-			if err = os.Chown(sshpath, uid, gid); err != nil {
+			if err = os.Chown(sshpath, passwd.UID, passwd.GID); err != nil {
 				return err
 			}
 		} else {
@@ -602,9 +668,15 @@ func updateAuthorizedKeysFile(user string, keys []string) error {
 		}
 	}
 	akpath := path.Join(sshpath, "authorized_keys")
+	// Remove empty file.
+	if len(keys) == 0 {
+		os.Remove(akpath)
+		return nil
+	}
+
 	tempPath := akpath + ".google"
 	akcontents, err := ioutil.ReadFile(akpath)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
@@ -637,8 +709,10 @@ func updateAuthorizedKeysFile(user string, keys []string) error {
 	for _, key := range keys {
 		fmt.Fprintf(newfile, "%s\n%s\n", gcomment, key)
 	}
-	err = os.Chown(tempPath, uid, gid)
+	err = os.Chown(tempPath, passwd.UID, passwd.GID)
 	if err != nil {
+		// Existence of temp file will block further updates for this user.
+		// Don't catch error, nothing we can do.
 		os.Remove(tempPath)
 		return err
 	}

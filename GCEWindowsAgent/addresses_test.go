@@ -83,7 +83,7 @@ func TestAddressDisabled(t *testing.T) {
 		}
 		newMetadata = tt.md
 		config = cfg
-		got := (&addressMgr{}).disabled()
+		got := (&addressMgr{}).disabled("")
 		if got != tt.want {
 			t.Errorf("test case %q, disabled? got: %t, want: %t", tt.name, got, tt.want)
 		}
@@ -188,23 +188,5 @@ func TestWsfcFlagTriggerAddressDiff(t *testing.T) {
 		if !testAddress.diff() {
 			t.Errorf("old: %v new: %v doesn't trigger diff.", tt.oldMetadata, tt.newMetadata)
 		}
-	}
-}
-
-func TestAddressLogStatus(t *testing.T) {
-	// Disable it.
-	addressDisabled = false
-	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAddressManager: mkptr(true)}}}
-	config = ini.Empty()
-	disabled := (&addressMgr{}).disabled()
-	if !disabled {
-		t.Fatal("expected true but got", disabled)
-	}
-
-	// Enable it.
-	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAddressManager: mkptr(false)}}}
-	disabled = (&addressMgr{}).disabled()
-	if disabled {
-		t.Fatal("expected false but got", disabled)
 	}
 }

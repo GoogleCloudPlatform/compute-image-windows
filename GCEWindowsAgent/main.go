@@ -65,7 +65,7 @@ func writeSerial(port string, msg []byte) error {
 
 type manager interface {
 	diff() bool
-	disabled() bool
+	disabled(string) bool
 	set() error
 	timeout() bool
 }
@@ -117,7 +117,7 @@ func runUpdate() {
 		wg.Add(1)
 		go func(mgr manager) {
 			defer wg.Done()
-			if mgr.disabled() || (!mgr.timeout() && !mgr.diff()) {
+			if mgr.disabled(runtime.GOOS) || (!mgr.timeout() && !mgr.diff()) {
 				return
 			}
 			if err := mgr.set(); err != nil {

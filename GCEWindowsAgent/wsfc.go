@@ -97,7 +97,7 @@ func (m *wsfcManager) diff() bool {
 // Implement manager.disabled().
 // wsfc manager is always enabled. The manager is just a broker which manages the state of wsfcAgent. User
 // can disable the wsfc feature by setting the metadata. If the manager is disabled, the agent will stop.
-func (m *wsfcManager) disabled() bool {
+func (m *wsfcManager) disabled(os string) bool {
 	return false
 }
 

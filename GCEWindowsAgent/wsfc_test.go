@@ -93,7 +93,7 @@ func TestWsfcManagerDisabled(t *testing.T) {
 	m := &wsfcManager{}
 	want := false
 
-	if got := m.disabled(); got != want {
+	if got := m.disabled(""); got != want {
 		t.Errorf("wsfcManager.disabled() = %v, want %v", got, want)
 	}
 }
@@ -185,7 +185,7 @@ func getHealthCheckResponce(request string, agent healthAgent) (string, error) {
 	}
 	defer closer(conn)
 
-	fmt.Fprintf(conn, request)
+	fmt.Fprint(conn, request)
 	return bufio.NewReader(conn).ReadString('\n')
 }
 
