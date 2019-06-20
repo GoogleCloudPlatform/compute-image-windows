@@ -318,30 +318,7 @@ func (a *linuxAccountsMgr) timeout() bool {
 }
 
 func (a *linuxAccountsMgr) disabled() (disabled bool) {
-	defer func() {
-		if disabled != accountDisabled {
-			accountDisabled = disabled
-			logStatus("account", disabled)
-		}
-	}()
-
-	var err error
-	disabled, err = config.Section("Daemons").Key("accounts_daemon").Bool()
-	if err == nil {
-		fmt.Println("found INI Daemons->accounts_daemon")
-		return !disabled
-	}
-	if newMetadata.Instance.Attributes.DisableAccountManager != nil {
-		fmt.Println("found Instances.Attributes.DisableAccountManager")
-		disabled = *newMetadata.Instance.Attributes.DisableAccountManager
-		return disabled
-	}
-	if newMetadata.Project.Attributes.DisableAccountManager != nil {
-		fmt.Println("found Project.Attributes.DisableAccountManager")
-		disabled = *newMetadata.Project.Attributes.DisableAccountManager
-		return disabled
-	}
-	return accountDisabled
+	return config.Section("Daemons").Key("accounts_daemon").MustBool(true)
 }
 
 // sshKeys is a cache of what we have added to each managed users' authorized
@@ -360,6 +337,8 @@ func (a *linuxAccountsMgr) set() error {
 	if !newMetadata.Instance.Attributes.BlockProjectKeys {
 		mdkeys = append(mdkeys, newMetadata.Project.Attributes.SshKeys...)
 	}
+
+	mdkeys = removeExpiredKeys(mdkeys)
 
 	mdKeyMap := make(map[string][]string)
 	for _, key := range mdkeys {
@@ -413,7 +392,7 @@ func (a *linuxAccountsMgr) set() error {
 		gfile, err := os.OpenFile(googleUsersFile, os.O_CREATE|os.O_WRONLY, 0600)
 		if err == nil {
 			defer gfile.Close()
-			for user, _ := range sshKeys {
+			for user := range sshKeys {
 				if user == "" {
 					continue
 				}
@@ -425,15 +404,49 @@ func (a *linuxAccountsMgr) set() error {
 	return nil
 }
 
-func removeUser(user string) error {
-	disabled, err := config.Section("Daemons").Key("accounts_daemon").Bool()
+type linuxKey windowsKey
+
+func (k linuxKey) expired() bool {
+	t, err := time.Parse("2006-01-02T15:04:05-0700", k.ExpireOn)
 	if err != nil {
-		return fmt.Errorf("Invalid value in instance config: %v is not a valid boolean", config.Section("Daemons").Key("accounts_daemon").Value())
+		if !containsString(k.ExpireOn, badExpire) {
+			logger.Errorf("Error parsing time: %s", err)
+			badExpire = append(badExpire, k.ExpireOn)
+		}
+		return true
 	}
-	if disabled {
-		return nil
+	return t.Before(time.Now())
+}
+
+func removeExpiredKeys(keys []string) []string {
+	var res []string
+	for i := 0; i < len(keys); i++ {
+		key := strings.Trim(keys[i], " ")
+		fields := strings.SplitN(key, " ", 4)
+		if fields[2] != "google-ssh" {
+			res = append(res, key)
+			continue
+		}
+		lkjson := fields[len(fields)-1]
+		lk := linuxKey{}
+		if err := json.Unmarshal([]byte(lkjson), &lk); err != nil {
+			continue
+		}
+		if !lk.expired() {
+			res = append(res, key)
+		}
 	}
-	return exec.Command("userdel", "-r", user).Run()
+	return res
+}
+
+func removeUser(user string) error {
+	if config.Section("Accounts").Key("deprovision_remove").MustBool(true) {
+		exec.Command("userdel", "-r", user).Run()
+	} else {
+		updateAuthorizedKeysFile(user, []string{})
+		exec.Command("gpasswd", "-a", user, "google-sudoers").Run()
+	}
+	return nil
 }
 
 // compareStringSlice returns true if two string slices are equal, false
@@ -447,7 +460,7 @@ func compareStringSlice(first, second []string) bool {
 		list = append([]string{}, list...)
 		sort.Slice(list, sortfunc)
 	}
-	for idx, _ := range first {
+	for idx := range first {
 		if first[idx] != second[idx] {
 			return false
 		}
@@ -474,7 +487,6 @@ func createUser(user string) error {
 	if err == nil {
 		return fmt.Errorf("user %s already exists", user)
 	}
-	// TODO: get this and other commands from config.
 	if err := exec.Command("useradd", "-m", "-s", "/bin/bash", "-p", "*", user).Run(); err != nil {
 		return err
 	}
@@ -483,10 +495,9 @@ func createUser(user string) error {
 			return err
 		}
 	}
-	// TODO: add groups from 'Accounts->groups'
-	if err = exec.Command("gpasswd", "-a", user, "google-sudoers").Run(); err != nil {
-		return err
-	}
+	groups := config.Section("Accounts").Key("groups").MustString("adm,dip,docker,lxd,plugdev,video")
+	exec.Command("usermod", "-G", groups, user).Run()
+	exec.Command("gpasswd", "-a", user, "google-sudoers").Run()
 
 	return nil
 }

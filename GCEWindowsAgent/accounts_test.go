@@ -209,3 +209,15 @@ func TestAccountsLogStatus(t *testing.T) {
 		t.Fatal("expected false but got", disabled)
 	}
 }
+
+func TestRemoveExpiredKeys(t *testing.T) {
+	keys := []string{
+		`user:ssh-rsa [KEY] google-ssh {"userName":"user@email.com", "expireOn":"2028-11-08T19:30:47+0000"}`,
+		`user:ssh-rsa [KEY] google-ssh {"userName":"user@email.com", "expireOn":"2018-11-08T19:30:46+0000"}`,
+		`user:ssh-rsa [KEY] google-ssh {"userName":"user@email.com", "expireOn":"2018-11-08T19:30:46+0700"}`,
+		`user:ssh-rsa [KEY] hostname`}
+	res := removeExpiredKeys(keys)
+	if count := len(res); count != 2 {
+		t.Fatalf("expected 2 fields, got %d\n", count)
+	}
+}
