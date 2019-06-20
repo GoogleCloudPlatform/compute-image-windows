@@ -490,9 +490,10 @@ func removeExpiredKeys(keys []string) []string {
 // is not changed.
 func removeGoogleUser(user string) error {
 	var err error
-	// TODO: userdel etc. commands from config
 	if config.Section("Accounts").Key("deprovision_remove").MustBool(true) {
-		err = exec.Command("userdel", "-r", user).Run()
+		cmd := config.Section("Accounts").Key("userdel_cmd").MustString("userdel -r {user}")
+		cmd = strings.Replace(cmd, "{user}", user, 1)
+		err = exec.Command(strings.Fields(cmd)...).Run()
 		if err != nil {
 			return err
 		}
@@ -501,7 +502,10 @@ func removeGoogleUser(user string) error {
 		if err != nil {
 			return err
 		}
-		err = exec.Command("gpasswd", "-d", user, "google-sudoers").Run()
+		cmd := config.Section("Accounts").Key("gpasswd_remove_cmd").MustString("gpasswd -d {user} {group}")
+		cmd = strings.Replace(cmd, "{user}", user, 1)
+		cmd = strings.Replace(cmd, "{group}", "google-sudoers", 1)
+		err = exec.Command(strings.Fields(cmd)...).Run()
 		if err != nil {
 			return err
 		}
@@ -546,7 +550,9 @@ func createSudoersFile() error {
 
 // createSudoersGroup creates the google-sudoers group if it does not exist.
 func createSudoersGroup() error {
-	err := exec.Command("groupadd", "google-sudoers").Run()
+	cmd := config.Section("Accounts").Key("groupadd_cmd").MustString("groupadd {group}")
+	cmd = strings.Replace(cmd, "{group}", "google-sudoers", 1)
+	err := exec.Command(strings.Fields(cmd)...).Run()
 	if err != nil {
 		if v, ok := err.(*exec.ExitError); ok && v.ExitCode() == 9 {
 			// 9 means group already exists.
@@ -558,17 +564,23 @@ func createSudoersGroup() error {
 
 // createGoogleUser creates a Google managed user account if needed and adds it to the appropriate groups.
 func createGoogleUser(user string) error {
-	err := exec.Command("useradd", "-m", "-s", "/bin/bash", "-p", "*", user).Run()
+	cmd := config.Section("Accounts").Key("useradd_cmd").MustString("useradd -m -s /bin/bash -p * {user}")
+	cmd = strings.Replace(cmd, "{user}", user, 1)
+	err := exec.Command(strings.Fields(cmd)...).Run()
 	if err != nil {
 		if v, ok := err.(*exec.ExitError); !ok || v.ExitCode() != 9 {
 			return err
 		}
 	}
 	groups := config.Section("Accounts").Key("groups").MustString("adm,dip,docker,lxd,plugdev,video")
+	cmd := config.Section("Accounts").Key("gpasswd_add_cmd").MustString("gpasswd -a {user} {group}")
+	cmd = strings.Replace(cmd, "{user}", user, 1)
 	for _, group := range strings.Split(groups, ",") {
-		exec.Command("gpasswd", "-a", user, group).Run()
+		thiscmd = strings.Replace(cmd, "{group}", group, 1)
+		exec.Command(strings.Fields(thiscmd)...).Run()
 	}
-	return exec.Command("gpasswd", "-a", user, "google-sudoers").Run()
+	cmd = strings.Replace(cmd, "{group}", "google-sudoers", 1)
+	return exec.Command(strings.Fields(thiscmd)...).Run()
 }
 
 // User is a user.User with omitted passwd fields restored.
