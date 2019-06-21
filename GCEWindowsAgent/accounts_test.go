@@ -191,25 +191,6 @@ func TestCompareAccounts(t *testing.T) {
 	}
 }
 
-func TestAccountsLogStatus(t *testing.T) {
-	// Disable it.
-	accountDisabled = false
-
-	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(true)}}}
-	config = ini.Empty()
-	disabled := (&winAccountsMgr{}).disabled("windows")
-	if !disabled {
-		t.Fatal("expected true but got", disabled)
-	}
-
-	// Enable it.
-	newMetadata = &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(false)}}}
-	disabled = (&winAccountsMgr{}).disabled("windows")
-	if disabled {
-		t.Fatal("expected false but got", disabled)
-	}
-}
-
 func TestRemoveExpiredKeys(t *testing.T) {
 	keys := []string{
 		`user:ssh-rsa [KEY] google-ssh {"userName":"user@email.com", "expireOn":"2028-11-08T19:30:47+0000"}`,
