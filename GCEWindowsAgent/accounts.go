@@ -43,7 +43,6 @@ import (
 var (
 	accountRegKey   = "PublicKeys"
 	googleUsersFile = "/var/lib/google/google_users"
-	accountDisabled = false
 )
 
 // newPwd will generate a random password that meets Windows complexity
@@ -306,8 +305,22 @@ func (a linuxAccountsMgr) String() string {
 }
 
 func (a *linuxAccountsMgr) diff() bool {
-	// If any have changed OR if any have expired!
-	return true
+	// If any keys have changed.
+	if !compareStringSlice(newMetadata.Instance.Attributes.SSHKeys, oldMetadata.Instance.Attributes.SSHKeys) {
+		return true
+	}
+	if !compareStringSlice(newMetadata.Project.Attributes.SSHKeys, oldMetadata.Project.Attributes.SSHKeys) {
+		return true
+	}
+
+	// If any keys have expired.
+	for user, keys := range sshKeys {
+		if len(keys) != len(removeExpiredKeys(keys)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (a *linuxAccountsMgr) timeout() bool {
@@ -381,6 +394,7 @@ func (a *linuxAccountsMgr) set() error {
 			writeFile = true
 		}
 		if !compareStringSlice(userKeys, sshKeys[user]) {
+			logger.Infof("updating keys for user %s\n", user)
 			if err := updateAuthorizedKeysFile(user, userKeys); err != nil {
 				logger.Errorf("error updating SSH keys for %s: %v\n", user, err)
 				continue
@@ -493,7 +507,7 @@ func removeGoogleUser(user string) error {
 	if config.Section("Accounts").Key("deprovision_remove").MustBool(true) {
 		cmd := config.Section("Accounts").Key("userdel_cmd").MustString("userdel -r {user}")
 		cmd = strings.Replace(cmd, "{user}", user, 1)
-		err = exec.Command(strings.Fields(cmd)...).Run()
+		err = runCmd(cmd)
 		if err != nil {
 			return err
 		}
@@ -505,7 +519,7 @@ func removeGoogleUser(user string) error {
 		cmd := config.Section("Accounts").Key("gpasswd_remove_cmd").MustString("gpasswd -d {user} {group}")
 		cmd = strings.Replace(cmd, "{user}", user, 1)
 		cmd = strings.Replace(cmd, "{group}", "google-sudoers", 1)
-		err = exec.Command(strings.Fields(cmd)...).Run()
+		err = runCmd(cmd)
 		if err != nil {
 			return err
 		}
@@ -552,7 +566,7 @@ func createSudoersFile() error {
 func createSudoersGroup() error {
 	cmd := config.Section("Accounts").Key("groupadd_cmd").MustString("groupadd {group}")
 	cmd = strings.Replace(cmd, "{group}", "google-sudoers", 1)
-	err := exec.Command(strings.Fields(cmd)...).Run()
+	err := runCmd(cmd)
 	if err != nil {
 		if v, ok := err.(*exec.ExitError); ok && v.ExitCode() == 9 {
 			// 9 means group already exists.
@@ -562,25 +576,30 @@ func createSudoersGroup() error {
 	return err
 }
 
+func runCmd(cmd string) error {
+	cmds := strings.Fields(cmd)
+	return exec.Command(cmds[0], cmds[1:]...).Run()
+}
+
 // createGoogleUser creates a Google managed user account if needed and adds it to the appropriate groups.
 func createGoogleUser(user string) error {
 	cmd := config.Section("Accounts").Key("useradd_cmd").MustString("useradd -m -s /bin/bash -p * {user}")
 	cmd = strings.Replace(cmd, "{user}", user, 1)
-	err := exec.Command(strings.Fields(cmd)...).Run()
+	err := runCmd(cmd)
 	if err != nil {
 		if v, ok := err.(*exec.ExitError); !ok || v.ExitCode() != 9 {
 			return err
 		}
 	}
 	groups := config.Section("Accounts").Key("groups").MustString("adm,dip,docker,lxd,plugdev,video")
-	cmd := config.Section("Accounts").Key("gpasswd_add_cmd").MustString("gpasswd -a {user} {group}")
+	cmd = config.Section("Accounts").Key("gpasswd_add_cmd").MustString("gpasswd -a {user} {group}")
 	cmd = strings.Replace(cmd, "{user}", user, 1)
 	for _, group := range strings.Split(groups, ",") {
-		thiscmd = strings.Replace(cmd, "{group}", group, 1)
-		exec.Command(strings.Fields(thiscmd)...).Run()
+		thiscmd := strings.Replace(cmd, "{group}", group, 1)
+		runCmd(thiscmd)
 	}
 	cmd = strings.Replace(cmd, "{group}", "google-sudoers", 1)
-	return exec.Command(strings.Fields(thiscmd)...).Run()
+	return runCmd(cmd)
 }
 
 // User is a user.User with omitted passwd fields restored.
