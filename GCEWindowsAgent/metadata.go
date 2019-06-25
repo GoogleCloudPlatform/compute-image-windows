@@ -65,6 +65,8 @@ type project struct {
 
 type attributes struct {
 	BlockProjectKeys      bool
+	EnableOSLogin         bool
+	TwoFactor             bool
 	SSHKeys               []string
 	WindowsKeys           windowsKeys
 	Diagnostics           string
@@ -95,12 +97,14 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 		DisableAccountManager string      `json:"disable-account-manager"`
 		DisableAddressManager string      `json:"disable-address-manager"`
 		EnableDiagnostics     string      `json:"enable-diagnostics"`
+		EnableOSLogin         string      `json:"enable-oslogin"`
 		EnableWSFC            string      `json:"enable-wsfc"`
 		OldSSHKeys            string      `json:"sshKeys"`
 		SSHKeys               string      `json:"ssh-keys"`
+		TwoFactor             string      `json:"enable-oslogin-2fa"`
+		WindowsKeys           windowsKeys `json:"windows-keys"`
 		WSFCAddresses         string      `json:"wsfc-addrs"`
 		WSFCAgentPort         string      `json:"wsfc-agent-port"`
-		WindowsKeys           windowsKeys `json:"windows-keys"`
 	}
 	var temp inner
 	if err := json.Unmarshal(b, &temp); err != nil {
@@ -114,6 +118,10 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 	if err == nil {
 		a.BlockProjectKeys = value
 	}
+	value, err = strconv.ParseBool(temp.EnableDiagnostics)
+	if err == nil {
+		a.EnableDiagnostics = &value
+	}
 	value, err = strconv.ParseBool(temp.DisableAccountManager)
 	if err == nil {
 		a.DisableAccountManager = &value
@@ -122,13 +130,17 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 	if err == nil {
 		a.DisableAddressManager = &value
 	}
-	value, err = strconv.ParseBool(temp.EnableDiagnostics)
+	value, err = strconv.ParseBool(temp.EnableOSLogin)
 	if err == nil {
-		a.EnableDiagnostics = &value
+		a.EnableOSLogin = value
 	}
 	value, err = strconv.ParseBool(temp.EnableWSFC)
 	if err == nil {
 		a.EnableWSFC = &value
+	}
+	value, err = strconv.ParseBool(temp.TwoFactor)
+	if err == nil {
+		a.TwoFactor = value
 	}
 	// So SSHKeys will be nil instead of []string{}
 	if temp.SSHKeys != "" {
