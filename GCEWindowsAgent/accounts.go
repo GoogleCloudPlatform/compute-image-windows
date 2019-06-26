@@ -1,4 +1,4 @@
-//  Copyright 2017 Google Inc. All Rights Reserved.
+//  Copyright 2019 Google Inc. All Rights Reserved.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -83,8 +83,11 @@ func (a *linuxAccountsMgr) timeout() bool {
 }
 
 func (a *linuxAccountsMgr) disabled(os string) (disabled bool) {
-	// TODO: oslogin
-	return os == "windows" || !config.Section("Daemons").Key("accounts_daemon").MustBool(true)
+	return false ||
+		os == "windows" ||
+		!config.Section("Daemons").Key("accounts_daemon").MustBool(true) ||
+		newMetadata.Instance.Attributes.EnableOSLogin ||
+		newMetadata.Project.Attributes.EnableOSLogin
 }
 
 func (a *linuxAccountsMgr) set() error {
@@ -104,10 +107,8 @@ func (a *linuxAccountsMgr) set() error {
 		mdkeys = append(mdkeys, newMetadata.Project.Attributes.SSHKeys...)
 	}
 
-	mdkeys = removeExpiredKeys(mdkeys)
-
 	mdKeyMap := make(map[string][]string)
-	for _, key := range mdkeys {
+	for _, key := range removeExpiredKeys(mdkeys) {
 		idx := strings.Index(key, ":")
 		if idx == -1 {
 			continue

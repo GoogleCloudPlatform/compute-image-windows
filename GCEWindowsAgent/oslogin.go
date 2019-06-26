@@ -52,11 +52,16 @@ func (a *osloginMgr) disabled(os string) bool {
 }
 
 func (a *osloginMgr) set() error {
-	// TODO: when OS Login is enabled, but was not previously enabled, we
-	// should clean up all existing users. calling accountsMgr.set() with
-	// sshKeys set to zero should do it.
+	oldenable := oldMetadata.Instance.Attributes.EnableOSLogin || oldMetadata.Project.Attributes.EnableOSLogin
 	enable := newMetadata.Instance.Attributes.EnableOSLogin || newMetadata.Project.Attributes.EnableOSLogin
 	twofactor := newMetadata.Instance.Attributes.TwoFactor || newMetadata.Project.Attributes.TwoFactor
+
+	if enable && !oldenable {
+		logger.Infof("Enabling OS Login")
+		newMetadata.Instance.Attributes.SSHKeys = nil
+		newMetadata.Project.Attributes.SSHKeys = nil
+		(&linuxAccountsMgr{}).set()
+	}
 
 	if err := updateSSHConfig(enable, twofactor); err != nil {
 		logger.Errorf("error updating SSH config: %v\n", err)
