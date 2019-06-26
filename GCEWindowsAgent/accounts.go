@@ -228,7 +228,7 @@ func compareAccounts(newKeys windowsKeys, oldStrKeys []string) windowsKeys {
 		var key windowsKey
 		if err := json.Unmarshal([]byte(s), &key); err != nil {
 			if !containsString(s, badReg) {
-				logger.Errorf(err.Error())
+				logger.Errorf("Bad windows key from registry: %s", err)
 				badReg = append(badReg, s)
 			}
 			continue
@@ -271,7 +271,7 @@ func (a *accountsMgr) set() error {
 			printCreds(creds)
 			continue
 		}
-		logger.Errorf(err.Error())
+		logger.Errorf("Error setting password: %s", err)
 		creds = &credsJSON{
 			PasswordFound: false,
 			Exponent:      key.Exponent,
@@ -287,7 +287,7 @@ func (a *accountsMgr) set() error {
 		jsn, err := json.Marshal(key)
 		if err != nil {
 			// This *should* never happen as each key was just Unmarshalled above.
-			logger.Errorf(err.Error())
+			logger.Errorf("Failed to marshal windows key to JSON: %s", err)
 			continue
 		}
 		jsonKeys = append(jsonKeys, string(jsn))

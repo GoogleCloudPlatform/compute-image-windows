@@ -24,39 +24,33 @@ import (
 
 func TestCompareIPs(t *testing.T) {
 	var tests = []struct {
-		regFwdIPs, mdFwdIPs, cfgIPs, wantAdd, wantRm []string
+		forwarded, metadata, wantAdd, wantRm []string
 	}{
 		// These should return toAdd:
-		// In MD, not Reg or config
-		{nil, []string{"1.2.3.4"}, nil, []string{"1.2.3.4"}, nil},
-		// In MD and in Reg, not config
-		{[]string{"1.2.3.4"}, []string{"1.2.3.4"}, nil, []string{"1.2.3.4"}, nil},
+		// In Md, not present
+		{nil, []string{"1.2.3.4"}, []string{"1.2.3.4"}, nil},
+		{nil, []string{"1.2.3.4", "5.6.7.8"}, []string{"1.2.3.4", "5.6.7.8"}, nil},
 
 		// These should return toRm:
-		// In Reg and config, not Md
-		{[]string{"1.2.3.4"}, nil, []string{"1.2.3.4"}, nil, []string{"1.2.3.4"}},
+		// Present, not in Md
+		{[]string{"1.2.3.4"}, nil, nil, []string{"1.2.3.4"}},
+		{[]string{"1.2.3.4", "5.6.7.8"}, []string{"5.6.7.8"}, nil, []string{"1.2.3.4"}},
 
 		// These should return nil, nil:
-		// In Reg, Md and config
-		{[]string{"1.2.3.4"}, []string{"1.2.3.4"}, []string{"1.2.3.4"}, nil, nil},
-		// In Md and config, not Reg
-		{nil, []string{"1.2.3.4"}, []string{"1.2.3.4"}, nil, nil},
-		// Only in Reg
-		{[]string{"1.2.3.4"}, nil, nil, nil, nil},
-		// Only in config
-		{nil, nil, []string{"1.2.3.4"}, nil, nil},
+		// Present, in Md
+		{[]string{"1.2.3.4"}, []string{"1.2.3.4"}, nil, nil},
+		{[]string{"1.2.3.4", "5.6.7.8"}, []string{"1.2.3.4", "5.6.7.8"}, nil, nil},
 	}
 
-	for _, tt := range tests {
-		toAdd, toRm := compareIPs(tt.regFwdIPs, tt.mdFwdIPs, tt.cfgIPs)
+	for idx, tt := range tests {
+		toAdd, toRm := compareIPs(tt.forwarded, tt.metadata)
 		if !reflect.DeepEqual(tt.wantAdd, toAdd) {
-			t.Errorf("toAdd does not match expected: regFwdIPs: %q, mdFwdIPs: %q, cfgIPs: %q, got: %q, want: %q", tt.regFwdIPs, tt.mdFwdIPs, tt.cfgIPs, toAdd, tt.wantAdd)
+			t.Errorf("case %d: toAdd does not match expected: forwarded: %q, metadata: %q, got: %q, want: %q", idx, tt.forwarded, tt.metadata, toAdd, tt.wantAdd)
 		}
 		if !reflect.DeepEqual(tt.wantRm, toRm) {
-			t.Errorf("toRm does not match expected: regFwdIPs: %q, mdFwdIPs: %q, cfgIPs: %q, got: %q, want: %q", tt.regFwdIPs, tt.mdFwdIPs, tt.cfgIPs, toRm, tt.wantRm)
+			t.Errorf("case %d: toRm does not match expected: forwarded: %q, metadata: %q, got: %q, want: %q", idx, tt.forwarded, tt.metadata, toRm, tt.wantRm)
 		}
 	}
-
 }
 
 func TestAddressDisabled(t *testing.T) {
