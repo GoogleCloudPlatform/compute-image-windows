@@ -23,7 +23,7 @@ import (
 )
 
 type ver struct {
-	major, minor, patch *int
+	major, minor, patch, length int
 }
 
 type release struct {
@@ -32,15 +32,15 @@ type release struct {
 }
 
 func (v ver) String() string {
-	if v.major == nil {
+	if v.major == 0 {
 		return ""
 	}
-	ret := fmt.Sprintf("%d", *v.major)
-	if v.minor != nil {
-		ret = fmt.Sprintf("%s.%d", ret, *v.minor)
+	ret := fmt.Sprintf("%d", v.major)
+	if v.length > 1 {
+		ret = fmt.Sprintf("%s.%d", ret, v.minor)
 	}
-	if v.patch != nil {
-		ret = fmt.Sprintf("%s.%d", ret, *v.patch)
+	if v.length > 2 {
+		ret = fmt.Sprintf("%s.%d", ret, v.patch)
 	}
 	return ret
 }
@@ -94,28 +94,26 @@ func parseSystemRelease(systemRelease string) (release, error) {
 }
 
 func parseVersion(version string) (ver, error) {
-	var ret ver
-	versionsl := strings.Split(version, ".")
+	versionparts := strings.Split(version, ".")
+	ret := ver{length: len(versionparts)}
 
-	vernum, err := strconv.Atoi(versionsl[0])
+	// Must have at least major version.
+	var err error
+	ret.major, err = strconv.Atoi(versionparts[0])
 	if err != nil {
 		return ret, err
 	}
-
-	ret.major = &vernum
-	if len(versionsl) > 1 {
-		vernum, err := strconv.Atoi(versionsl[1])
+	if ret.length > 1 {
+		ret.minor, err = strconv.Atoi(versionparts[1])
 		if err != nil {
 			return ret, err
 		}
-		ret.minor = &vernum
 	}
-	if len(versionsl) > 2 {
-		vernum, err := strconv.Atoi(versionsl[2])
+	if ret.length > 2 {
+		ret.patch, err = strconv.Atoi(versionparts[2])
 		if err != nil {
 			return ret, err
 		}
-		ret.patch = &vernum
 	}
 	return ret, nil
 }

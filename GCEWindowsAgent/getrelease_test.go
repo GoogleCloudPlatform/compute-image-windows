@@ -19,26 +19,14 @@ import (
 	"testing"
 )
 
-func newVer(major, minor, patch, length int) ver {
-	var ret ver
-	ret.major = &major
-	if length > 1 {
-		ret.minor = &minor
-	}
-	if length > 2 {
-		ret.patch = &patch
-	}
-	return ret
-}
-
 func TestParseSystemRelease(t *testing.T) {
 	tests := []struct {
 		file string
 		want release
 	}{
-		{"Red Hat Enterprise Linux Server release 6.10 (Santiago)", release{os: "rhel", version: newVer(6, 10, 0, 2)}},
-		{"Red Hat Enterprise Linux Server release 6.10.1", release{os: "rhel", version: newVer(6, 10, 1, 3)}},
-		{"CentOS Linux release 7.6.1810 (Core)", release{os: "centos", version: newVer(7, 6, 1810, 3)}},
+		{"Red Hat Enterprise Linux Server release 6.10 (Santiago)", release{os: "rhel", version: ver{6, 10, 0, 2}}},
+		{"Red Hat Enterprise Linux Server release 6.10.1", release{os: "rhel", version: ver{6, 10, 1, 3}}},
+		{"CentOS Linux release 7.6.1810 (Core)", release{os: "centos", version: ver{7, 6, 1810, 3}}},
 	}
 	for _, tt := range tests {
 		if got, err := parseSystemRelease(tt.file); err != nil || !reflect.DeepEqual(got, tt.want) {
@@ -52,10 +40,10 @@ func TestParseOSRelease(t *testing.T) {
 		file string
 		want release
 	}{
-		{"ID=\"sles\"\nNAME=\"SLES\"\nVERSION=\"12-SP4\"\nVERSION_ID=12", release{os: "sles", version: newVer(12, 0, 0, 1)}},
-		{"ID=sles\nNAME=\"SLES\"\nVERSION=\"12-SP4\"\nVERSION_ID=\"12.4\"", release{os: "sles", version: newVer(12, 4, 0, 2)}},
-		{"ID=debian\nNAME=\"Debian GNU/Linux\"\nVERSION=\"9 (stretch)\"\nVERSION_ID=\"9\"", release{os: "debian", version: newVer(9, 0, 0, 1)}},
-		{"ID=\"debian\"\nNAME=\"Debian GNU/Linux\"\nVERSION=9\nVERSION_ID=\"9\"", release{os: "debian", version: newVer(9, 0, 0, 1)}},
+		{"ID=\"sles\"\nNAME=\"SLES\"\nVERSION=\"12-SP4\"\nVERSION_ID=12", release{os: "sles", version: ver{12, 0, 0, 1}}},
+		{"ID=sles\nNAME=\"SLES\"\nVERSION=\"12-SP4\"\nVERSION_ID=\"12.4\"", release{os: "sles", version: ver{12, 4, 0, 2}}},
+		{"ID=debian\nNAME=\"Debian GNU/Linux\"\nVERSION=\"9 (stretch)\"\nVERSION_ID=\"9\"", release{os: "debian", version: ver{9, 0, 0, 1}}},
+		{"ID=\"debian\"\nNAME=\"Debian GNU/Linux\"\nVERSION=9\nVERSION_ID=\"9\"", release{os: "debian", version: ver{9, 0, 0, 1}}},
 	}
 	for _, tt := range tests {
 		if got, err := parseOSRelease(tt.file); err != nil || !reflect.DeepEqual(got, tt.want) {

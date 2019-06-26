@@ -92,7 +92,7 @@ func (a *osloginMgr) set() error {
 
 	if enable {
 		if err := exec.Command("google_oslogin_nss_cache").Run(); err != nil {
-			fmt.Printf("failed to run NSS cache updater: %v\n", err)
+			logger.Errorf("error updating NSS cache: %v\n", err)
 		}
 	}
 	os.Exit(1)
@@ -137,13 +137,12 @@ func updateSSHConfig(enable, twofactor bool) error {
 	}
 	authorizedKeysUser := "AuthorizedKeysCommandUser root"
 	twoFactorAuthMethods := "AuthenticationMethods publickey,keyboard-interactive"
-	// TODO this is a fake
-	if runtime.GOOS == "rhel6" {
+	if (osrelease.os == "rhel" || osrelease.os == "centos") && osrelease.version.major == 6 {
 		authorizedKeysUser = "AuthorizedKeysCommandRunAs root"
 		twoFactorAuthMethods = "RequiredAuthentications2 publickey,keyboard-interactive"
 	}
 
-	sshConfig, err := ioutil.ReadFile("./sshd_conf")
+	sshConfig, err := ioutil.ReadFile("/etc/ssh/sshd_config")
 	if err != nil {
 		return err
 	}
@@ -161,7 +160,7 @@ func updateSSHConfig(enable, twofactor bool) error {
 	}
 	proposed := strings.Join(filtered, "\n")
 	if proposed != string(sshConfig) {
-		file, err := os.OpenFile("./sshd_conf", os.O_WRONLY|os.O_TRUNC, 0777)
+		file, err := os.OpenFile("/etc/ssh/sshd_config", os.O_WRONLY|os.O_TRUNC, 0777)
 		if err != nil {
 			return err
 		}
@@ -175,7 +174,7 @@ func updateSSHConfig(enable, twofactor bool) error {
 func updateNSSwitchConfig(enable bool) error {
 	oslogin := " cache_oslogin oslogin"
 
-	nsswitch, err := ioutil.ReadFile("./nsswitch.conf")
+	nsswitch, err := ioutil.ReadFile("/etc/nsswitch.conf")
 	if err != nil {
 		return err
 	}
@@ -197,7 +196,7 @@ func updateNSSwitchConfig(enable bool) error {
 	}
 	proposed := strings.Join(filtered, "\n")
 	if proposed != string(nsswitch) {
-		file, err := os.OpenFile("./nsswitch.conf", os.O_WRONLY|os.O_TRUNC, 0777)
+		file, err := os.OpenFile("/etc/nsswitch.conf", os.O_WRONLY|os.O_TRUNC, 0777)
 		if err != nil {
 			return err
 		}
@@ -222,7 +221,7 @@ func updatePAMConfig(enable, twofactor bool) error {
 		sessionHomeDir = "session    optional pam_mkhomedir.so"
 	}
 
-	pamsshd, err := ioutil.ReadFile("./etc/pam.d/sshd")
+	pamsshd, err := ioutil.ReadFile("/etc/pam.d/sshd")
 	if err != nil {
 		return err
 	}
@@ -239,7 +238,7 @@ func updatePAMConfig(enable, twofactor bool) error {
 	}
 	proposed := strings.Join(filtered, "\n")
 	if proposed != string(pamsshd) {
-		file, err := os.OpenFile("./etc/pam.d/sshd", os.O_WRONLY|os.O_TRUNC, 0777)
+		file, err := os.OpenFile("/etc/pam.d/sshd", os.O_WRONLY|os.O_TRUNC, 0777)
 		if err != nil {
 			return err
 		}
@@ -249,7 +248,7 @@ func updatePAMConfig(enable, twofactor bool) error {
 
 	accountSu := "account    [success=bad ignore=ignore] pam_oslogin_login.so"
 
-	pamsu, err := ioutil.ReadFile("./etc/pam.d/su")
+	pamsu, err := ioutil.ReadFile("/etc/pam.d/su")
 	if err != nil {
 		return err
 	}
@@ -259,7 +258,7 @@ func updatePAMConfig(enable, twofactor bool) error {
 	}
 	proposed = strings.Join(filtered, "\n")
 	if proposed != string(pamsu) {
-		file2, err := os.OpenFile("./etc/pam.d/su", os.O_WRONLY|os.O_TRUNC, 0777)
+		file2, err := os.OpenFile("/etc/pam.d/su", os.O_WRONLY|os.O_TRUNC, 0777)
 		if err != nil {
 			return err
 		}
@@ -271,20 +270,27 @@ func updatePAMConfig(enable, twofactor bool) error {
 }
 
 func createOSLoginDirs() error {
-	for _, dir := range []string{"./var/google-sudoers.d", "./var/google-users.d"} {
+	restorecon, err := exec.LookPath("restorecon")
+	if err != nil {
+		restorecon = ""
+	}
+
+	for _, dir := range []string{"/var/google-sudoers.d", "/var/google-users.d"} {
 		err := os.Mkdir(dir, 0750)
 		if err != nil && !os.IsExist(err) {
 			return err
 		}
+		if restorecon != "" {
+			exec.Command(restorecon, dir).Run()
+		}
 	}
-	// TODO fixfiles
 	return nil
 }
 
 func createOSLoginSudoersFile() error {
-	osloginSudoers := "./etc/sudoers.d/google-oslogin"
+	osloginSudoers := "/etc/sudoers.d/google-oslogin"
 	if runtime.GOOS == "freebsd" {
-		osloginSudoers = "./usr/local/etc/sudoers.d/google-oslogin"
+		osloginSudoers = "/usr/local/etc/sudoers.d/google-oslogin"
 	}
 	sudoFile, err := os.OpenFile(osloginSudoers, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0440)
 	if err != nil {
@@ -303,29 +309,25 @@ func createOSLoginSudoersFile() error {
 // 1. The `systemctl` utility, if in a systemd environment.
 // 2. The `service` command, if present.
 // 3. A SysVinit script directly, if present.
-// If no mechanism is found nil is returned. If a mechanism is found and a
-// service doesn't exist or isnt' running, nil is returned. Otherwise, the
-// result of the restart command is returned.
-func restartService(service string) error {
-	initpath, err := os.Readlink("/sbin/init")
-	if err == nil && strings.Contains(initpath, "systemd") {
-		// systemctl is-active sshd.service && systemctl restart sshd.service
-		if systemctlpath, err := exec.LookPath("systemctl"); err == nil {
-			if exec.Command(systemctlpath, "is-active", service+".service").Run() == nil {
-				return exec.Command(systemctlpath, "restart", service+".service").Run()
+// Missing mechanisms and missing or disabled services are ignored.
+func restartService(servicename string) error {
+	init, err := os.Readlink("/sbin/init")
+	if err == nil && strings.Contains(init, "systemd") {
+		if systemctl, err := exec.LookPath("systemctl"); err == nil {
+			if exec.Command(systemctl, "is-active", servicename+".service").Run() == nil {
+				return exec.Command(systemctl, "restart", servicename+".service").Run()
 			}
 			return nil
 		}
 	}
-	servicepath, err := exec.LookPath("service")
+	service, err := exec.LookPath("service")
 	if err == nil {
-		// service sshd status && service sshd restart
-		if exec.Command(servicepath, service, "status").Run() == nil {
-			return exec.Command(servicepath, service, "restart").Run()
+		if exec.Command(service, servicename, "status").Run() == nil {
+			return exec.Command(service, servicename, "restart").Run()
 		}
 		return nil
 	}
-	initService := "/etc/init.d/" + service
+	initService := "/etc/init.d/" + servicename
 	if _, err := os.Stat(initService); err == nil {
 		if exec.Command(initService, "status").Run() == nil {
 			return exec.Command(initService, "restart").Run()
