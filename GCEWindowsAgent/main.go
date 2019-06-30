@@ -35,7 +35,7 @@ var (
 	programName              = "GCEWindowsAgent"
 	version                  string
 	ticker                   = time.Tick(70 * time.Second)
-	oldMetadata, newMetadata *metadataJSON
+	oldMetadata, newMetadata *metadata
 	config                   *ini.File
 )
 
@@ -109,7 +109,7 @@ func runUpdate() {
 	if runtime.GOOS == "windows" {
 		mgrs = []manager{newWsfcManager(), &addressMgr{}, &accountsMgr{}, &diagnosticsMgr{}}
 	} else {
-		mgrs = []manager{&addressMgr{}}
+		mgrs = []manager{&clockskewMgr{}}
 	}
 	for _, mgr := range mgrs {
 		wg.Add(1)
@@ -119,7 +119,7 @@ func runUpdate() {
 				return
 			}
 			if err := mgr.set(); err != nil {
-				logger.Errorf("error running %v manager: %s", mgr, err)
+				logger.Errorf("error running %#v manager: %s", mgr, err)
 			}
 		}(mgr)
 	}
@@ -130,7 +130,7 @@ func run(ctx context.Context) {
 	logger.Infof("GCE Agent Started (version %s)", version)
 
 	go func() {
-		oldMetadata = &metadataJSON{}
+		oldMetadata = &metadata{}
 		webError := 0
 		for {
 			var err error

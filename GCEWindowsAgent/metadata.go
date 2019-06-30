@@ -36,30 +36,35 @@ var (
 	etag              = defaultEtag
 )
 
-type metadataJSON struct {
-	Instance instanceJSON
-	Project  projectJSON
+type metadata struct {
+	Instance
+	Project
 }
 
-type instanceJSON struct {
-	Attributes        attributesJSON
-	NetworkInterfaces []networkInterfacesJSON
+type VirtualClock struct {
+	DriftToken int
 }
 
-type networkInterfacesJSON struct {
+type Instance struct {
+	Attributes
+	NetworkInterfaces []networkInterfaces
+	VirtualClock
+}
+
+type networkInterfaces struct {
 	ForwardedIps      []string
 	TargetInstanceIps []string
 	IPAliases         []string
 	Mac               string
 }
 
-type projectJSON struct {
-	Attributes attributesJSON
-	ProjectID  string `json:"projectId"`
+type Project struct {
+	Attributes
+	ProjectID string
 }
 
-type attributesJSON struct {
-	WindowsKeys           windowsKeys
+type Attributes struct {
+	WindowsKeys
 	Diagnostics           string
 	DisableAddressManager *bool
 	DisableAccountManager *bool
@@ -78,11 +83,11 @@ type windowsKey struct {
 	HashFunction string
 }
 
-type windowsKeys []windowsKey
+type WindowsKeys []windowsKey
 
-func (a *attributesJSON) UnmarshalJSON(b []byte) error {
+func (a *Attributes) UnmarshalJSON(b []byte) error {
 	type inner struct {
-		WindowsKeys           windowsKeys `json:"windows-keys"`
+		WindowsKeys           WindowsKeys `json:"windows-keys"`
 		Diagnostics           string      `json:"diagnostics"`
 		DisableAddressManager string      `json:"disable-address-manager"`
 		DisableAccountManager string      `json:"disable-account-manager"`
@@ -117,7 +122,7 @@ func (a *attributesJSON) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (wks *windowsKeys) UnmarshalJSON(b []byte) error {
+func (wks *WindowsKeys) UnmarshalJSON(b []byte) error {
 	var s string
 	if err := json.Unmarshal(b, &s); err != nil {
 		return err
@@ -147,11 +152,11 @@ func updateEtag(resp *http.Response) bool {
 	return etag != oldEtag
 }
 
-func watchMetadata(ctx context.Context) (*metadataJSON, error) {
+func watchMetadata(ctx context.Context) (*metadata, error) {
 	return getMetadata(ctx, true)
 }
 
-func getMetadata(ctx context.Context, hang bool) (*metadataJSON, error) {
+func getMetadata(ctx context.Context, hang bool) (*metadata, error) {
 	client := &http.Client{
 		Timeout: defaultTimeout,
 	}
@@ -188,6 +193,6 @@ func getMetadata(ctx context.Context, hang bool) (*metadataJSON, error) {
 	if err != nil {
 		return nil, err
 	}
-	var metadata metadataJSON
-	return &metadata, json.Unmarshal(md, &metadata)
+	var ret metadata
+	return &ret, json.Unmarshal(md, &ret)
 }

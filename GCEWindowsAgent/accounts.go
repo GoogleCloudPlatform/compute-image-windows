@@ -215,7 +215,7 @@ func printCreds(creds *credsJSON) error {
 
 var badReg []string
 
-func compareAccounts(newKeys windowsKeys, oldStrKeys []string) windowsKeys {
+func compareAccounts(newKeys WindowsKeys, oldStrKeys []string) WindowsKeys {
 	if len(newKeys) == 0 {
 		return nil
 	}
@@ -223,7 +223,7 @@ func compareAccounts(newKeys windowsKeys, oldStrKeys []string) windowsKeys {
 		return newKeys
 	}
 
-	var oldKeys windowsKeys
+	var oldKeys WindowsKeys
 	for _, s := range oldStrKeys {
 		var key windowsKey
 		if err := json.Unmarshal([]byte(s), &key); err != nil {
@@ -236,9 +236,9 @@ func compareAccounts(newKeys windowsKeys, oldStrKeys []string) windowsKeys {
 		oldKeys = append(oldKeys, key)
 	}
 
-	var toAdd windowsKeys
+	var toAdd WindowsKeys
 	for _, key := range newKeys {
-		if func(key windowsKey, oldKeys windowsKeys) bool {
+		if func(key windowsKey, oldKeys WindowsKeys) bool {
 			for _, oldKey := range oldKeys {
 				if oldKey.UserName == key.UserName &&
 					oldKey.Modulus == key.Modulus &&
