@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"os"
 	"os/exec"
 	"reflect"
 	"runtime"
@@ -27,11 +28,12 @@ import (
 )
 
 var (
-	addressDisabled  = false
-	addressKey       = regKeyBase + `\ForwardedIps`
-	oldWSFCAddresses string
-	oldWSFCEnable    bool
-	protoID          = 66
+	addressDisabled   = false
+	addressKey        = regKeyBase + `\ForwardedIps`
+	interfacesEnabled = false
+	oldWSFCAddresses  string
+	oldWSFCEnable     bool
+	protoID           = 66
 )
 
 type addressMgr struct{}
@@ -98,13 +100,8 @@ func compareIPs(configuredIPs, desiredIPs []string) (toAdd, toRm []string) {
 
 var badMAC []string
 
-func getInterfaceByMAC(mac string) (net.Interface, error) {
+func getInterfaceByMAC(mac string, ifs []net.Interface) (net.Interface, error) {
 	hwaddr, err := net.ParseMAC(mac)
-	if err != nil {
-		return net.Interface{}, err
-	}
-
-	ifs, err := net.Interfaces()
 	if err != nil {
 		return net.Interface{}, err
 	}
@@ -266,8 +263,19 @@ func (a *addressMgr) set() error {
 		a.applyWSFCFilter()
 	}
 
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return err
+	}
+	if runtime.GOOS != "windows" && !interfacesEnabled {
+		if err := enableNetworkInterfaces(interfaces); err != nil {
+			return err
+		}
+		interfacesEnabled = true
+	}
+
 	for _, ni := range newMetadata.Instance.NetworkInterfaces {
-		iface, err := getInterfaceByMAC(ni.Mac)
+		iface, err := getInterfaceByMAC(ni.Mac, interfaces)
 		if err != nil {
 			if !containsString(ni.Mac, badMAC) {
 				logger.Errorf("Error getting interface: %s", err)
@@ -275,7 +283,6 @@ func (a *addressMgr) set() error {
 			}
 			continue
 		}
-
 		wantIPs := append(ni.ForwardedIps, ni.TargetInstanceIps...)
 		if runtime.GOOS != "windows" {
 			// IP Aliases are not supported on windows.
@@ -371,4 +378,65 @@ func (a *addressMgr) set() error {
 	}
 
 	return nil
+}
+
+var osrelease release
+
+func enableNetworkInterfaces(ifaces []net.Interface) error {
+	var interfaces []string
+	for _, ni := range newMetadata.Instance.NetworkInterfaces {
+		iface, err := getInterfaceByMAC(ni.Mac, ifaces)
+		if err != nil {
+			if !containsString(ni.Mac, badMAC) {
+				logger.Errorf("Error getting interface: %s", err)
+				badMAC = append(badMAC, ni.Mac)
+			}
+			continue
+		}
+		interfaces = append(interfaces, iface.Name)
+	}
+
+	if osrelease.os == "rhel" && *osrelease.version.major == 7 {
+		for _, iface := range interfaces {
+			ifcfg, err := os.Create("/etc/sysconfig/network-scripts/ifcfg-" + iface)
+			if err != nil {
+				return err
+			}
+			defer ifcfg.Close()
+			// TODO: if it exists, we only amend the file.
+			_, err = ifcfg.WriteString("# Added by Google.\nBOOTPROTO=none\nDEFROUTE=no\nIPV6INIT=no\nNM_CONTROLLED=no\nNOZEROCONF=yes\nDEVICE=" + iface)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if osrelease.os == "sles" {
+		if *osrelease.version.major == 11 {
+			for _, iface := range interfaces {
+				exec.Command("dhcpcd", "-x", iface).Run()
+				if err := exec.Command("dhcpcd", iface).Run(); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		if *osrelease.version.major == 12 {
+			for _, iface := range interfaces {
+				ifcfg, err := os.Create("/etc/sysconfig/network/ifcfg-" + iface)
+				if err != nil {
+					return err
+				}
+				defer ifcfg.Close()
+				_, err = ifcfg.WriteString("# Added by Google.\nSTARTMODE=hotplug\nBOOTPROTO=dhcp\nDHCLIENT_SET_DEFAULT_ROUTE=yes\nDHCLIENT_ROUTE_PRIORITY=10" + iface + "00")
+				if err != nil {
+					return err
+				}
+			}
+			args := append([]string{"ifup", "--timeout", "1"}, interfaces...)
+			return exec.Command("/usr/sbin/wicked", args...).Run()
+		}
+	}
+	exec.Command("dhclient", "-x").Run()
+	return exec.Command("dhclient", interfaces...).Run()
 }
