@@ -57,9 +57,9 @@ func compareStringSlice(first, second []string) bool {
 	return true
 }
 
-type linuxAccountsMgr struct{}
+type accountsMgr struct{}
 
-func (a *linuxAccountsMgr) diff() bool {
+func (a *accountsMgr) diff() bool {
 	// If any keys have changed.
 	if !compareStringSlice(newMetadata.Instance.Attributes.SSHKeys, oldMetadata.Instance.Attributes.SSHKeys) {
 		return true
@@ -78,11 +78,11 @@ func (a *linuxAccountsMgr) diff() bool {
 	return false
 }
 
-func (a *linuxAccountsMgr) timeout() bool {
+func (a *accountsMgr) timeout() bool {
 	return false
 }
 
-func (a *linuxAccountsMgr) disabled(os string) (disabled bool) {
+func (a *accountsMgr) disabled(os string) (disabled bool) {
 	return false ||
 		os == "windows" ||
 		!config.Section("Daemons").Key("accounts_daemon").MustBool(true) ||
@@ -90,16 +90,16 @@ func (a *linuxAccountsMgr) disabled(os string) (disabled bool) {
 		newMetadata.Project.Attributes.EnableOSLogin
 }
 
-func (a *linuxAccountsMgr) set() error {
+func (a *accountsMgr) set() error {
 	if sshKeys == nil {
 		sshKeys = make(map[string][]string)
 	}
 
 	if err := createSudoersFile(); err != nil {
-		logger.Errorf("error creating google-sudoers file: %v\n", err)
+		logger.Errorf("Error creating google-sudoers file: %v.", err)
 	}
 	if err := createSudoersGroup(); err != nil {
-		logger.Errorf("error creating google-sudoers group: %v\n", err)
+		logger.Errorf("Error creating google-sudoers group: %v.", err)
 	}
 
 	mdkeys := newMetadata.Instance.Attributes.SSHKeys
@@ -125,30 +125,30 @@ func (a *linuxAccountsMgr) set() error {
 	var writeFile bool
 	gUsers, err := readGoogleUsersFile()
 	if err != nil {
-		logger.Errorf("Couldn't read google users file: %v\n", err)
+		logger.Errorf("Couldn't read google users file: %v.", err)
 	}
 
 	// Update SSH keys, creating Google users as needed.
 	for user, userKeys := range mdKeyMap {
 		if _, err := getPasswd(user); err != nil {
-			logger.Infof("creating user %s\n", user)
+			logger.Infof("Creating user %s.", user)
 			if err := createGoogleUser(user); err != nil {
-				logger.Errorf("error creating user: %s\n", err)
+				logger.Errorf("Error creating user: %s.", err)
 				continue
 			}
 			gUsers[user] = ""
 			writeFile = true
 		}
 		if _, ok := gUsers[user]; !ok {
-			logger.Infof("adding existing user %s to google-sudoers group\n", user)
+			logger.Infof("Adding existing user %s to google-sudoers group.", user)
 			if err := addUserToGroup(user, "google-sudoers"); err != nil {
-				logger.Errorf("%v\n", err)
+				logger.Errorf("%v.", err)
 			}
 		}
 		if !compareStringSlice(userKeys, sshKeys[user]) {
-			logger.Infof("updating keys for user %s\n", user)
+			logger.Infof("Updating keys for user %s.", user)
 			if err := updateAuthorizedKeysFile(user, userKeys); err != nil {
-				logger.Errorf("error updating SSH keys for %s: %v\n", user, err)
+				logger.Errorf("Error updating SSH keys for %s: %v.", user, err)
 				continue
 			}
 			sshKeys[user] = userKeys
@@ -158,10 +158,10 @@ func (a *linuxAccountsMgr) set() error {
 	// Remove Google users not found in metadata.
 	for user := range gUsers {
 		if _, ok := mdKeyMap[user]; !ok && user != "" {
-			logger.Infof("removing user %s\n", user)
+			logger.Infof("Removing user %s.", user)
 			err = removeGoogleUser(user)
 			if err != nil {
-				logger.Errorf("error removing user: %v\n", err)
+				logger.Errorf("Error removing user: %v.", err)
 			}
 			delete(sshKeys, user)
 			writeFile = true
@@ -171,14 +171,14 @@ func (a *linuxAccountsMgr) set() error {
 	// Update the google_users file if we've added or removed any users.
 	if writeFile {
 		if err := writeGoogleUsersFile(); err != nil {
-			logger.Errorf("error writing google_users file: %v\n", err)
+			logger.Errorf("Error writing google_users file: %v.", err)
 		}
 	}
 	return nil
 }
 
-// User is a user.User with omitted passwd fields restored.
-type User struct {
+// passwdEntry is a user.User with omitted passwd fields restored.
+type passwdEntry struct {
 	Username string
 	Passwd   string
 	UID      int
@@ -188,12 +188,12 @@ type User struct {
 	Shell    string
 }
 
-// getPasswd returns a User from the local passwd database. Code adapted from os/user
-func getPasswd(user string) (*User, error) {
+// getPasswd returns a passwdEntry from the local passwd database. Code adapted from os/user
+func getPasswd(user string) (*passwdEntry, error) {
 	prefix := []byte(user + ":")
 	colon := []byte{':'}
 
-	parse := func(line []byte) (*User, error) {
+	parse := func(line []byte) (*passwdEntry, error) {
 		if !bytes.Contains(line, prefix) || bytes.Count(line, colon) < 6 {
 			return nil, nil
 		}
@@ -207,7 +207,7 @@ func getPasswd(user string) (*User, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid passwd entry for %s", user)
 		}
-		u := &User{
+		u := &passwdEntry{
 			Username: parts[0],
 			Passwd:   parts[1],
 			UID:      uid,
@@ -280,7 +280,7 @@ func (k linuxKey) expired() bool {
 	t, err := time.Parse("2006-01-02T15:04:05-0700", k.ExpireOn)
 	if err != nil {
 		if !containsString(k.ExpireOn, badExpire) {
-			logger.Errorf("error parsing time: %v", err)
+			logger.Errorf("Error parsing time: %v.", err)
 			badExpire = append(badExpire, k.ExpireOn)
 		}
 		return true
@@ -387,7 +387,7 @@ func createSudoersGroup() error {
 			return nil
 		}
 	}
-	logger.Infof("created google sudoers file")
+	logger.Infof("Created google sudoers file")
 	return nil
 }
 

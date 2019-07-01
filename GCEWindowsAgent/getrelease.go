@@ -26,6 +26,7 @@ type ver struct {
 	major, minor, patch, length int
 }
 
+// release holds Linux distribution release information.
 type release struct {
 	os      string
 	version ver

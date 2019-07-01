@@ -33,7 +33,7 @@ var (
 
 type osloginMgr struct{}
 
-func (a *osloginMgr) diff() bool {
+func (o *osloginMgr) diff() bool {
 	// True on first run.
 	return oldMetadata.Project.ProjectID == "" ||
 		// True if any value has changed.
@@ -43,59 +43,58 @@ func (a *osloginMgr) diff() bool {
 		(oldMetadata.Project.Attributes.TwoFactor != newMetadata.Project.Attributes.TwoFactor)
 }
 
-func (a *osloginMgr) timeout() bool {
+func (o *osloginMgr) timeout() bool {
 	return false
 }
 
-func (a *osloginMgr) disabled(os string) bool {
+func (o *osloginMgr) disabled(os string) bool {
 	return os == "windows"
 }
 
-func (a *osloginMgr) set() error {
-	oldenable := oldMetadata.Instance.Attributes.EnableOSLogin || oldMetadata.Project.Attributes.EnableOSLogin
+func (o *osloginMgr) set() error {
+	oldEnable := oldMetadata.Instance.Attributes.EnableOSLogin || oldMetadata.Project.Attributes.EnableOSLogin
 	enable := newMetadata.Instance.Attributes.EnableOSLogin || newMetadata.Project.Attributes.EnableOSLogin
 	twofactor := newMetadata.Instance.Attributes.TwoFactor || newMetadata.Project.Attributes.TwoFactor
 
-	if enable && !oldenable {
+	if enable && !oldEnable {
 		logger.Infof("Enabling OS Login")
 		newMetadata.Instance.Attributes.SSHKeys = nil
 		newMetadata.Project.Attributes.SSHKeys = nil
-		(&linuxAccountsMgr{}).set()
+		(&accountsMgr{}).set()
 	}
 
 	if err := updateSSHConfig(enable, twofactor); err != nil {
-		logger.Errorf("error updating SSH config: %v\n", err)
+		logger.Errorf("Error updating SSH config: %v.", err)
 	}
 
 	if err := updateNSSwitchConfig(enable); err != nil {
-		logger.Errorf("error updating NSS config: %v\n", err)
+		logger.Errorf("Error updating NSS config: %v.", err)
 	}
 
 	if err := updatePAMConfig(enable, twofactor); err != nil {
-		logger.Errorf("error updating PAM config: %v\n", err)
+		logger.Errorf("Error updating PAM config: %v.", err)
 	}
 
 	if err := createOSLoginDirs(); err != nil {
-		logger.Errorf("error creating OS Login directory: %v\n", err)
+		logger.Errorf("Error creating OS Login directory: %v.", err)
 	}
 
 	if err := createOSLoginSudoersFile(); err != nil {
-		logger.Errorf("error creating OS Login sudoers file: %v\n", err)
+		logger.Errorf("Error creating OS Login sudoers file: %v.", err)
 	}
 
 	// Services which need to be restarted primarily due to caching issues.
 	for _, svc := range []string{"ssh", "sshd", "nscd", "unscd", "systemd-logind", "cron", "crond"} {
 		if err := restartService(svc); err != nil {
-			logger.Errorf("error restarting service: %v\n", err)
+			logger.Errorf("Error restarting service: %v.", err)
 		}
 	}
 
 	if enable {
 		if err := exec.Command("google_oslogin_nss_cache").Run(); err != nil {
-			logger.Errorf("error updating NSS cache: %v\n", err)
+			logger.Errorf("Error updating NSS cache: %v.", err)
 		}
 	}
-	os.Exit(1)
 
 	return nil
 }
@@ -104,26 +103,18 @@ func filterGoogleLines(contents string) []string {
 	var isgoogle, isgoogleblock bool
 	var filtered []string
 	for _, line := range strings.Split(contents, "\n") {
-		if strings.Contains(line, googleComment) {
+		switch {
+		case strings.Contains(line, googleComment):
 			isgoogle = true
-			continue
-		}
-		if isgoogle {
+		case isgoogle:
 			isgoogle = false
-			continue
-		}
-		if strings.Contains(line, googleBlockStart) {
+		case isgoogleblock, strings.Contains(line, googleBlockStart):
 			isgoogleblock = true
-			continue
-		}
-		if strings.Contains(line, googleBlockEnd) {
+		case strings.Contains(line, googleBlockEnd):
 			isgoogleblock = false
-			continue
+		default:
+			filtered = append(filtered, line)
 		}
-		if isgoogleblock {
-			continue
-		}
-		filtered = append(filtered, line)
 	}
 	return filtered
 }
@@ -137,7 +128,7 @@ func updateSSHConfig(enable, twofactor bool) error {
 	}
 	authorizedKeysUser := "AuthorizedKeysCommandUser root"
 	twoFactorAuthMethods := "AuthenticationMethods publickey,keyboard-interactive"
-	if (osrelease.os == "rhel" || osrelease.os == "centos") && osrelease.version.major == 6 {
+	if (osRelease.os == "rhel" || osRelease.os == "centos") && osRelease.version.major == 6 {
 		authorizedKeysUser = "AuthorizedKeysCommandRunAs root"
 		twoFactorAuthMethods = "RequiredAuthentications2 publickey,keyboard-interactive"
 	}
@@ -164,7 +155,7 @@ func updateSSHConfig(enable, twofactor bool) error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer closeFile(file)
 		file.WriteString(proposed)
 	}
 
@@ -200,7 +191,7 @@ func updateNSSwitchConfig(enable bool) error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer closeFile(file)
 		file.WriteString(proposed)
 	}
 	return nil
@@ -242,7 +233,7 @@ func updatePAMConfig(enable, twofactor bool) error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer closeFile(file)
 		file.WriteString(proposed)
 	}
 
@@ -262,7 +253,7 @@ func updatePAMConfig(enable, twofactor bool) error {
 		if err != nil {
 			return err
 		}
-		defer file2.Close()
+		defer closeFile(file2)
 		file2.WriteString(proposed)
 	}
 
@@ -299,9 +290,8 @@ func createOSLoginSudoersFile() error {
 		}
 		return err
 	}
-	defer sudoFile.Close()
 	fmt.Fprintf(sudoFile, "#includedir /var/google-sudoers.d\n")
-	return nil
+	return sudoFile.Close()
 }
 
 // restartService tries to restart a service on linux-like systems. It attempts

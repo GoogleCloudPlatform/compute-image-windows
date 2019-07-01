@@ -39,7 +39,7 @@ var (
 	ticker                   = time.Tick(70 * time.Second)
 	oldMetadata, newMetadata *metadata
 	config                   *ini.File
-	osrelease                release
+	osRelease                release
 )
 
 const (
@@ -95,6 +95,13 @@ func parseConfig(file string) (*ini.File, error) {
 	return cfg, nil
 }
 
+func closeFile(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		logger.Warningf("Error closing file: %v.", err)
+	}
+}
+
 func runUpdate() {
 	cfgPath := configPath
 	if runtime.GOOS == "windows" {
@@ -132,7 +139,7 @@ func runUpdate() {
 func run(ctx context.Context) {
 	logger.Infof("GCE Agent Started (version %s)", version)
 	var err error
-	osrelease, err = getRelease()
+	osRelease, err = getRelease()
 	if err != nil && runtime.GOOS != "windows" {
 		logger.Warningf("Couldn't detect OS release")
 	}
