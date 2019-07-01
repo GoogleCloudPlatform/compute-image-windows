@@ -119,7 +119,7 @@ func getRoutes(ifname string) ([]string, error) {
 	out, err := exec.Command("ip", strings.Split(args, " ")...).Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("error getting routes: %s", ee.Stderr)
+			return nil, fmt.Errorf(string(ee.Stderr))
 		}
 		return nil, err
 	}
@@ -139,11 +139,7 @@ func addRoute(ip, ifname string) error {
 		ip = ip + "/32"
 	}
 	args := fmt.Sprintf("route add to local %s scope host dev %s proto %d", ip, ifname, protoID)
-	err := exec.Command("ip", strings.Split(args, " ")...).Run()
-	if ee, ok := err.(*exec.ExitError); ok {
-		return fmt.Errorf("error adding route: %s", ee.Stderr)
-	}
-	return err
+	return runCmd(exec.Command("ip", strings.Split(args, " ")...))
 }
 
 func removeRoute(ip, ifname string) error {
@@ -151,11 +147,7 @@ func removeRoute(ip, ifname string) error {
 		ip = ip + "/32"
 	}
 	args := fmt.Sprintf("route delete to local %s scope host dev %s proto %d", ip, ifname, protoID)
-	err := exec.Command("ip", strings.Split(args, " ")...).Run()
-	if ee, ok := err.(*exec.ExitError); ok {
-		return fmt.Errorf("error removing route: %s", ee.Stderr)
-	}
-	return err
+	return runCmd(exec.Command("ip", strings.Split(args, " ")...))
 }
 
 // Filter out forwarded ips based on WSFC (Windows Failover Cluster Settings).
@@ -299,11 +291,7 @@ func (a *addressMgr) set() error {
 		} else {
 			forwardedIPs, err = getRoutes(iface.Name)
 			if err != nil {
-				if ee, ok := err.(*exec.ExitError); ok {
-					logger.Errorf("Error getting routes: %s", ee.Stderr)
-				} else {
-					logger.Errorf("Error getting routes: %v", err)
-				}
+				logger.Errorf("Error getting routes: %v", err)
 				continue
 			}
 		}
@@ -382,10 +370,13 @@ func (a *addressMgr) set() error {
 
 var osrelease release
 
-func enableNetworkInterfaces(ifaces []net.Interface) error {
-	var interfaces []string
+// enableNetworkInterfaces runs `dhclient -x; dhclient eth1 eth2 ... ethN`.
+// On RHEL7, it also calls disableNM for each interface.
+// On SLES, it instead calls enableSLESInterfaces.
+func enableNetworkInterfaces(interfaces []net.Interface) error {
+	var googleInterfaces []string
 	for _, ni := range newMetadata.Instance.NetworkInterfaces {
-		iface, err := getInterfaceByMAC(ni.Mac, ifaces)
+		iface, err := getInterfaceByMAC(ni.Mac, interfaces)
 		if err != nil {
 			if !containsString(ni.Mac, badMAC) {
 				logger.Errorf("Error getting interface: %s", err)
@@ -393,50 +384,61 @@ func enableNetworkInterfaces(ifaces []net.Interface) error {
 			}
 			continue
 		}
-		interfaces = append(interfaces, iface.Name)
+		googleInterfaces = append(googleInterfaces, iface.Name)
 	}
 
-	if osrelease.os == "rhel" && *osrelease.version.major == 7 {
-		for _, iface := range interfaces {
-			ifcfg, err := os.Create("/etc/sysconfig/network-scripts/ifcfg-" + iface)
+	switch {
+	case osrelease.os == "sles":
+		return enableSLESInterfaces(googleInterfaces)
+	case osrelease.os == "rhel" && *osrelease.version.major == 7:
+		for _, iface := range googleInterfaces {
+			err := disableNM(iface)
 			if err != nil {
 				return err
 			}
-			defer ifcfg.Close()
-			// TODO: if it exists, we only amend the file.
-			_, err = ifcfg.WriteString("# Added by Google.\nBOOTPROTO=none\nDEFROUTE=no\nIPV6INIT=no\nNM_CONTROLLED=no\nNOZEROCONF=yes\nDEVICE=" + iface)
-			if err != nil {
-				return err
-			}
 		}
+		fallthrough
+	default:
+		err := runCmd(exec.Command("dhclient", "-x"))
+		if err != nil {
+			logger.Warningf("Error running 'dhclient -x': %v.", err)
+		}
+		return runCmd(exec.Command("dhclient", googleInterfaces...))
 	}
+	return nil
+}
 
-	if osrelease.os == "sles" {
-		if *osrelease.version.major == 11 {
-			for _, iface := range interfaces {
-				exec.Command("dhcpcd", "-x", iface).Run()
-				if err := exec.Command("dhcpcd", iface).Run(); err != nil {
-					return err
-				}
-			}
-			return nil
+// enableSLESInterfaces writes one ifcfg file for each interface, then
+// runs `wicked ifup eth1 eth2 ... ethN`
+func enableSLESInterfaces(interfaces []string) error {
+	var err error
+	for _, iface := range interfaces {
+		var ifcfg *os.File
+		ifcfg, err = os.Create("/etc/sysconfig/network/ifcfg-" + iface)
+		if err != nil {
+			return err
 		}
-		if *osrelease.version.major == 12 {
-			for _, iface := range interfaces {
-				ifcfg, err := os.Create("/etc/sysconfig/network/ifcfg-" + iface)
-				if err != nil {
-					return err
-				}
-				defer ifcfg.Close()
-				_, err = ifcfg.WriteString("# Added by Google.\nSTARTMODE=hotplug\nBOOTPROTO=dhcp\nDHCLIENT_SET_DEFAULT_ROUTE=yes\nDHCLIENT_ROUTE_PRIORITY=10" + iface + "00")
-				if err != nil {
-					return err
-				}
-			}
-			args := append([]string{"ifup", "--timeout", "1"}, interfaces...)
-			return exec.Command("/usr/sbin/wicked", args...).Run()
+		defer closer(ifcfg)
+		_, err = ifcfg.WriteString("# Added by Google.\nSTARTMODE=hotplug\nBOOTPROTO=dhcp\nDHCLIENT_SET_DEFAULT_ROUTE=yes\nDHCLIENT_ROUTE_PRIORITY=1000")
+		if err != nil {
+			return err
 		}
 	}
-	exec.Command("dhclient", "-x").Run()
-	return exec.Command("dhclient", interfaces...).Run()
+	args := append([]string{"ifup", "--timeout", "1"}, interfaces...)
+	return runCmd(exec.Command("/usr/sbin/wicked", args...))
+}
+
+// disableNM writes an ifcfg file with DHCP and NetworkManager disabled.
+func disableNM(iface string) error {
+	filename := "/etc/sysconfig/network-scripts/ifcfg-" + iface
+	ifcfg, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err == nil {
+		defer closer(ifcfg)
+		_, err = ifcfg.WriteString("# Added by Google.\nBOOTPROTO=none\nDEFROUTE=no\nIPV6INIT=no\nNM_CONTROLLED=no\nNOZEROCONF=yes\nDEVICE=" + iface)
+		return err
+	}
+	if os.IsExist(err) {
+		return nil
+	}
+	return err
 }

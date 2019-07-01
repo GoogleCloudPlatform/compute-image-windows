@@ -17,6 +17,8 @@ package main
 import (
 	"os/exec"
 	"runtime"
+
+	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
 )
 
 type clockskewMgr struct{}
@@ -36,14 +38,20 @@ func (a *clockskewMgr) disabled() (disabled bool) {
 
 func (a *clockskewMgr) set() error {
 	if runtime.GOOS == "freebsd" {
-		err := exec.Command("service", "ntpd", "status").Run()
+		err := runCmd(exec.Command("service", "ntpd", "status"))
 		if err == nil {
-			defer exec.Command("service", "ntpd", "start").Run()
-			exec.Command("service", "ntpd", "stop").Run()
+			if err := runCmd(exec.Command("service", "ntpd", "stop")); err != nil {
+				return err
+			}
+			defer func() {
+				if err := runCmd(exec.Command("service", "ntpd", "start")); err != nil {
+					logger.Warningf("Error starting 'ntpd' after clock sync: %v.", err)
+				}
+			}()
 		}
 		// TODO get server
-		return exec.Command("ntpdate", "metadata.google.internal").Run()
+		return runCmd(exec.Command("ntpdate", "metadata.google.internal"))
 	}
 
-	return exec.Command("/sbin/hwclock", "--hctosys", "-u").Run()
+	return runCmd(exec.Command("/sbin/hwclock", "--hctosys", "-u"))
 }

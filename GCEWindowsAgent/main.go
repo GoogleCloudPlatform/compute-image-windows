@@ -18,10 +18,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
+	"os/exec"
 	"runtime"
 	"sync"
 	"time"
@@ -41,7 +43,7 @@ var (
 
 const (
 	winConfigPath = `C:\Program Files\Google\Compute Engine\instance_configs.cfg`
-	nixConfigPath = `/etc/default/instance_configs.cfg`
+	configPath    = `/etc/default/instance_configs.cfg`
 	regKeyBase    = `SOFTWARE\Google\ComputeEngine`
 )
 
@@ -51,7 +53,7 @@ func writeSerial(port string, msg []byte) error {
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer closer(s)
 
 	_, err = s.Write(msg)
 	if err != nil {
@@ -93,7 +95,7 @@ func parseConfig(file string) (*ini.File, error) {
 }
 
 func runUpdate() {
-	cfgPath := nixConfigPath
+	cfgPath := configPath
 	if runtime.GOOS == "windows" {
 		cfgPath = winConfigPath
 	}
@@ -107,7 +109,7 @@ func runUpdate() {
 	var wg sync.WaitGroup
 	var mgrs []manager
 	if runtime.GOOS == "windows" {
-		mgrs = []manager{newWsfcManager(), &addressMgr{}, &accountsMgr{}, &diagnosticsMgr{}}
+		mgrs = []manager{newWsfcManager(), &addressMgr{}, &accountsMgr{}}
 	} else {
 		mgrs = []manager{&clockskewMgr{}}
 	}
@@ -168,6 +170,18 @@ func run(ctx context.Context) {
 	logger.Infof("GCE Agent Stopped")
 }
 
+// runCmd is exec.Cmd.Run() with a flattened error return.
+func runCmd(cmd *exec.Cmd) error {
+	err := cmd.Run()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf(string(ee.Stderr))
+		}
+		return err
+	}
+	return nil
+}
+
 func containsString(s string, ss []string) bool {
 	for _, a := range ss {
 		if a == s {
@@ -180,6 +194,13 @@ func containsString(s string, ss []string) bool {
 func logFormat(e logger.LogEntry) string {
 	now := time.Now().Format("2006/01/02 15:04:05")
 	return fmt.Sprintf("%s %s: %s", now, programName, e.Message)
+}
+
+func closer(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		logger.Warningf("Error closing %v: %v.", c, err)
+	}
 }
 
 func main() {
