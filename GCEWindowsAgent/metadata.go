@@ -90,6 +90,11 @@ type windowsKey struct {
 type windowsKeys []windowsKey
 
 func (a *attributes) UnmarshalJSON(b []byte) error {
+	var mkbool = func(value bool) *bool {
+		res := new(bool)
+		*res = value
+		return res
+	}
 	// Unmarshal to literal JSON types before doing anything else.
 	type inner struct {
 		BlockProjectKeys      string      `json:"block-project-ssh-keys"`
@@ -120,15 +125,15 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 	}
 	value, err = strconv.ParseBool(temp.EnableDiagnostics)
 	if err == nil {
-		a.EnableDiagnostics = &value
+		a.EnableDiagnostics = mkbool(value)
 	}
 	value, err = strconv.ParseBool(temp.DisableAccountManager)
 	if err == nil {
-		a.DisableAccountManager = &value
+		a.DisableAccountManager = mkbool(value)
 	}
 	value, err = strconv.ParseBool(temp.DisableAddressManager)
 	if err == nil {
-		a.DisableAddressManager = &value
+		a.DisableAddressManager = mkbool(value)
 	}
 	value, err = strconv.ParseBool(temp.EnableOSLogin)
 	if err == nil {
@@ -136,7 +141,7 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 	}
 	value, err = strconv.ParseBool(temp.EnableWSFC)
 	if err == nil {
-		a.EnableWSFC = &value
+		a.EnableWSFC = mkbool(value)
 	}
 	value, err = strconv.ParseBool(temp.TwoFactor)
 	if err == nil {
