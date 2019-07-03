@@ -57,19 +57,19 @@ func TestAddressDisabled(t *testing.T) {
 	var tests = []struct {
 		name string
 		data []byte
-		md   *metadataJSON
+		md   *metadata
 		want bool
 	}{
-		{"not explicitly disabled", []byte(""), &metadataJSON{}, false},
-		{"enabled in cfg only", []byte("[addressManager]\ndisable=false"), &metadataJSON{}, false},
-		{"disabled in cfg only", []byte("[addressManager]\ndisable=true"), &metadataJSON{}, true},
-		{"disabled in cfg, enabled in instance metadata", []byte("[addressManager]\ndisable=true"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: mkptr(false)}}}, true},
-		{"enabled in cfg, disabled in instance metadata", []byte("[addressManager]\ndisable=false"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: mkptr(true)}}}, false},
-		{"enabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: mkptr(false)}}}, false},
-		{"enabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{DisableAddressManager: mkptr(false)}}}, false},
-		{"disabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: mkptr(true)}}}, true},
-		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: mkptr(false)}}, Project: projectJSON{Attributes: attributesJSON{DisableAddressManager: mkptr(true)}}}, false},
-		{"disabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{DisableAddressManager: mkptr(true)}}}, true},
+		{"not explicitly disabled", []byte(""), &metadata{}, false},
+		{"enabled in cfg only", []byte("[addressManager]\ndisable=false"), &metadata{}, false},
+		{"disabled in cfg only", []byte("[addressManager]\ndisable=true"), &metadata{}, true},
+		{"disabled in cfg, enabled in instance metadata", []byte("[addressManager]\ndisable=true"), &metadata{Instance: instance{Attributes: attributes{DisableAddressManager: mkptr(false)}}}, true},
+		{"enabled in cfg, disabled in instance metadata", []byte("[addressManager]\ndisable=false"), &metadata{Instance: instance{Attributes: attributes{DisableAddressManager: mkptr(true)}}}, false},
+		{"enabled in instance metadata only", []byte(""), &metadata{Instance: instance{Attributes: attributes{DisableAddressManager: mkptr(false)}}}, false},
+		{"enabled in project metadata only", []byte(""), &metadata{Project: project{Attributes: attributes{DisableAddressManager: mkptr(false)}}}, false},
+		{"disabled in instance metadata only", []byte(""), &metadata{Instance: instance{Attributes: attributes{DisableAddressManager: mkptr(true)}}}, true},
+		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadata{Instance: instance{Attributes: attributes{DisableAddressManager: mkptr(false)}}, Project: project{Attributes: attributes{DisableAddressManager: mkptr(true)}}}, false},
+		{"disabled in project metadata only", []byte(""), &metadata{Project: project{Attributes: attributes{DisableAddressManager: mkptr(true)}}}, true},
 	}
 
 	for _, tt := range tests {
@@ -94,19 +94,19 @@ func TestAddressDiff(t *testing.T) {
 	var tests = []struct {
 		name string
 		data []byte
-		md   *metadataJSON
+		md   *metadata
 		want bool
 	}{
-		{"not set", []byte(""), &metadataJSON{}, false},
-		{"enabled in cfg only", []byte("[wsfc]\nenable=true"), &metadataJSON{}, true},
-		{"disabled in cfg only", []byte("[wsfc]\nenable=false"), &metadataJSON{}, false},
-		{"disabled in cfg, enabled in instance metadata", []byte("[wsfc]\nenable=false"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableWSFC: mkptr(true)}}}, false},
-		{"enabled in cfg, disabled in instance metadata", []byte("[wsfc]\nenable=true"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableWSFC: mkptr(false)}}}, true},
-		{"enabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableWSFC: mkptr(true)}}}, true},
-		{"enabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{EnableWSFC: mkptr(true)}}}, true},
-		{"disabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableWSFC: mkptr(false)}}}, false},
-		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{EnableWSFC: mkptr(true)}}, Project: projectJSON{Attributes: attributesJSON{EnableWSFC: mkptr(false)}}}, true},
-		{"disabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{EnableWSFC: mkptr(false)}}}, false},
+		{"not set", []byte(""), &metadata{}, false},
+		{"enabled in cfg only", []byte("[wsfc]\nenable=true"), &metadata{}, true},
+		{"disabled in cfg only", []byte("[wsfc]\nenable=false"), &metadata{}, false},
+		{"disabled in cfg, enabled in instance metadata", []byte("[wsfc]\nenable=false"), &metadata{Instance: instance{Attributes: attributes{EnableWSFC: mkptr(true)}}}, false},
+		{"enabled in cfg, disabled in instance metadata", []byte("[wsfc]\nenable=true"), &metadata{Instance: instance{Attributes: attributes{EnableWSFC: mkptr(false)}}}, true},
+		{"enabled in instance metadata only", []byte(""), &metadata{Instance: instance{Attributes: attributes{EnableWSFC: mkptr(true)}}}, true},
+		{"enabled in project metadata only", []byte(""), &metadata{Project: project{Attributes: attributes{EnableWSFC: mkptr(true)}}}, true},
+		{"disabled in instance metadata only", []byte(""), &metadata{Instance: instance{Attributes: attributes{EnableWSFC: mkptr(false)}}}, false},
+		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadata{Instance: instance{Attributes: attributes{EnableWSFC: mkptr(true)}}, Project: project{Attributes: attributes{EnableWSFC: mkptr(false)}}}, true},
+		{"disabled in project metadata only", []byte(""), &metadata{Project: project{Attributes: attributes{EnableWSFC: mkptr(false)}}}, false},
 	}
 
 	for _, tt := range tests {
@@ -119,7 +119,7 @@ func TestAddressDiff(t *testing.T) {
 			cfg = &ini.File{}
 		}
 		oldWSFCEnable = false
-		oldMetadata = &metadataJSON{}
+		oldMetadata = &metadata{}
 		newMetadata = tt.md
 		config = cfg
 		got := (&addressMgr{}).diff()
@@ -131,8 +131,8 @@ func TestAddressDiff(t *testing.T) {
 
 func TestWsfcFilter(t *testing.T) {
 	var tests = []struct {
-		metaData    []byte
-		expectedIps []string
+		metaDataJSON []byte
+		expectedIps  []string
 	}{
 		// signle nic with enable-wsfc set to true
 		{[]byte(`{"instance":{"attributes":{"enable-wsfc":"true"}, "networkInterfaces":[{"forwardedIps":["192.168.0.0", "192.168.0.1"]}]}}`), []string{}},
@@ -147,13 +147,13 @@ func TestWsfcFilter(t *testing.T) {
 	}
 
 	config = ini.Empty()
-	for _, tt := range tests {
-		var metadata metadataJSON
-		if err := json.Unmarshal(tt.metaData, &metadata); err != nil {
-			t.Error("invalid test case:", tt, err)
+	for idx, tt := range tests {
+		var md metadata
+		if err := json.Unmarshal(tt.metaDataJSON, &md); err != nil {
+			t.Error("failed to unmarshal test JSON:", tt, err)
 		}
 
-		newMetadata = &metadata
+		newMetadata = &md
 		testAddress := addressMgr{}
 		testAddress.applyWSFCFilter()
 
@@ -163,20 +163,20 @@ func TestWsfcFilter(t *testing.T) {
 		}
 
 		if !reflect.DeepEqual(forwardedIps, tt.expectedIps) {
-			t.Errorf("wsfc filter failed: expect - %q, actual - %q", tt.expectedIps, forwardedIps)
+			t.Errorf("wsfc filter failed test %d: expect - %q, actual - %q", idx, tt.expectedIps, forwardedIps)
 		}
 	}
 }
 
 func TestWsfcFlagTriggerAddressDiff(t *testing.T) {
 	var tests = []struct {
-		newMetadata, oldMetadata *metadataJSON
+		newMetadata, oldMetadata *metadata
 	}{
 		// trigger diff on wsfc-addrs
-		{&metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.1"}}}, &metadataJSON{}},
-		{&metadataJSON{Project: projectJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.1"}}}, &metadataJSON{}},
-		{&metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.1"}}}, &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.2"}}}},
-		{&metadataJSON{Project: projectJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.1"}}}, &metadataJSON{Project: projectJSON{Attributes: attributesJSON{WSFCAddresses: "192.168.0.2"}}}},
+		{&metadata{Instance: instance{Attributes: attributes{WSFCAddresses: "192.168.0.1"}}}, &metadata{}},
+		{&metadata{Project: project{Attributes: attributes{WSFCAddresses: "192.168.0.1"}}}, &metadata{}},
+		{&metadata{Instance: instance{Attributes: attributes{WSFCAddresses: "192.168.0.1"}}}, &metadata{Instance: instance{Attributes: attributes{WSFCAddresses: "192.168.0.2"}}}},
+		{&metadata{Project: project{Attributes: attributes{WSFCAddresses: "192.168.0.1"}}}, &metadata{Project: project{Attributes: attributes{WSFCAddresses: "192.168.0.2"}}}},
 	}
 
 	config = ini.Empty()
@@ -194,7 +194,7 @@ func TestWsfcFlagTriggerAddressDiff(t *testing.T) {
 func TestAddressLogStatus(t *testing.T) {
 	// Disable it.
 	addressDisabled = false
-	newMetadata = &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: mkptr(true)}}}
+	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAddressManager: mkptr(true)}}}
 	config = ini.Empty()
 	disabled := (&addressMgr{}).disabled()
 	if !disabled {
@@ -202,7 +202,7 @@ func TestAddressLogStatus(t *testing.T) {
 	}
 
 	// Enable it.
-	newMetadata = &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAddressManager: mkptr(false)}}}
+	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAddressManager: mkptr(false)}}}
 	disabled = (&addressMgr{}).disabled()
 	if disabled {
 		t.Fatal("expected false but got", disabled)

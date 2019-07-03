@@ -36,29 +36,34 @@ var (
 	etag              = defaultEtag
 )
 
-type metadataJSON struct {
-	Instance instanceJSON
-	Project  projectJSON
+type metadata struct {
+	Instance instance
+	Project  project
 }
 
-type instanceJSON struct {
-	Attributes        attributesJSON
-	NetworkInterfaces []networkInterfacesJSON
+type virtualClock struct {
+	DriftToken int
 }
 
-type networkInterfacesJSON struct {
+type instance struct {
+	Attributes        attributes
+	NetworkInterfaces []networkInterfaces
+	VirtualClock      virtualClock
+}
+
+type networkInterfaces struct {
 	ForwardedIps      []string
 	TargetInstanceIps []string
 	IPAliases         []string
 	Mac               string
 }
 
-type projectJSON struct {
-	Attributes attributesJSON
-	ProjectID  string `json:"projectId"`
+type project struct {
+	Attributes attributes
+	ProjectID  string
 }
 
-type attributesJSON struct {
+type attributes struct {
 	WindowsKeys           windowsKeys
 	Diagnostics           string
 	DisableAddressManager *bool
@@ -80,7 +85,7 @@ type windowsKey struct {
 
 type windowsKeys []windowsKey
 
-func (a *attributesJSON) UnmarshalJSON(b []byte) error {
+func (a *attributes) UnmarshalJSON(b []byte) error {
 	type inner struct {
 		WindowsKeys           windowsKeys `json:"windows-keys"`
 		Diagnostics           string      `json:"diagnostics"`
@@ -147,11 +152,11 @@ func updateEtag(resp *http.Response) bool {
 	return etag != oldEtag
 }
 
-func watchMetadata(ctx context.Context) (*metadataJSON, error) {
+func watchMetadata(ctx context.Context) (*metadata, error) {
 	return getMetadata(ctx, true)
 }
 
-func getMetadata(ctx context.Context, hang bool) (*metadataJSON, error) {
+func getMetadata(ctx context.Context, hang bool) (*metadata, error) {
 	client := &http.Client{
 		Timeout: defaultTimeout,
 	}
@@ -188,6 +193,6 @@ func getMetadata(ctx context.Context, hang bool) (*metadataJSON, error) {
 	if err != nil {
 		return nil, err
 	}
-	var metadata metadataJSON
-	return &metadata, json.Unmarshal(md, &metadata)
+	var ret metadata
+	return &ret, json.Unmarshal(md, &ret)
 }

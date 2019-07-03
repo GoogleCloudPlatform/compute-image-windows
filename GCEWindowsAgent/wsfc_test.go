@@ -25,30 +25,30 @@ import (
 	"github.com/go-ini/ini"
 )
 
-func setEnableWSFC(metadata metadataJSON, enabled *bool) *metadataJSON {
-	metadata.Instance.Attributes.EnableWSFC = enabled
-	return &metadata
+func setEnableWSFC(md metadata, enabled *bool) *metadata {
+	md.Instance.Attributes.EnableWSFC = enabled
+	return &md
 }
 
-func setWSFCAddresses(metadata metadataJSON, wsfcAddresses string) *metadataJSON {
-	metadata.Instance.Attributes.WSFCAddresses = wsfcAddresses
-	return &metadata
+func setWSFCAddresses(md metadata, wsfcAddresses string) *metadata {
+	md.Instance.Attributes.WSFCAddresses = wsfcAddresses
+	return &md
 }
 
-func setWSFCAgentPort(metadata metadataJSON, wsfcPort string) *metadataJSON {
-	metadata.Instance.Attributes.WSFCAgentPort = wsfcPort
-	return &metadata
+func setWSFCAgentPort(md metadata, wsfcPort string) *metadata {
+	md.Instance.Attributes.WSFCAgentPort = wsfcPort
+	return &md
 }
 
 var (
 	testAgent    = getWsfcAgentInstance()
-	testMetadata = metadataJSON{}
+	testMetadata = metadata{}
 	testListener = &net.TCPListener{}
 )
 
 func TestNewWsfcManager(t *testing.T) {
 	type args struct {
-		newMetadata *metadataJSON
+		newMetadata *metadata
 	}
 	tests := []struct {
 		name string
@@ -183,7 +183,7 @@ func getHealthCheckResponce(request string, agent healthAgent) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer conn.Close()
+	defer closer(conn)
 
 	fmt.Fprintf(conn, request)
 	return bufio.NewReader(conn).ReadString('\n')

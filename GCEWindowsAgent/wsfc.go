@@ -195,7 +195,7 @@ func (a *wsfcAgent) run() error {
 // The request payload is WSFC ip address.
 // Sendback 1 if ipaddress is found locally and 0 otherwise.
 func (a *wsfcAgent) handleHealthCheckRequest(conn net.Conn) {
-	defer conn.Close()
+	defer closer(conn)
 	defer a.waitGroup.Done()
 	conn.SetDeadline(time.Now().Add(time.Second))
 

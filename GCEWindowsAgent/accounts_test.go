@@ -58,19 +58,19 @@ func TestAccountsDisabled(t *testing.T) {
 	var tests = []struct {
 		name string
 		data []byte
-		md   *metadataJSON
+		md   *metadata
 		want bool
 	}{
-		{"not explicitly disabled", []byte(""), &metadataJSON{}, false},
-		{"enabled in cfg only", []byte("[accountManager]\ndisable=false"), &metadataJSON{}, false},
-		{"disabled in cfg only", []byte("[accountManager]\ndisable=true"), &metadataJSON{}, true},
-		{"disabled in cfg, enabled in instance metadata", []byte("[accountManager]\ndisable=true"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(false)}}}, true},
-		{"enabled in cfg, disabled in instance metadata", []byte("[accountManager]\ndisable=false"), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(true)}}}, false},
-		{"enabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(false)}}}, false},
-		{"enabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(false)}}}, false},
-		{"disabled in instance metadata only", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(true)}}}, true},
-		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(false)}}, Project: projectJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(true)}}}, false},
-		{"disabled in project metadata only", []byte(""), &metadataJSON{Project: projectJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(true)}}}, true},
+		{"not explicitly disabled", []byte(""), &metadata{}, false},
+		{"enabled in cfg only", []byte("[accountManager]\ndisable=false"), &metadata{}, false},
+		{"disabled in cfg only", []byte("[accountManager]\ndisable=true"), &metadata{}, true},
+		{"disabled in cfg, enabled in instance metadata", []byte("[accountManager]\ndisable=true"), &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(false)}}}, true},
+		{"enabled in cfg, disabled in instance metadata", []byte("[accountManager]\ndisable=false"), &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(true)}}}, false},
+		{"enabled in instance metadata only", []byte(""), &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(false)}}}, false},
+		{"enabled in project metadata only", []byte(""), &metadata{Project: project{Attributes: attributes{DisableAccountManager: mkptr(false)}}}, false},
+		{"disabled in instance metadata only", []byte(""), &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(true)}}}, true},
+		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(false)}}, Project: project{Attributes: attributes{DisableAccountManager: mkptr(true)}}}, false},
+		{"disabled in project metadata only", []byte(""), &metadata{Project: project{Attributes: attributes{DisableAccountManager: mkptr(true)}}}, true},
 	}
 
 	for _, tt := range tests {
@@ -195,7 +195,7 @@ func TestAccountsLogStatus(t *testing.T) {
 	// Disable it.
 	accountDisabled = false
 
-	newMetadata = &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(true)}}}
+	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(true)}}}
 	config = ini.Empty()
 	disabled := (&accountsMgr{}).disabled()
 	if !disabled {
@@ -203,7 +203,7 @@ func TestAccountsLogStatus(t *testing.T) {
 	}
 
 	// Enable it.
-	newMetadata = &metadataJSON{Instance: instanceJSON{Attributes: attributesJSON{DisableAccountManager: mkptr(false)}}}
+	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(false)}}}
 	disabled = (&accountsMgr{}).disabled()
 	if disabled {
 		t.Fatal("expected false but got", disabled)
