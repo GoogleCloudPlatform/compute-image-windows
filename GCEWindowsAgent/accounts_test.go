@@ -89,6 +89,10 @@ func TestAccountsDisabled(t *testing.T) {
 			t.Errorf("test case %q, accounts.disabled() got: %t, want: %t", tt.name, got, tt.want)
 		}
 	}
+	got := (&winAccountsMgr{}).disabled("linux")
+	if got != true {
+		t.Errorf("winAccountsMgr.disabled(\"linux\") got: %t, want: true", got)
+	}
 }
 
 func TestNewPwd(t *testing.T) {

@@ -27,10 +27,11 @@ import (
 )
 
 var (
-	addressKey       = regKeyBase + `\ForwardedIps`
-	oldWSFCAddresses string
-	oldWSFCEnable    bool
-	protoID          = 66
+	addressKey        = regKeyBase + `\ForwardedIps`
+	oldWSFCAddresses  string
+	oldWSFCEnable     bool
+	interfacesEnabled bool
+	protoID           = 66
 )
 
 type addressMgr struct{}
@@ -372,7 +373,7 @@ func enableNetworkInterfaces(interfaces []net.Interface) error {
 	switch {
 	case osrelease.os == "sles":
 		return enableSLESInterfaces(googleInterfaces)
-	case osrelease.os == "rhel" && *osrelease.version.major == 7:
+	case osrelease.os == "rhel" && osrelease.version.major == 7:
 		for _, iface := range googleInterfaces {
 			err := disableNM(iface)
 			if err != nil {

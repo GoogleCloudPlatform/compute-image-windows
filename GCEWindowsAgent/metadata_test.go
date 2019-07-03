@@ -78,7 +78,7 @@ func TestBlockProjectKeys(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		var md metadataJSON
+		var md metadata
 		if err := json.Unmarshal([]byte(test.json), &md); err != nil {
 			t.Errorf("failed to unmarshal JSON: %v", err)
 		}

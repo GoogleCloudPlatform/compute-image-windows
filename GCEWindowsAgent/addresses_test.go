@@ -85,7 +85,7 @@ func TestAddressDisabled(t *testing.T) {
 		config = cfg
 		got := (&addressMgr{}).disabled("")
 		if got != tt.want {
-			t.Errorf("test case %q, disabled? got: %t, want: %t", tt.name, got, tt.want)
+			t.Errorf("test case %q, addressMgr.disabled() got: %t, want: %t", tt.name, got, tt.want)
 		}
 	}
 }

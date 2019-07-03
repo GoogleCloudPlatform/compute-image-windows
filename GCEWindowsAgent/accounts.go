@@ -82,7 +82,7 @@ func (a *accountsMgr) timeout() bool {
 	return false
 }
 
-func (a *accountsMgr) disabled(os string) (disabled bool) {
+func (a *accountsMgr) disabled(os string) bool {
 	return false ||
 		os == "windows" ||
 		!config.Section("Daemons").Key("accounts_daemon").MustBool(true) ||

@@ -89,15 +89,6 @@ func TestWsfcManagerDiff(t *testing.T) {
 	}
 }
 
-func TestWsfcManagerDisabled(t *testing.T) {
-	m := &wsfcManager{}
-	want := false
-
-	if got := m.disabled(""); got != want {
-		t.Errorf("wsfcManager.disabled() = %v, want %v", got, want)
-	}
-}
-
 // Mock health agent for unit testing
 type mockAgent struct {
 	state       agentState
