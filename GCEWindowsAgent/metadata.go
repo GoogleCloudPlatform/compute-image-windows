@@ -37,18 +37,18 @@ var (
 )
 
 type metadata struct {
-	Instance
-	Project
+	Instance instance
+	Project  project
 }
 
-type VirtualClock struct {
+type virtualClock struct {
 	DriftToken int
 }
 
-type Instance struct {
-	Attributes
+type instance struct {
+	Attributes        attributes
 	NetworkInterfaces []networkInterfaces
-	VirtualClock
+	VirtualClock      virtualClock
 }
 
 type networkInterfaces struct {
@@ -58,13 +58,13 @@ type networkInterfaces struct {
 	Mac               string
 }
 
-type Project struct {
-	Attributes
-	ProjectID string
+type project struct {
+	Attributes attributes
+	ProjectID  string
 }
 
-type Attributes struct {
-	WindowsKeys
+type attributes struct {
+	WindowsKeys           windowsKeys
 	Diagnostics           string
 	DisableAddressManager *bool
 	DisableAccountManager *bool
@@ -83,11 +83,11 @@ type windowsKey struct {
 	HashFunction string
 }
 
-type WindowsKeys []windowsKey
+type windowsKeys []windowsKey
 
-func (a *Attributes) UnmarshalJSON(b []byte) error {
+func (a *attributes) UnmarshalJSON(b []byte) error {
 	type inner struct {
-		WindowsKeys           WindowsKeys `json:"windows-keys"`
+		WindowsKeys           windowsKeys `json:"windows-keys"`
 		Diagnostics           string      `json:"diagnostics"`
 		DisableAddressManager string      `json:"disable-address-manager"`
 		DisableAccountManager string      `json:"disable-account-manager"`
@@ -122,7 +122,7 @@ func (a *Attributes) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (wks *WindowsKeys) UnmarshalJSON(b []byte) error {
+func (wks *windowsKeys) UnmarshalJSON(b []byte) error {
 	var s string
 	if err := json.Unmarshal(b, &s); err != nil {
 		return err

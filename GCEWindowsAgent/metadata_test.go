@@ -35,7 +35,7 @@ func TestWatchMetadata(t *testing.T) {
 		fmt.Fprintln(w, `{"project":{"attributes":{"wsfc-addrs":"foo"}}}`)
 		req++
 	}))
-	defer closer(ts)
+	defer ts.Close()
 
 	metadataURL = ts.URL
 	// So that the test wont timeout.

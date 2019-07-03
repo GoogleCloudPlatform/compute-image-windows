@@ -405,7 +405,6 @@ func enableNetworkInterfaces(interfaces []net.Interface) error {
 		}
 		return runCmd(exec.Command("dhclient", googleInterfaces...))
 	}
-	return nil
 }
 
 // enableSLESInterfaces writes one ifcfg file for each interface, then

@@ -64,13 +64,13 @@ func TestAccountsDisabled(t *testing.T) {
 		{"not explicitly disabled", []byte(""), &metadata{}, false},
 		{"enabled in cfg only", []byte("[accountManager]\ndisable=false"), &metadata{}, false},
 		{"disabled in cfg only", []byte("[accountManager]\ndisable=true"), &metadata{}, true},
-		{"disabled in cfg, enabled in instance metadata", []byte("[accountManager]\ndisable=true"), &metadata{Instance: Instance{Attributes: Attributes{DisableAccountManager: mkptr(false)}}}, true},
-		{"enabled in cfg, disabled in instance metadata", []byte("[accountManager]\ndisable=false"), &metadata{Instance: Instance{Attributes: Attributes{DisableAccountManager: mkptr(true)}}}, false},
-		{"enabled in instance metadata only", []byte(""), &metadata{Instance: Instance{Attributes: Attributes{DisableAccountManager: mkptr(false)}}}, false},
-		{"enabled in project metadata only", []byte(""), &metadata{Project: Project{Attributes: Attributes{DisableAccountManager: mkptr(false)}}}, false},
-		{"disabled in instance metadata only", []byte(""), &metadata{Instance: Instance{Attributes: Attributes{DisableAccountManager: mkptr(true)}}}, true},
-		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadata{Instance: Instance{Attributes: Attributes{DisableAccountManager: mkptr(false)}}, Project: Project{Attributes: Attributes{DisableAccountManager: mkptr(true)}}}, false},
-		{"disabled in project metadata only", []byte(""), &metadata{Project: Project{Attributes: Attributes{DisableAccountManager: mkptr(true)}}}, true},
+		{"disabled in cfg, enabled in instance metadata", []byte("[accountManager]\ndisable=true"), &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(false)}}}, true},
+		{"enabled in cfg, disabled in instance metadata", []byte("[accountManager]\ndisable=false"), &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(true)}}}, false},
+		{"enabled in instance metadata only", []byte(""), &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(false)}}}, false},
+		{"enabled in project metadata only", []byte(""), &metadata{Project: project{Attributes: attributes{DisableAccountManager: mkptr(false)}}}, false},
+		{"disabled in instance metadata only", []byte(""), &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(true)}}}, true},
+		{"enabled in instance metadata, disabled in project metadata", []byte(""), &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(false)}}, Project: project{Attributes: attributes{DisableAccountManager: mkptr(true)}}}, false},
+		{"disabled in project metadata only", []byte(""), &metadata{Project: project{Attributes: attributes{DisableAccountManager: mkptr(true)}}}, true},
 	}
 
 	for _, tt := range tests {
@@ -167,18 +167,18 @@ func TestCreatecredsJSON(t *testing.T) {
 
 func TestCompareAccounts(t *testing.T) {
 	var tests = []struct {
-		newKeys    WindowsKeys
+		newKeys    windowsKeys
 		oldStrKeys []string
-		wantAdd    WindowsKeys
+		wantAdd    windowsKeys
 	}{
 		// These should return toAdd:
 		// In MD, not Reg
-		{WindowsKeys{{UserName: "foo"}}, nil, WindowsKeys{{UserName: "foo"}}},
-		{WindowsKeys{{UserName: "foo"}}, []string{`{"UserName":"bar"}`}, WindowsKeys{{UserName: "foo"}}},
+		{windowsKeys{{UserName: "foo"}}, nil, windowsKeys{{UserName: "foo"}}},
+		{windowsKeys{{UserName: "foo"}}, []string{`{"UserName":"bar"}`}, windowsKeys{{UserName: "foo"}}},
 
 		// These should return nothing:
 		// In Reg and MD
-		{WindowsKeys{{UserName: "foo"}}, []string{`{"UserName":"foo"}`}, nil},
+		{windowsKeys{{UserName: "foo"}}, []string{`{"UserName":"foo"}`}, nil},
 		// In Reg, not MD
 		{nil, []string{`{UserName":"foo"}`}, nil},
 	}
@@ -195,7 +195,7 @@ func TestAccountsLogStatus(t *testing.T) {
 	// Disable it.
 	accountDisabled = false
 
-	newMetadata = &metadata{Instance: Instance{Attributes: Attributes{DisableAccountManager: mkptr(true)}}}
+	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(true)}}}
 	config = ini.Empty()
 	disabled := (&accountsMgr{}).disabled()
 	if !disabled {
@@ -203,7 +203,7 @@ func TestAccountsLogStatus(t *testing.T) {
 	}
 
 	// Enable it.
-	newMetadata = &metadata{Instance: Instance{Attributes: Attributes{DisableAccountManager: mkptr(false)}}}
+	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(false)}}}
 	disabled = (&accountsMgr{}).disabled()
 	if disabled {
 		t.Fatal("expected false but got", disabled)
