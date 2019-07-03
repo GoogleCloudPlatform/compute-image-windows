@@ -39,6 +39,7 @@ var (
 	ticker                   = time.Tick(70 * time.Second)
 	oldMetadata, newMetadata *metadata
 	config                   *ini.File
+	osRelease                release
 )
 
 const (
@@ -65,7 +66,7 @@ func writeSerial(port string, msg []byte) error {
 
 type manager interface {
 	diff() bool
-	disabled() bool
+	disabled(string) bool
 	set() error
 	timeout() bool
 }
@@ -94,6 +95,13 @@ func parseConfig(file string) (*ini.File, error) {
 	return cfg, nil
 }
 
+func closeFile(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		logger.Warningf("Error closing file: %v.", err)
+	}
+}
+
 func runUpdate() {
 	cfgPath := configPath
 	if runtime.GOOS == "windows" {
@@ -109,7 +117,7 @@ func runUpdate() {
 	var wg sync.WaitGroup
 	var mgrs []manager
 	if runtime.GOOS == "windows" {
-		mgrs = []manager{newWsfcManager(), &addressMgr{}, &accountsMgr{}}
+		mgrs = []manager{newWsfcManager(), &addressMgr{}, &winAccountsMgr{}}
 	} else {
 		mgrs = []manager{&clockskewMgr{}}
 	}
@@ -117,7 +125,7 @@ func runUpdate() {
 		wg.Add(1)
 		go func(mgr manager) {
 			defer wg.Done()
-			if mgr.disabled() || (!mgr.timeout() && !mgr.diff()) {
+			if mgr.disabled(runtime.GOOS) || (!mgr.timeout() && !mgr.diff()) {
 				return
 			}
 			if err := mgr.set(); err != nil {
@@ -130,6 +138,11 @@ func runUpdate() {
 
 func run(ctx context.Context) {
 	logger.Infof("GCE Agent Started (version %s)", version)
+	var err error
+	osRelease, err = getRelease()
+	if err != nil && runtime.GOOS != "windows" {
+		logger.Warningf("Couldn't detect OS release")
+	}
 
 	go func() {
 		oldMetadata = &metadata{}

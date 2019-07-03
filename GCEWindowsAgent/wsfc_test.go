@@ -89,15 +89,6 @@ func TestWsfcManagerDiff(t *testing.T) {
 	}
 }
 
-func TestWsfcManagerDisabled(t *testing.T) {
-	m := &wsfcManager{}
-	want := false
-
-	if got := m.disabled(); got != want {
-		t.Errorf("wsfcManager.disabled() = %v, want %v", got, want)
-	}
-}
-
 // Mock health agent for unit testing
 type mockAgent struct {
 	state       agentState
@@ -185,7 +176,7 @@ func getHealthCheckResponce(request string, agent healthAgent) (string, error) {
 	}
 	defer closer(conn)
 
-	fmt.Fprintf(conn, request)
+	fmt.Fprint(conn, request)
 	return bufio.NewReader(conn).ReadString('\n')
 }
 

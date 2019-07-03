@@ -21,18 +21,16 @@ import (
 	"os/exec"
 	"reflect"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
 )
 
 var (
-	addressDisabled   = false
 	addressKey        = regKeyBase + `\ForwardedIps`
-	interfacesEnabled = false
 	oldWSFCAddresses  string
 	oldWSFCEnable     bool
+	interfacesEnabled bool
 	protoID           = 66
 )
 
@@ -135,7 +133,7 @@ func getRoutes(ifname string) ([]string, error) {
 }
 
 func addRoute(ip, ifname string) error {
-	if strings.Index(ip, "/") == -1 {
+	if !strings.Contains(ip, "/") {
 		ip = ip + "/32"
 	}
 	args := fmt.Sprintf("route add to local %s scope host dev %s proto %d", ip, ifname, protoID)
@@ -143,7 +141,7 @@ func addRoute(ip, ifname string) error {
 }
 
 func removeRoute(ip, ifname string) error {
-	if strings.Index(ip, "/") == -1 {
+	if !strings.Contains(ip, "/") {
 		ip = ip + "/32"
 	}
 	args := fmt.Sprintf("route delete to local %s scope host dev %s proto %d", ip, ifname, protoID)
@@ -221,33 +219,18 @@ func (a *addressMgr) timeout() bool {
 	}
 }
 
-func (a *addressMgr) disabled() (disabled bool) {
-	var err error
-
-	defer func() {
-		if disabled != addressDisabled {
-			addressDisabled = disabled
-			logStatus("address", disabled)
-		}
-	}()
-
-	disabled, err = strconv.ParseBool(config.Section("addressManager").Key("disable").String())
+func (a *addressMgr) disabled(os string) (disabled bool) {
+	disabled, err := config.Section("addressManager").Key("disable").Bool()
 	if err == nil {
 		return disabled
 	}
 	if newMetadata.Instance.Attributes.DisableAddressManager != nil {
-		disabled = *newMetadata.Instance.Attributes.DisableAddressManager
-		return disabled
+		return *newMetadata.Instance.Attributes.DisableAddressManager
 	}
 	if newMetadata.Project.Attributes.DisableAddressManager != nil {
-		disabled = *newMetadata.Project.Attributes.DisableAddressManager
-		return disabled
+		return *newMetadata.Project.Attributes.DisableAddressManager
 	}
-	disabled, err = config.Section("Daemons").Key("network_daemon").Bool()
-	if err == nil {
-		return !disabled
-	}
-	return addressDisabled
+	return false
 }
 
 func (a *addressMgr) set() error {
@@ -390,7 +373,7 @@ func enableNetworkInterfaces(interfaces []net.Interface) error {
 	switch {
 	case osrelease.os == "sles":
 		return enableSLESInterfaces(googleInterfaces)
-	case osrelease.os == "rhel" && *osrelease.version.major == 7:
+	case osrelease.os == "rhel" && osrelease.version.major == 7:
 		for _, iface := range googleInterfaces {
 			err := disableNM(iface)
 			if err != nil {

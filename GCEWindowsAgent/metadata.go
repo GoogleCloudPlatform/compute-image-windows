@@ -64,6 +64,10 @@ type project struct {
 }
 
 type attributes struct {
+	BlockProjectKeys      bool
+	EnableOSLogin         bool
+	TwoFactor             bool
+	SSHKeys               []string
 	WindowsKeys           windowsKeys
 	Diagnostics           string
 	DisableAddressManager *bool
@@ -86,13 +90,24 @@ type windowsKey struct {
 type windowsKeys []windowsKey
 
 func (a *attributes) UnmarshalJSON(b []byte) error {
+	var mkbool = func(value bool) *bool {
+		res := new(bool)
+		*res = value
+		return res
+	}
+	// Unmarshal to literal JSON types before doing anything else.
 	type inner struct {
-		WindowsKeys           windowsKeys `json:"windows-keys"`
+		BlockProjectKeys      string      `json:"block-project-ssh-keys"`
 		Diagnostics           string      `json:"diagnostics"`
-		DisableAddressManager string      `json:"disable-address-manager"`
 		DisableAccountManager string      `json:"disable-account-manager"`
+		DisableAddressManager string      `json:"disable-address-manager"`
 		EnableDiagnostics     string      `json:"enable-diagnostics"`
+		EnableOSLogin         string      `json:"enable-oslogin"`
 		EnableWSFC            string      `json:"enable-wsfc"`
+		OldSSHKeys            string      `json:"sshKeys"`
+		SSHKeys               string      `json:"ssh-keys"`
+		TwoFactor             string      `json:"enable-oslogin-2fa"`
+		WindowsKeys           windowsKeys `json:"windows-keys"`
 		WSFCAddresses         string      `json:"wsfc-addrs"`
 		WSFCAgentPort         string      `json:"wsfc-agent-port"`
 	}
@@ -103,21 +118,42 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 	a.Diagnostics = temp.Diagnostics
 	a.WSFCAddresses = temp.WSFCAddresses
 	a.WSFCAgentPort = temp.WSFCAgentPort
-	value, err := strconv.ParseBool(temp.DisableAddressManager)
+
+	value, err := strconv.ParseBool(temp.BlockProjectKeys)
 	if err == nil {
-		a.DisableAddressManager = &value
-	}
-	value, err = strconv.ParseBool(temp.DisableAccountManager)
-	if err == nil {
-		a.DisableAccountManager = &value
+		a.BlockProjectKeys = value
 	}
 	value, err = strconv.ParseBool(temp.EnableDiagnostics)
 	if err == nil {
-		a.EnableDiagnostics = &value
+		a.EnableDiagnostics = mkbool(value)
+	}
+	value, err = strconv.ParseBool(temp.DisableAccountManager)
+	if err == nil {
+		a.DisableAccountManager = mkbool(value)
+	}
+	value, err = strconv.ParseBool(temp.DisableAddressManager)
+	if err == nil {
+		a.DisableAddressManager = mkbool(value)
+	}
+	value, err = strconv.ParseBool(temp.EnableOSLogin)
+	if err == nil {
+		a.EnableOSLogin = value
 	}
 	value, err = strconv.ParseBool(temp.EnableWSFC)
 	if err == nil {
-		a.EnableWSFC = &value
+		a.EnableWSFC = mkbool(value)
+	}
+	value, err = strconv.ParseBool(temp.TwoFactor)
+	if err == nil {
+		a.TwoFactor = value
+	}
+	// So SSHKeys will be nil instead of []string{}
+	if temp.SSHKeys != "" {
+		a.SSHKeys = strings.Split(temp.SSHKeys, "\n")
+	}
+	if temp.OldSSHKeys != "" {
+		a.BlockProjectKeys = true
+		a.SSHKeys = append(a.SSHKeys, strings.Split(temp.OldSSHKeys, "\n")...)
 	}
 	return nil
 }

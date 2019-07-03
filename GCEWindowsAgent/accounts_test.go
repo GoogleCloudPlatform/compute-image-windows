@@ -84,10 +84,14 @@ func TestAccountsDisabled(t *testing.T) {
 		}
 		newMetadata = tt.md
 		config = cfg
-		got := (&accountsMgr{}).disabled()
+		got := (&winAccountsMgr{}).disabled("windows")
 		if got != tt.want {
 			t.Errorf("test case %q, accounts.disabled() got: %t, want: %t", tt.name, got, tt.want)
 		}
+	}
+	got := (&winAccountsMgr{}).disabled("linux")
+	if got != true {
+		t.Errorf("winAccountsMgr.disabled(\"linux\") got: %t, want: true", got)
 	}
 }
 
@@ -191,21 +195,14 @@ func TestCompareAccounts(t *testing.T) {
 	}
 }
 
-func TestAccountsLogStatus(t *testing.T) {
-	// Disable it.
-	accountDisabled = false
-
-	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(true)}}}
-	config = ini.Empty()
-	disabled := (&accountsMgr{}).disabled()
-	if !disabled {
-		t.Fatal("expected true but got", disabled)
-	}
-
-	// Enable it.
-	newMetadata = &metadata{Instance: instance{Attributes: attributes{DisableAccountManager: mkptr(false)}}}
-	disabled = (&accountsMgr{}).disabled()
-	if disabled {
-		t.Fatal("expected false but got", disabled)
+func TestRemoveExpiredKeys(t *testing.T) {
+	keys := []string{
+		`user:ssh-rsa [KEY] google-ssh {"userName":"user@email.com", "expireOn":"2028-11-08T19:30:47+0000"}`,
+		`user:ssh-rsa [KEY] google-ssh {"userName":"user@email.com", "expireOn":"2018-11-08T19:30:46+0000"}`,
+		`user:ssh-rsa [KEY] google-ssh {"userName":"user@email.com", "expireOn":"2018-11-08T19:30:46+0700"}`,
+		`user:ssh-rsa [KEY] hostname`}
+	res := removeExpiredKeys(keys)
+	if count := len(res); count != 2 {
+		t.Fatalf("expected 2 fields, got %d\n", count)
 	}
 }
