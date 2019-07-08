@@ -394,6 +394,7 @@ func enableNetworkInterfaces(interfaces []net.Interface) error {
 // runs `wicked ifup eth1 eth2 ... ethN`
 func enableSLESInterfaces(interfaces []string) error {
 	var err error
+	var priority = 10100
 	for _, iface := range interfaces {
 		var ifcfg *os.File
 		ifcfg, err = os.Create("/etc/sysconfig/network/ifcfg-" + iface)
@@ -401,10 +402,17 @@ func enableSLESInterfaces(interfaces []string) error {
 			return err
 		}
 		defer closer(ifcfg)
-		_, err = ifcfg.WriteString("# Added by Google.\nSTARTMODE=hotplug\nBOOTPROTO=dhcp\nDHCLIENT_SET_DEFAULT_ROUTE=yes\nDHCLIENT_ROUTE_PRIORITY=1000")
+		contents := []string{
+			googleComment,
+			"STARTMODE=hotplug",
+			"BOOTPROTO=dhcp",
+			fmt.Sprintf("DHCLIENT_ROUTE_PRIORITY=%d", priority),
+		}
+		_, err = ifcfg.WriteString(strings.Join(contents, "\n"))
 		if err != nil {
 			return err
 		}
+		priority += 100
 	}
 	args := append([]string{"ifup", "--timeout", "1"}, interfaces...)
 	return runCmd(exec.Command("/usr/sbin/wicked", args...))
@@ -416,7 +424,16 @@ func disableNM(iface string) error {
 	ifcfg, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err == nil {
 		defer closer(ifcfg)
-		_, err = ifcfg.WriteString("# Added by Google.\nBOOTPROTO=none\nDEFROUTE=no\nIPV6INIT=no\nNM_CONTROLLED=no\nNOZEROCONF=yes\nDEVICE=" + iface)
+		contents := []string{
+			googleComment,
+			fmt.Sprintf("DEVICE=%s", iface),
+			"BOOTPROTO=none",
+			"DEFROUTE=no",
+			"IPV6INIT=no",
+			"NM_CONTROLLED=no",
+			"NOZEROCONF=yes",
+		}
+		_, err = ifcfg.WriteString(strings.Join(contents, "\n"))
 		return err
 	}
 	if os.IsExist(err) {
