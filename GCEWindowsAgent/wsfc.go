@@ -97,7 +97,7 @@ func (m *wsfcManager) diff() bool {
 // Implement manager.disabled().
 // wsfc manager is always enabled. The manager is just a broker which manages the state of wsfcAgent. User
 // can disable the wsfc feature by setting the metadata. If the manager is disabled, the agent will stop.
-func (m *wsfcManager) disabled() bool {
+func (m *wsfcManager) disabled(os string) bool {
 	return false
 }
 
@@ -195,7 +195,7 @@ func (a *wsfcAgent) run() error {
 // The request payload is WSFC ip address.
 // Sendback 1 if ipaddress is found locally and 0 otherwise.
 func (a *wsfcAgent) handleHealthCheckRequest(conn net.Conn) {
-	defer conn.Close()
+	defer closer(conn)
 	defer a.waitGroup.Done()
 	conn.SetDeadline(time.Now().Add(time.Second))
 

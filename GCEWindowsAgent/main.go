@@ -18,10 +18,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
+	"os/exec"
+	"runtime"
 	"sync"
 	"time"
 
@@ -34,13 +37,15 @@ var (
 	programName              = "GCEWindowsAgent"
 	version                  string
 	ticker                   = time.Tick(70 * time.Second)
-	oldMetadata, newMetadata *metadataJSON
+	oldMetadata, newMetadata *metadata
 	config                   *ini.File
+	osRelease                release
 )
 
 const (
-	configPath = `C:\Program Files\Google\Compute Engine\instance_configs.cfg`
-	regKeyBase = `SOFTWARE\Google\ComputeEngine`
+	winConfigPath = `C:\Program Files\Google\Compute Engine\instance_configs.cfg`
+	configPath    = `/etc/default/instance_configs.cfg`
+	regKeyBase    = `SOFTWARE\Google\ComputeEngine`
 )
 
 func writeSerial(port string, msg []byte) error {
@@ -49,7 +54,7 @@ func writeSerial(port string, msg []byte) error {
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer closer(s)
 
 	_, err = s.Write(msg)
 	if err != nil {
@@ -61,7 +66,7 @@ func writeSerial(port string, msg []byte) error {
 
 type manager interface {
 	diff() bool
-	disabled() bool
+	disabled(string) bool
 	set() error
 	timeout() bool
 }
@@ -78,34 +83,53 @@ func logStatus(name string, disabled bool) {
 }
 
 func parseConfig(file string) (*ini.File, error) {
+	empty, _ := ini.InsensitiveLoad([]byte{})
 	d, err := ioutil.ReadFile(file)
 	if err != nil {
-		return nil, err
+		return empty, err
 	}
-	return ini.InsensitiveLoad(d)
+	cfg, err := ini.InsensitiveLoad(d)
+	if err != nil {
+		return empty, err
+	}
+	return cfg, nil
+}
+
+func closeFile(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		logger.Warningf("Error closing file: %v.", err)
+	}
 }
 
 func runUpdate() {
-	cfg, err := parseConfig(configPath)
-	if err != nil && !os.IsNotExist(err) {
-		logger.Errorf(err.Error())
-	}
-	if cfg == nil {
-		cfg, _ = ini.InsensitiveLoad([]byte{})
+	cfgPath := configPath
+	if runtime.GOOS == "windows" {
+		cfgPath = winConfigPath
 	}
 
-	config = cfg
+	var err error
+	config, err = parseConfig(cfgPath)
+	if err != nil && !os.IsNotExist(err) {
+		logger.Errorf("error parsing config %s: %s", cfgPath, err)
+	}
 
 	var wg sync.WaitGroup
-	for _, mgr := range []manager{newWsfcManager(), &addressMgr{}, &accountsMgr{}, &diagnosticsMgr{}} {
+	var mgrs []manager
+	if runtime.GOOS == "windows" {
+		mgrs = []manager{newWsfcManager(), &addressMgr{}, &winAccountsMgr{}}
+	} else {
+		mgrs = []manager{&clockskewMgr{}}
+	}
+	for _, mgr := range mgrs {
 		wg.Add(1)
 		go func(mgr manager) {
 			defer wg.Done()
-			if mgr.disabled() || (!mgr.timeout() && !mgr.diff()) {
+			if mgr.disabled(runtime.GOOS) || (!mgr.timeout() && !mgr.diff()) {
 				return
 			}
 			if err := mgr.set(); err != nil {
-				logger.Errorf(err.Error())
+				logger.Errorf("error running %#v manager: %s", mgr, err)
 			}
 		}(mgr)
 	}
@@ -114,9 +138,14 @@ func runUpdate() {
 
 func run(ctx context.Context) {
 	logger.Infof("GCE Agent Started (version %s)", version)
+	var err error
+	osRelease, err = getRelease()
+	if err != nil && runtime.GOOS != "windows" {
+		logger.Warningf("Couldn't detect OS release")
+	}
 
 	go func() {
-		oldMetadata = &metadataJSON{}
+		oldMetadata = &metadata{}
 		webError := 0
 		for {
 			var err error
@@ -133,7 +162,7 @@ func run(ctx context.Context) {
 							logger.Errorf("Network error when requesting metadata, make sure your instance has an active network and can reach the metadata server.")
 						}
 					}
-					logger.Errorf(err.Error())
+					logger.Errorf("Error watching metadata: %s", err)
 				}
 				webError++
 				time.Sleep(5 * time.Second)
@@ -154,6 +183,18 @@ func run(ctx context.Context) {
 	logger.Infof("GCE Agent Stopped")
 }
 
+// runCmd is exec.Cmd.Run() with a flattened error return.
+func runCmd(cmd *exec.Cmd) error {
+	err := cmd.Run()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf(string(ee.Stderr))
+		}
+		return err
+	}
+	return nil
+}
+
 func containsString(s string, ss []string) bool {
 	for _, a := range ss {
 		if a == s {
@@ -168,8 +209,20 @@ func logFormat(e logger.LogEntry) string {
 	return fmt.Sprintf("%s %s: %s", now, programName, e.Message)
 }
 
+func closer(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		logger.Warningf("Error closing %v: %v.", c, err)
+	}
+}
+
 func main() {
-	opts := logger.LogOpts{LoggerName: programName, FormatFunction: logFormat}
+	var opts logger.LogOpts
+	if runtime.GOOS == "windows" {
+		opts = logger.LogOpts{LoggerName: programName, FormatFunction: logFormat}
+	} else {
+		opts = logger.LogOpts{LoggerName: programName, Stdout: true}
+	}
 
 	var err error
 	ctx := context.Background()
@@ -192,6 +245,6 @@ func main() {
 	}
 
 	if err := register(ctx, "GCEAgent", "GCEAgent", "", run, action); err != nil {
-		logger.Fatalf(err.Error())
+		logger.Fatalf("error registering service: %s", err)
 	}
 }

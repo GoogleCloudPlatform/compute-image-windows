@@ -36,28 +36,38 @@ var (
 	etag              = defaultEtag
 )
 
-type metadataJSON struct {
-	Instance instanceJSON
-	Project  projectJSON
+type metadata struct {
+	Instance instance
+	Project  project
 }
 
-type instanceJSON struct {
-	Attributes        attributesJSON
-	NetworkInterfaces []networkInterfacesJSON
+type virtualClock struct {
+	DriftToken int
 }
 
-type networkInterfacesJSON struct {
+type instance struct {
+	Attributes        attributes
+	NetworkInterfaces []networkInterfaces
+	VirtualClock      virtualClock
+}
+
+type networkInterfaces struct {
 	ForwardedIps      []string
 	TargetInstanceIps []string
+	IPAliases         []string
 	Mac               string
 }
 
-type projectJSON struct {
-	Attributes attributesJSON
-	ProjectID  string `json:"projectId"`
+type project struct {
+	Attributes attributes
+	ProjectID  string
 }
 
-type attributesJSON struct {
+type attributes struct {
+	BlockProjectKeys      bool
+	EnableOSLogin         bool
+	TwoFactor             bool
+	SSHKeys               []string
 	WindowsKeys           windowsKeys
 	Diagnostics           string
 	DisableAddressManager *bool
@@ -79,14 +89,25 @@ type windowsKey struct {
 
 type windowsKeys []windowsKey
 
-func (a *attributesJSON) UnmarshalJSON(b []byte) error {
+func (a *attributes) UnmarshalJSON(b []byte) error {
+	var mkbool = func(value bool) *bool {
+		res := new(bool)
+		*res = value
+		return res
+	}
+	// Unmarshal to literal JSON types before doing anything else.
 	type inner struct {
-		WindowsKeys           windowsKeys `json:"windows-keys"`
+		BlockProjectKeys      string      `json:"block-project-ssh-keys"`
 		Diagnostics           string      `json:"diagnostics"`
-		DisableAddressManager string      `json:"disable-address-manager"`
 		DisableAccountManager string      `json:"disable-account-manager"`
+		DisableAddressManager string      `json:"disable-address-manager"`
 		EnableDiagnostics     string      `json:"enable-diagnostics"`
+		EnableOSLogin         string      `json:"enable-oslogin"`
 		EnableWSFC            string      `json:"enable-wsfc"`
+		OldSSHKeys            string      `json:"sshKeys"`
+		SSHKeys               string      `json:"ssh-keys"`
+		TwoFactor             string      `json:"enable-oslogin-2fa"`
+		WindowsKeys           windowsKeys `json:"windows-keys"`
 		WSFCAddresses         string      `json:"wsfc-addrs"`
 		WSFCAgentPort         string      `json:"wsfc-agent-port"`
 	}
@@ -97,21 +118,42 @@ func (a *attributesJSON) UnmarshalJSON(b []byte) error {
 	a.Diagnostics = temp.Diagnostics
 	a.WSFCAddresses = temp.WSFCAddresses
 	a.WSFCAgentPort = temp.WSFCAgentPort
-	value, err := strconv.ParseBool(temp.DisableAddressManager)
+
+	value, err := strconv.ParseBool(temp.BlockProjectKeys)
 	if err == nil {
-		a.DisableAddressManager = &value
-	}
-	value, err = strconv.ParseBool(temp.DisableAccountManager)
-	if err == nil {
-		a.DisableAccountManager = &value
+		a.BlockProjectKeys = value
 	}
 	value, err = strconv.ParseBool(temp.EnableDiagnostics)
 	if err == nil {
-		a.EnableDiagnostics = &value
+		a.EnableDiagnostics = mkbool(value)
+	}
+	value, err = strconv.ParseBool(temp.DisableAccountManager)
+	if err == nil {
+		a.DisableAccountManager = mkbool(value)
+	}
+	value, err = strconv.ParseBool(temp.DisableAddressManager)
+	if err == nil {
+		a.DisableAddressManager = mkbool(value)
+	}
+	value, err = strconv.ParseBool(temp.EnableOSLogin)
+	if err == nil {
+		a.EnableOSLogin = value
 	}
 	value, err = strconv.ParseBool(temp.EnableWSFC)
 	if err == nil {
-		a.EnableWSFC = &value
+		a.EnableWSFC = mkbool(value)
+	}
+	value, err = strconv.ParseBool(temp.TwoFactor)
+	if err == nil {
+		a.TwoFactor = value
+	}
+	// So SSHKeys will be nil instead of []string{}
+	if temp.SSHKeys != "" {
+		a.SSHKeys = strings.Split(temp.SSHKeys, "\n")
+	}
+	if temp.OldSSHKeys != "" {
+		a.BlockProjectKeys = true
+		a.SSHKeys = append(a.SSHKeys, strings.Split(temp.OldSSHKeys, "\n")...)
 	}
 	return nil
 }
@@ -146,11 +188,11 @@ func updateEtag(resp *http.Response) bool {
 	return etag != oldEtag
 }
 
-func watchMetadata(ctx context.Context) (*metadataJSON, error) {
+func watchMetadata(ctx context.Context) (*metadata, error) {
 	return getMetadata(ctx, true)
 }
 
-func getMetadata(ctx context.Context, hang bool) (*metadataJSON, error) {
+func getMetadata(ctx context.Context, hang bool) (*metadata, error) {
 	client := &http.Client{
 		Timeout: defaultTimeout,
 	}
@@ -187,6 +229,6 @@ func getMetadata(ctx context.Context, hang bool) (*metadataJSON, error) {
 	if err != nil {
 		return nil, err
 	}
-	var metadata metadataJSON
-	return &metadata, json.Unmarshal(md, &metadata)
+	var ret metadata
+	return &ret, json.Unmarshal(md, &ret)
 }
