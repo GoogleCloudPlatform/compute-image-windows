@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -40,6 +41,7 @@ var (
 	oldMetadata, newMetadata *metadata
 	config                   *ini.File
 	osRelease                release
+	snapshotTestMode         bool
 )
 
 const (
@@ -178,7 +180,9 @@ func run(ctx context.Context) {
 			webError = 0
 		}
 	}()
-
+	if runtime.GOOS != "windows" {
+		listenOnSerialPort()
+	}
 	<-ctx.Done()
 	logger.Infof("GCE Agent Stopped")
 }
@@ -233,11 +237,10 @@ func main() {
 	logger.Init(ctx, opts)
 
 	var action string
-	if len(os.Args) < 2 {
-		action = "run"
-	} else {
-		action = os.Args[1]
-	}
+	flag.StringVar(&action, "action", "run", "the action to run, one of run, install, remove, start, stop, or noservice")
+	flag.BoolVar(&snapshotTestMode, "snapshot_test_mode", false, "when in test mode, no calls are made to the metadata server during snapshots to retrieve config values")
+
+	flag.Parse()
 
 	if action == "noservice" {
 		run(ctx)
@@ -247,4 +250,5 @@ func main() {
 	if err := register(ctx, "GCEAgent", "GCEAgent", "", run, action); err != nil {
 		logger.Fatalf("error registering service: %s", err)
 	}
+	defer sendAgentShuttingDownMessage()
 }

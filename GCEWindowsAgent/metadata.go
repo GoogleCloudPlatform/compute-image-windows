@@ -64,18 +64,23 @@ type project struct {
 }
 
 type attributes struct {
-	BlockProjectKeys      bool
-	EnableOSLogin         bool
-	TwoFactor             bool
-	SSHKeys               []string
-	WindowsKeys           windowsKeys
-	Diagnostics           string
-	DisableAddressManager *bool
-	DisableAccountManager *bool
-	EnableDiagnostics     *bool
-	EnableWSFC            *bool
-	WSFCAddresses         string
-	WSFCAgentPort         string
+	BlockProjectKeys              bool
+	EnableOSLogin                 bool
+	TwoFactor                     bool
+	SSHKeys                       []string
+	WindowsKeys                   windowsKeys
+	Diagnostics                   string
+	DisableAddressManager         *bool
+	DisableAccountManager         *bool
+	EnableDiagnostics             *bool
+	EnableWSFC                    *bool
+	WSFCAddresses                 string
+	WSFCAgentPort                 string
+	SnapshotTimeout               int // seconds
+	SnapshotContinueOnScriptError bool
+	PreSnapshotScriptUrl          string
+	PostSnapshotScriptUrl         string
+	SnapshotEnabled               bool
 }
 
 type windowsKey struct {
@@ -97,19 +102,24 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 	}
 	// Unmarshal to literal JSON types before doing anything else.
 	type inner struct {
-		BlockProjectKeys      string      `json:"block-project-ssh-keys"`
-		Diagnostics           string      `json:"diagnostics"`
-		DisableAccountManager string      `json:"disable-account-manager"`
-		DisableAddressManager string      `json:"disable-address-manager"`
-		EnableDiagnostics     string      `json:"enable-diagnostics"`
-		EnableOSLogin         string      `json:"enable-oslogin"`
-		EnableWSFC            string      `json:"enable-wsfc"`
-		OldSSHKeys            string      `json:"sshKeys"`
-		SSHKeys               string      `json:"ssh-keys"`
-		TwoFactor             string      `json:"enable-oslogin-2fa"`
-		WindowsKeys           windowsKeys `json:"windows-keys"`
-		WSFCAddresses         string      `json:"wsfc-addrs"`
-		WSFCAgentPort         string      `json:"wsfc-agent-port"`
+		BlockProjectKeys              string      `json:"block-project-ssh-keys"`
+		Diagnostics                   string      `json:"diagnostics"`
+		DisableAccountManager         string      `json:"disable-account-manager"`
+		DisableAddressManager         string      `json:"disable-address-manager"`
+		EnableDiagnostics             string      `json:"enable-diagnostics"`
+		EnableOSLogin                 string      `json:"enable-oslogin"`
+		EnableWSFC                    string      `json:"enable-wsfc"`
+		OldSSHKeys                    string      `json:"sshKeys"`
+		SSHKeys                       string      `json:"ssh-keys"`
+		TwoFactor                     string      `json:"enable-oslogin-2fa"`
+		WindowsKeys                   windowsKeys `json:"windows-keys"`
+		WSFCAddresses                 string      `json:"wsfc-addrs"`
+		WSFCAgentPort                 string      `json:"wsfc-agent-port"`
+		SnapshotTimeout               string      `json:"snapshot-continue-on-script-error"`
+		SnapshotContinueOnScriptError string      `json:"snapshot-timeout-in-seconds"`
+		PreSnapshotScriptUrl          string      `json:"snapshot-pre-snapshot-script-url"`
+		PostSnapshotScriptUrl         string      `json:"snapshot-post-snapshot-script-url"`
+		SnapshotEnabled               string      `json:"snapshot-enabled"`
 	}
 	var temp inner
 	if err := json.Unmarshal(b, &temp); err != nil {
@@ -118,6 +128,8 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 	a.Diagnostics = temp.Diagnostics
 	a.WSFCAddresses = temp.WSFCAddresses
 	a.WSFCAgentPort = temp.WSFCAgentPort
+	a.PreSnapshotScriptUrl = temp.PreSnapshotScriptUrl
+	a.PostSnapshotScriptUrl = temp.PostSnapshotScriptUrl
 
 	value, err := strconv.ParseBool(temp.BlockProjectKeys)
 	if err == nil {
@@ -146,6 +158,18 @@ func (a *attributes) UnmarshalJSON(b []byte) error {
 	value, err = strconv.ParseBool(temp.TwoFactor)
 	if err == nil {
 		a.TwoFactor = value
+	}
+	value, err = strconv.ParseBool(temp.SnapshotContinueOnScriptError)
+	if err == nil {
+		a.SnapshotContinueOnScriptError = value
+	}
+	value, err = strconv.ParseBool(temp.SnapshotEnabled)
+	if err == nil {
+		a.SnapshotEnabled = value
+	}
+	intValue, err := strconv.ParseInt(temp.SnapshotTimeout, 10, 32)
+	if err == nil {
+		a.SnapshotTimeout = int(intValue)
 	}
 	// So SSHKeys will be nil instead of []string{}
 	if temp.SSHKeys != "" {
