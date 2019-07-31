@@ -64,6 +64,23 @@ func writeSerial(port string, msg []byte) error {
 	return nil
 }
 
+func readSerial(port string) ([]byte, error) {
+	c := &serial.Config{Name: port, Baud: 115200}
+	s, err := serial.OpenPort(c)
+	if err != nil {
+		return nil, err
+	}
+	defer closer(s)
+
+	buf := make([]byte, 128)
+	_, err = s.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf, nil
+}
+
 type manager interface {
 	diff() bool
 	disabled(string) bool
@@ -178,7 +195,9 @@ func run(ctx context.Context) {
 			webError = 0
 		}
 	}()
-
+	go func() {
+		listenOnSerialPort()
+	}()
 	<-ctx.Done()
 	logger.Infof("GCE Agent Stopped")
 }
