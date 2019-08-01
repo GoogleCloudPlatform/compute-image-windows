@@ -25,29 +25,20 @@ import (
 	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
 )
 
-type serialMessage interface{}
+type snapshotStateRequest struct {
+	Signature    string
+	Version      int
+	Operation_id int
+}
 
 // Must match json format
-type prepareForSnapshotRequest struct {
+type serialRequest struct {
 	Signature    string
 	Version      int
 	Operation_id int
 }
 
-type prepareForSnapshotResponse struct {
-	Signature    string
-	Version      int
-	Rc           int
-	Operation_id int
-}
-
-type resumePostSnapshotRequest struct {
-	Signature    string
-	Version      int
-	Operation_id int
-}
-
-type resumePostSnapshotResponse struct {
+type serialResponse struct {
 	Signature    string
 	Version      int
 	Rc           int
@@ -57,11 +48,8 @@ type resumePostSnapshotResponse struct {
 const preSnapshotDir = "/etc/google.d/disks/pre-snapshot/"
 const postSnapshotDir = "/etc/google.d/disks/post-snapshot/"
 
-// TODO I don't know what this should be
 const scriptTimeout = time.Second * 60
-
-// TODO I don't know what this should be
-const serialPort = "5"
+const serialPort = "/dev/tty3"
 
 var (
 	currentMsg []byte
@@ -71,37 +59,14 @@ func clearCurrentMsg() {
 	currentMsg = nil
 }
 
-func parseMessage() serialMessage {
+func parseMessage() *serialRequest {
 	defer clearCurrentMsg()
-	var msgJson map[string]interface{}
-	err := json.Unmarshal(currentMsg, &msgJson)
+	msg := serialRequest{}
+	err := json.Unmarshal(currentMsg, &msg)
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
-	sig, ok := msgJson["signature"]
-	if !ok {
-		logger.Errorf("message does not have signature")
-	}
-
-	switch sig {
-	case "PREREQ":
-		msg := prepareForSnapshotRequest{}
-		err := json.Unmarshal(currentMsg, &msg)
-		if err != nil {
-			logger.Fatalf(err.Error())
-		}
-		return msg
-	case "POSTREQ":
-		msg := resumePostSnapshotRequest{}
-		err := json.Unmarshal(currentMsg, &msg)
-		if err != nil {
-			logger.Fatalf(err.Error())
-		}
-		return msg
-	default:
-		logger.Errorf("unable to parse signature %s", sig)
-		return nil
-	}
+	return &msg
 }
 
 func runScripts(dir string) int {
@@ -139,9 +104,10 @@ func runScripts(dir string) int {
 	return 0
 }
 
-func handlePrepareForSnapshotRequest(req prepareForSnapshotRequest) {
+func handlePrepareForSnapshotRequest(req serialRequest) {
+	logger.Infof("running pre-snapshot scripts")
 	code := runScripts(preSnapshotDir)
-	res := prepareForSnapshotResponse{"PRERESP", req.Version, code, req.Operation_id}
+	res := serialResponse{"PRERESP", req.Version, code, req.Operation_id}
 	out, err := json.Marshal(res)
 	if err != nil {
 		logger.Fatalf(err.Error())
@@ -149,9 +115,10 @@ func handlePrepareForSnapshotRequest(req prepareForSnapshotRequest) {
 	writeSerial(serialPort, out)
 }
 
-func handleResumePostSnapshotRequest(req resumePostSnapshotRequest) {
+func handleResumePostSnapshotRequest(req serialRequest) {
+	logger.Infof("running post-snapshot scripts")
 	code := runScripts(postSnapshotDir)
-	res := prepareForSnapshotResponse{"POSTRESP", req.Version, code, req.Operation_id}
+	res := serialResponse{"POSTRESP", req.Version, code, req.Operation_id}
 	out, err := json.Marshal(res)
 	if err != nil {
 		logger.Fatalf(err.Error())
@@ -159,18 +126,18 @@ func handleResumePostSnapshotRequest(req resumePostSnapshotRequest) {
 	writeSerial(serialPort, out)
 }
 
-func handleMessage(msg serialMessage) {
-	switch v := msg.(type) {
-	case prepareForSnapshotRequest:
-		handlePrepareForSnapshotRequest(v)
-	case resumePostSnapshotRequest:
-		handleResumePostSnapshotRequest(v)
+func handleMessage(msg serialRequest) {
+	switch sig := msg.Signature; sig {
+	case "PREREQ":
+		handlePrepareForSnapshotRequest(msg)
+	case "POSTREQ":
+		handleResumePostSnapshotRequest(msg)
 	default:
-		logger.Fatalf("unknown message type")
+		logger.Fatalf("unknown message signature %s", msg.Signature)
 	}
 }
 
-func parseSerialData(serialData []byte) serialMessage {
+func parseSerialData(serialData []byte) *serialRequest {
 	for _, c := range serialData {
 		if c == '\n' {
 			// Should be the end of the msg
@@ -184,13 +151,21 @@ func parseSerialData(serialData []byte) serialMessage {
 
 func listenOnSerialPort() error {
 	for {
-		serialData, err := readSerial(serialPort)
-		if err != nil {
-			logger.Fatalf(err.Error())
-		}
-		msg := parseSerialData(serialData)
-		if msg != nil {
-			handleMessage(msg)
-		}
+		serialChan := make(chan []byte)
+		go func() {
+			serialData, err := readSerial(serialPort)
+			if err != nil {
+				logger.Fatalf(err.Error())
+			}
+
+			serialChan <- serialData
+		}()
+		go func() {
+			serialData := <-serialChan
+			msg := parseSerialData(serialData)
+			if msg != nil {
+				handleMessage(*msg)
+			}
+		}()
 	}
 }

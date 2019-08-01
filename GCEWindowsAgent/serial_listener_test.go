@@ -23,7 +23,7 @@ func TestParseSerialDataPrepareForSnapshotRequest(t *testing.T) {
 	version := 1
 	operation_id := 3
 	json := fmt.Sprintf("{\"signature\":\"PREREQ\", \"version\":%d, \"operation_id\":%d}\n", version, operation_id)
-	msg := parseSerialData([]byte(json)).(prepareForSnapshotRequest)
+	msg := parseSerialData([]byte(json))
 	if msg.Version != version {
 		t.Errorf("returned version unexpected, got: %d, want %d", msg.Version, version)
 	}
@@ -36,7 +36,7 @@ func TestParseSerialDataResumePostSnapshotRequest(t *testing.T) {
 	version := 1
 	operation_id := 3
 	json := fmt.Sprintf("{\"signature\":\"POSTREQ\", \"version\":%d, \"operation_id\":%d}\n", version, operation_id)
-	msg := parseSerialData([]byte(json)).(resumePostSnapshotRequest)
+	msg := parseSerialData([]byte(json))
 	if msg.Version != version {
 		t.Errorf("returned version unexpected, got: %d, want %d", msg.Version, version)
 	}

@@ -195,9 +195,7 @@ func run(ctx context.Context) {
 			webError = 0
 		}
 	}()
-	go func() {
-		listenOnSerialPort()
-	}()
+	go listenOnSerialPort()
 	<-ctx.Done()
 	logger.Infof("GCE Agent Stopped")
 }
