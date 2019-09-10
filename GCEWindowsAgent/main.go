@@ -117,7 +117,7 @@ func runUpdate() {
 	var wg sync.WaitGroup
 	var mgrs []manager
 	if runtime.GOOS == "windows" {
-		mgrs = []manager{newWsfcManager(), &addressMgr{}, &winAccountsMgr{}}
+		mgrs = []manager{newWsfcManager(), &addressMgr{}, &winAccountsMgr{}, &diagnosticsMgr{}}
 	} else {
 		mgrs = []manager{&clockskewMgr{}}
 	}
