@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"cloud.google.com/go/logging"
 	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
 	"github.com/go-ini/ini"
 	"github.com/tarm/serial"
@@ -40,6 +41,7 @@ var (
 	oldMetadata, newMetadata *metadata
 	config                   *ini.File
 	osRelease                release
+	stackdriverLogger        *logging.Logger
 )
 
 const (
@@ -102,7 +104,7 @@ func closeFile(c io.Closer) {
 	}
 }
 
-func runUpdate() {
+func setConfig() {
 	cfgPath := configPath
 	if runtime.GOOS == "windows" {
 		cfgPath = winConfigPath
@@ -113,7 +115,16 @@ func runUpdate() {
 	if err != nil && !os.IsNotExist(err) {
 		logger.Errorf("error parsing config %s: %s", cfgPath, err)
 	}
+}
 
+func logToStackdriver(s string, severity logging.Severity) {
+	if stackdriverLogger != nil {
+		stackdriverLogger.Log(logging.Entry{Payload: s, Severity: severity})
+	}
+}
+
+func runUpdate() {
+	setConfig()
 	var wg sync.WaitGroup
 	var mgrs []manager
 	if runtime.GOOS == "windows" {
@@ -179,6 +190,13 @@ func run(ctx context.Context) {
 		}
 	}()
 
+	setConfig()
+	if runtime.GOOS != "windows" && config.Section("Snapshots").Key("enabled").MustBool(false) {
+		listenOnSerialPort()
+	} else {
+		logger.Infof("Serial listener disabled")
+	}
+
 	<-ctx.Done()
 	logger.Infof("GCE Agent Stopped")
 }
@@ -230,7 +248,19 @@ func main() {
 	if err == nil {
 		opts.ProjectName = newMetadata.Project.ProjectID
 	}
+
 	logger.Init(ctx, opts)
+
+	if newMetadata != nil && newMetadata.Project.ProjectID != "" {
+		client, err := logging.NewClient(ctx, newMetadata.Project.ProjectID)
+		if err != nil {
+			logger.Warningf("failed to create stackdriver logger: %v", err)
+		} else {
+			stackdriverLogger = client.Logger("agent-log")
+		}
+	}
+
+	defer sendAgentShuttingDownMessage()
 
 	var action string
 	if len(os.Args) < 2 {
