@@ -111,7 +111,7 @@ function Clear-TempFolders {
     "C:\Users\*\Appdata\LocalLow\Temp\*\*",
     "C:\Users\*\Appdata\LocalLow\Microsoft\Internet Explorer\*") | ForEach-Object {
     if (Test-Path $_) {
-      Remove-Item $_ -recurse -force -ErrorAction SilentlyContinue
+      Remove-Item $_ -Recurse -Force -ErrorAction Ignore
     }
   }
 }
