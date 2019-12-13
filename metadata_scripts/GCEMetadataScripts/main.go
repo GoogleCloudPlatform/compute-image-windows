@@ -254,24 +254,27 @@ func runScript(ctx context.Context, key, value string) error {
 	// on other systems though.
 	tmpFile := filepath.Join(dir, key)
 	for _, ext := range []string{"bat", "cmd", "ps1"} {
-		if strings.HasSuffix(key, fmt.Sprintf("-%s", ext)) || strings.HasSuffix(u.Path, fmt.Sprintf(".%s", ext)) {
+		switch {
+		case strings.HasSuffix(key, fmt.Sprintf("-%s", ext)),
+			u != nil && strings.HasSuffix(u.Path, fmt.Sprintf(".%s", ext)):
 			tmpFile = fmt.Sprintf("%s.%s", tmpFile, ext)
 			break
 		}
 	}
 
 	// Create or download files.
-	if strings.HasSuffix(key, "-url") {
-		file, err := os.Create(tmpFile)
+	if u != nil {
+		file, err := os.OpenFile(tmpFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
 			return fmt.Errorf("error opening temp file: %v", err)
 		}
-		defer file.Close()
-		if err := downloadScript(ctx, u.Path, file); err != nil {
+		if err := downloadScript(ctx, value, file); err != nil {
+			file.Close()
 			return err
 		}
+		file.Close()
 	} else {
-		if err := ioutil.WriteFile(tmpFile, []byte(value), 0666); err != nil {
+		if err := ioutil.WriteFile(tmpFile, []byte(value), 0755); err != nil {
 			return err
 		}
 	}
@@ -392,17 +395,16 @@ func logFormat(e logger.LogEntry) string {
 func main() {
 	ctx := context.Background()
 	opts := logger.LogOpts{
-		LoggerName:          programName,
-		FormatFunction:      logFormat,
-		Writers:             []io.Writer{os.Stdout},
-		DisableCloudLogging: true,
-		DisableLocalLogging: true,
+		LoggerName:     programName,
+		FormatFunction: logFormat,
+		Writers:        []io.Writer{os.Stdout},
 	}
 
 	// The keys to check vary based on the argument and the OS. Also functions to validate arguments.
 	wantedKeys, err := getWantedKeys(os.Args, runtime.GOOS)
 	if err != nil {
-		logger.Fatalf(err.Error())
+		fmt.Printf("%s\n", err.Error())
+		os.Exit(2)
 	}
 
 	projectID, err := getMetadataKey("/project/project-id")
