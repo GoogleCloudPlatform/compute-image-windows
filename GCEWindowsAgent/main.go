@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -28,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"cloud.google.com/go/logging"
 	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
 	"github.com/go-ini/ini"
 	"github.com/tarm/serial"
@@ -40,6 +42,10 @@ var (
 	oldMetadata, newMetadata *metadata
 	config                   *ini.File
 	osRelease                release
+	stackdriverLogger        *logging.Logger
+	action                   string
+	testPort                 int
+	testMode                 bool
 )
 
 const (
@@ -102,7 +108,7 @@ func closeFile(c io.Closer) {
 	}
 }
 
-func runUpdate() {
+func setConfig() {
 	cfgPath := configPath
 	if runtime.GOOS == "windows" {
 		cfgPath = winConfigPath
@@ -113,7 +119,16 @@ func runUpdate() {
 	if err != nil && !os.IsNotExist(err) {
 		logger.Errorf("error parsing config %s: %s", cfgPath, err)
 	}
+}
 
+func logToStackdriver(s string, severity logging.Severity) {
+	if stackdriverLogger != nil {
+		stackdriverLogger.Log(logging.Entry{Payload: s, Severity: severity})
+	}
+}
+
+func runUpdate() {
+	setConfig()
 	var wg sync.WaitGroup
 	var mgrs []manager
 	if runtime.GOOS == "windows" {
@@ -179,6 +194,13 @@ func run(ctx context.Context) {
 		}
 	}()
 
+	setConfig()
+	if runtime.GOOS != "windows" && config.Section("Snapshots").Key("enabled").MustBool(false) {
+		startSnapshotListener(testMode, testPort)
+	} else {
+		logger.Infof("Snapshot listener disabled")
+	}
+
 	<-ctx.Done()
 	logger.Infof("GCE Agent Stopped")
 }
@@ -230,13 +252,21 @@ func main() {
 	if err == nil {
 		opts.ProjectName = newMetadata.Project.ProjectID
 	}
-	logger.Init(ctx, opts)
 
-	var action string
-	if len(os.Args) < 2 {
-		action = "run"
-	} else {
-		action = os.Args[1]
+	logger.Init(ctx, opts)
+	flag.StringVar(&action, "action", "run", "the action to run")
+	flag.IntVar(&testPort, "test_port", 0, "the test snapshot service port")
+	flag.BoolVar(&testMode, "test_mode", false, "whether to run in test mode or not")
+
+	flag.Parse()
+
+	if newMetadata != nil && newMetadata.Project.ProjectID != "" {
+		client, err := logging.NewClient(ctx, newMetadata.Project.ProjectID)
+		if err != nil {
+			logger.Warningf("failed to create stackdriver logger: %v", err)
+		} else {
+			stackdriverLogger = client.Logger("agent-log")
+		}
 	}
 
 	if action == "noservice" {
