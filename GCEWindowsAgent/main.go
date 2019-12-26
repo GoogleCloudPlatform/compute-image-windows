@@ -221,7 +221,7 @@ func main() {
 	if runtime.GOOS == "windows" {
 		opts = logger.LogOpts{LoggerName: programName, FormatFunction: logFormat}
 	} else {
-		opts = logger.LogOpts{LoggerName: programName, Stdout: true}
+		opts = logger.LogOpts{LoggerName: programName}
 	}
 
 	var err error

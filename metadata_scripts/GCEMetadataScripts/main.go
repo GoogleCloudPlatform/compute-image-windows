@@ -13,8 +13,11 @@
 //  limitations under the License.
 
 // GCEMetadataScripts handles the running of metadata scripts on Google Compute
-// Engine Windows instances.
+// Engine instances.
 package main
+
+// TODO: compare log outputs in this utility to linux. incorporate config from guest-agent.
+// TODO: standardize and consolidate retries.
 
 import (
 	"bufio"
@@ -30,7 +33,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"runtime"
 	"strings"
 	"time"
 
@@ -40,129 +43,44 @@ import (
 
 var (
 	programName    = "GCEMetadataScripts"
+	version        = "dev"
 	metadataURL    = "http://metadata.google.internal/computeMetadata/v1"
 	metadataHang   = "/?recursive=true&alt=json&timeout_sec=10&last_etag=NONE"
 	defaultTimeout = 20 * time.Second
-	commands       = []string{"specialize", "startup", "shutdown"}
-	scripts        = map[metadataScriptType]string{
-		ps1: "%s-script-ps1",
-		cmd: "%s-script-cmd",
-		bat: "%s-script-bat",
-		uri: "%s-script-url",
-	}
-	version        string
 	powerShellArgs = []string{"-NoProfile", "-NoLogo", "-ExecutionPolicy", "Unrestricted", "-File"}
+	usageError     = fmt.Errorf("No valid arguments specified. Specify one of \"startup\", \"shutdown\" or \"specialize\"")
 
 	storageURL = "storage.googleapis.com"
 
 	bucket = `([a-z0-9][-_.a-z0-9]*)`
 	object = `(.+)`
+
 	// Many of the Google Storage URLs are supported below.
 	// It is preferred that customers specify their object using
 	// its gs://<bucket>/<object> URL.
 	bucketRegex = regexp.MustCompile(fmt.Sprintf(`^gs://%s/?$`, bucket))
 	gsRegex     = regexp.MustCompile(fmt.Sprintf(`^gs://%s/%s$`, bucket, object))
+
 	// Check for the Google Storage URLs:
 	// http://<bucket>.storage.googleapis.com/<object>
 	// https://<bucket>.storage.googleapis.com/<object>
 	gsHTTPRegex1 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://%s\.storage\.googleapis\.com/%s$`, bucket, object))
+
 	// http://storage.cloud.google.com/<bucket>/<object>
 	// https://storage.cloud.google.com/<bucket>/<object>
 	gsHTTPRegex2 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://storage\.cloud\.google\.com/%s/%s$`, bucket, object))
+
 	// Check for the other possible Google Storage URLs:
 	// http://storage.googleapis.com/<bucket>/<object>
 	// https://storage.googleapis.com/<bucket>/<object>
 	//
-	// The following are deprecated but checked:
+	// The following are deprecated but also checked:
 	// http://commondatastorage.googleapis.com/<bucket>/<object>
 	// https://commondatastorage.googleapis.com/<bucket>/<object>
 	gsHTTPRegex3 = regexp.MustCompile(fmt.Sprintf(`^http[s]?://(?:commondata)?storage\.googleapis\.com/%s/%s$`, bucket, object))
 
 	testStorageClient *storage.Client
 )
-
-const (
-	ps1 metadataScriptType = iota
-	cmd
-	bat
-	uri
-)
-
-type metadataScriptType int
-
-type metadataScript struct {
-	Type             metadataScriptType
-	Script, Metadata string
-}
-
-func prepareURIExec(ctx context.Context, ms *metadataScript) (*exec.Cmd, string, error) {
-	trimmed := strings.TrimSpace(ms.Script)
-	bucket, object := findMatch(trimmed)
-	if bucket != "" && object != "" {
-		trimmed = fmt.Sprintf("https://%s/%s/%s", storageURL, bucket, object)
-	}
-
-	var c *exec.Cmd
-	dir, err := ioutil.TempDir("", "metadata-scripts")
-	if err != nil {
-		return nil, "", err
-	}
-	tmpFile := filepath.Join(dir, ms.Metadata)
-
-	u, err := url.Parse(trimmed)
-	if err != nil {
-		return nil, dir, err
-	}
-	sType := u.Path[len(u.Path)-3:]
-	switch sType {
-	case "ps1":
-		tmpFile = tmpFile + ".ps1"
-		c = exec.Command("powershell.exe", append(powerShellArgs, tmpFile)...)
-	case "cmd":
-		tmpFile = tmpFile + ".cmd"
-		c = exec.Command(tmpFile)
-	case "bat":
-		tmpFile = tmpFile + ".bat"
-		c = exec.Command(tmpFile)
-	default:
-		return nil, dir, fmt.Errorf("error getting script type from url path, path: %q, parsed type: %q", trimmed, sType)
-	}
-
-	file, err := os.Create(tmpFile)
-	if err != nil {
-		return nil, dir, fmt.Errorf("error opening temp file: %v", err)
-	}
-	if err := downloadScript(ctx, trimmed, file); err != nil {
-		return nil, dir, fmt.Errorf("error downloading script: %v", err)
-	}
-	if err := file.Close(); err != nil {
-		return nil, dir, fmt.Errorf("error closing temp file: %v", err)
-	}
-	return c, dir, nil
-}
-
-func (ms *metadataScript) run(ctx context.Context) error {
-	switch ms.Type {
-	case ps1:
-		return runPs1(runCmd, ms)
-	case cmd:
-		return runBat(runCmd, ms)
-	case bat:
-		return runBat(runCmd, ms)
-	case uri:
-		c, dir, err := prepareURIExec(ctx, ms)
-		if dir != "" {
-			defer os.RemoveAll(dir)
-		}
-		if err != nil {
-			return err
-		}
-		return runCmd(c, ms.Metadata)
-
-	default:
-		return fmt.Errorf("unknown script type: %q", ms.Script)
-	}
-}
 
 func newStorageClient(ctx context.Context) (*storage.Client, error) {
 	if testStorageClient != nil {
@@ -217,14 +135,16 @@ func downloadScript(ctx context.Context, path string, file *os.File) error {
 	// particularly once a system is promoted to a domain controller.
 	// Try to lookup storage.googleapis.com and sleep for up to 100s if
 	// we get an error.
+	// TODO: do we need to do this on every script?
 	for i := 0; i < 20; i++ {
 		if _, err := net.LookupHost(storageURL); err == nil {
 			break
 		}
 		time.Sleep(5 * time.Second)
 	}
-	bucket, object := findMatch(path)
+	bucket, object := parseGCS(path)
 	if bucket != "" && object != "" {
+		// TODO: why is this retry outer, but downloadURL retry is inner?
 		// Retry up to 3 times, only wait 1 second between retries.
 		for i := 1; ; i++ {
 			err := downloadGSURL(ctx, bucket, object, file)
@@ -238,14 +158,14 @@ func downloadScript(ctx context.Context, path string, file *os.File) error {
 			time.Sleep(1 * time.Second)
 		}
 		logger.Infof("Trying unauthenticated download")
-		return downloadURL(fmt.Sprintf("https://%s/%s/%s", storageURL, bucket, object), file)
+		path = fmt.Sprintf("https://%s/%s/%s", storageURL, bucket, object)
 	}
 
 	// Fall back to an HTTP GET of the URL.
 	return downloadURL(path, file)
 }
 
-func findMatch(path string) (string, string) {
+func parseGCS(path string) (string, string) {
 	for _, re := range []*regexp.Regexp{gsRegex, gsHTTPRegex1, gsHTTPRegex2, gsHTTPRegex3} {
 		match := re.FindStringSubmatch(path)
 		if len(match) == 3 {
@@ -311,57 +231,68 @@ func getMetadata(key string, recurse bool) ([]byte, error) {
 	return md, nil
 }
 
-func getScripts(mdsm map[metadataScriptType]string) ([]metadataScript, error) {
-	md, err := getMetadataAttributes("/instance/attributes")
+// runScript makes a temporary directory and temporary file for the script, downloads and then runs it.
+func runScript(ctx context.Context, key, value string) error {
+	var u *url.URL
+	if strings.HasSuffix(key, "-url") {
+		var err error
+		u, err = url.Parse(strings.TrimSpace(value))
+		if err != nil {
+			return err
+		}
+	}
+
+	// Make temp directory.
+	// dir, err := ioutil.TempDir(config.Section("MetadataScripts").Key("run_dir"), "metadata-scripts")
+	dir, err := ioutil.TempDir("", "metadata-scripts")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	msdd := parseMetadata(mdsm, md)
-	if len(msdd) != 0 {
-		return msdd, nil
+	defer os.RemoveAll(dir)
+
+	// These extensions need to be present on Windows. Doesn't hurt to add
+	// on other systems though.
+	tmpFile := filepath.Join(dir, key)
+	for _, ext := range []string{"bat", "cmd", "ps1"} {
+		switch {
+		case strings.HasSuffix(key, fmt.Sprintf("-%s", ext)),
+			u != nil && strings.HasSuffix(u.Path, fmt.Sprintf(".%s", ext)):
+			tmpFile = fmt.Sprintf("%s.%s", tmpFile, ext)
+			break
+		}
 	}
 
-	md, err = getMetadataAttributes("/project/attributes")
-	if err != nil {
-		return nil, err
+	// Create or download files.
+	if u != nil {
+		file, err := os.OpenFile(tmpFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+		if err != nil {
+			return fmt.Errorf("error opening temp file: %v", err)
+		}
+		if err := downloadScript(ctx, value, file); err != nil {
+			file.Close()
+			return err
+		}
+		file.Close()
+	} else {
+		if err := ioutil.WriteFile(tmpFile, []byte(value), 0755); err != nil {
+			return err
+		}
 	}
-	return parseMetadata(mdsm, md), nil
-}
 
-func parseMetadata(mdsm map[metadataScriptType]string, md map[string]string) []metadataScript {
-	var mdss []metadataScript
-	// Sort so we run scripts in order.
-	var keys []int
-	for k := range mdsm {
-		keys = append(keys, int(k))
-	}
-	sort.Ints(keys)
-	for _, k := range keys {
-		st := metadataScriptType(k)
-		name := mdsm[st]
-		script, ok := md[name]
-		if !ok || script == "" {
-			continue
+	// Craft the command to run.
+	var c *exec.Cmd
+	if strings.HasSuffix(tmpFile, ".ps1") {
+		c = exec.Command("powershell.exe", append(powerShellArgs, tmpFile)...)
+	} else {
+		if runtime.GOOS == "windows" {
+			c = exec.Command(tmpFile)
+		} else {
+			//c = exec.Command(config.Section("MetadataScripts").Key("default_shell").MustString("/bin/bash"), "-c", tmpFile)
+			c = exec.Command("/bin/bash", "-c", tmpFile)
 		}
-		mdss = append(mdss, metadataScript{st, script, name})
 	}
-	return mdss
-}
 
-func runScripts(ctx context.Context, scripts []metadataScript) {
-	for _, script := range scripts {
-		logger.Infof("Found %s in metadata.", script.Metadata)
-		err := script.run(ctx)
-		if _, ok := err.(*exec.ExitError); ok {
-			logger.Infof("%s %s", script.Metadata, err)
-			continue
-		}
-		if err == nil {
-			logger.Infof("%s exit status 0", script.Metadata)
-			continue
-		}
-		logger.Errorf(err.Error())
-	}
+	return runCmd(c, key)
 }
 
 func runCmd(c *exec.Cmd, name string) error {
@@ -381,62 +312,79 @@ func runCmd(c *exec.Cmd, name string) error {
 
 	in := bufio.NewScanner(pr)
 	for in.Scan() {
-		logger.Log(logger.LogEntry{Message: fmt.Sprintf("%s: %s", name, in.Text()), CallDepth: 3, Severity: logger.Info})
+		logger.Log(logger.LogEntry{
+			Message:   fmt.Sprintf("%s: %s", name, in.Text()),
+			CallDepth: 3,
+			Severity:  logger.Info,
+		})
 	}
 
 	return c.Wait()
 }
 
-func runBat(runner func(c *exec.Cmd, name string) error, ms *metadataScript) error {
-	tmpFile, err := tempFile(ms.Metadata+".bat", ms.Script)
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(filepath.Dir(tmpFile))
-
-	return runner(exec.Command(tmpFile), ms.Metadata)
-}
-
-func runPs1(runner func(c *exec.Cmd, name string) error, ms *metadataScript) error {
-	tmpFile, err := tempFile(ms.Metadata+".ps1", ms.Script)
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(filepath.Dir(tmpFile))
-
-	c := exec.Command("powershell.exe", append(powerShellArgs, tmpFile)...)
-	return runner(c, ms.Metadata)
-}
-
-func tempFile(name, content string) (string, error) {
-	dir, err := ioutil.TempDir("", "metadata-scripts")
-	if err != nil {
-		return "", err
-	}
-
-	tmpFile := filepath.Join(dir, name)
-	return tmpFile, ioutil.WriteFile(tmpFile, []byte(content), 0666)
-}
-
-func validateArgs(args []string) (map[metadataScriptType]string, error) {
+// getWantedKeys returns the list of keys to check for a given type of script and OS.
+func getWantedKeys(args []string, os string) ([]string, error) {
 	if len(args) != 2 {
-		return nil, fmt.Errorf("No valid arguments specified. Options: %s", commands)
+		return nil, usageError
 	}
-	for _, command := range commands {
-		if command == args[1] {
-			mdsm := map[metadataScriptType]string{}
-			if command == "specialize" {
-				command = "sysprep-" + command
-			} else {
-				command = "windows-" + command
-			}
-			for st, script := range scripts {
-				mdsm[st] = fmt.Sprintf(script, command)
-			}
-			return mdsm, nil
+	prefix := args[1]
+	switch prefix {
+	case "specialize":
+		prefix = "sysprep-specialize"
+	case "startup", "shutdown":
+		if os == "windows" {
+			prefix = "windows-" + prefix
+		}
+		// if !config.Section("MetadataScripts").Key(prefix).MustBool(true) {
+		// 	return nil, fmt.Errorf("%s scripts disabled in instance config.", prefix)
+		// }
+	default:
+		return nil, usageError
+	}
+
+	var mdkeys []string
+	suffixes := []string{"url"}
+	if os == "windows" {
+		// This ordering matters. URL is last on Windows, first otherwise.
+		suffixes = []string{"ps1", "cmd", "bat", "url"}
+	}
+
+	for _, suffix := range suffixes {
+		mdkeys = append(mdkeys, fmt.Sprintf("%s-script-%s", prefix, suffix))
+	}
+
+	// The 'bare' startup-script or shutdown-script key, not supported on Windows.
+	if os != "windows" {
+		mdkeys = append(mdkeys, fmt.Sprintf("%s-script", prefix))
+	}
+
+	return mdkeys, nil
+}
+
+func parseMetadata(md map[string]string, wanted []string) map[string]string {
+	found := make(map[string]string)
+	for _, key := range wanted {
+		val, ok := md[key]
+		if !ok || val == "" {
+			continue
+		}
+		found[key] = val
+	}
+	return found
+}
+
+// getExistingKeys returns the wanted keys that are set in metadata.
+func getExistingKeys(wanted []string) (map[string]string, error) {
+	for _, attrs := range []string{"/instance/attributes", "/project/attributes"} {
+		md, err := getMetadataAttributes(attrs)
+		if err != nil {
+			return nil, err
+		}
+		if found := parseMetadata(md, wanted); len(found) != 0 {
+			return found, nil
 		}
 	}
-	return nil, fmt.Errorf("No valid arguments specified. Options: %s", commands)
+	return nil, nil
 }
 
 func logFormat(e logger.LogEntry) string {
@@ -446,32 +394,48 @@ func logFormat(e logger.LogEntry) string {
 
 func main() {
 	ctx := context.Background()
-	opts := logger.LogOpts{LoggerName: programName, FormatFunction: logFormat}
+	opts := logger.LogOpts{
+		LoggerName:     programName,
+		FormatFunction: logFormat,
+		Writers:        []io.Writer{os.Stdout},
+	}
+
+	// The keys to check vary based on the argument and the OS. Also functions to validate arguments.
+	wantedKeys, err := getWantedKeys(os.Args, runtime.GOOS)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		os.Exit(2)
+	}
 
 	projectID, err := getMetadataKey("/project/project-id")
 	if err == nil {
 		opts.ProjectName = projectID
+	} else {
+		// TODO: just consider it disabled if no project is set..
+		opts.DisableCloudLogging = true
 	}
-
 	logger.Init(ctx, opts)
-	metadata, err := validateArgs(os.Args)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
 
 	logger.Infof("Starting %s scripts (version %s).", os.Args[1], version)
 
-	scripts, err := getScripts(metadata)
+	scripts, err := getExistingKeys(wantedKeys)
 	if err != nil {
-		fmt.Println(err)
 		logger.Fatalf(err.Error())
 	}
 
 	if len(scripts) == 0 {
 		logger.Infof("No %s scripts to run.", os.Args[1])
-	} else {
-		runScripts(ctx, scripts)
+		return
 	}
+
+	for key, value := range scripts {
+		logger.Infof("Found %s in metadata.", key)
+		if err := runScript(ctx, key, value); err != nil {
+			logger.Infof("%s %s", key, err)
+			continue
+		}
+		logger.Infof("%s exit status 0", key)
+	}
+
 	logger.Infof("Finished running %s scripts.", os.Args[1])
 }
