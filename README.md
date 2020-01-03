@@ -1,6 +1,7 @@
 ## Windows Guest Environment for Google Compute Engine
 This repository stores the collection of Windows packages installed on Google
 supported Compute Engine [images](https://cloud.google.com/compute/docs/images).
+The Windows agent has moved to https://github.com/GoogleCloudPlatform/guest-agent.
 
 **Table of Contents**
 
