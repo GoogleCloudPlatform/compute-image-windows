@@ -28,95 +28,6 @@ $global:hostname = [System.Net.Dns]::GetHostName()
 $global:log_file = $null
 
 # Functions
-function _AddToPath {
- <#
-    .SYNOPSIS
-      Adds GCE tool dir to SYSTEM PATH
-    .DESCRIPTION
-      This is a helper function which adds location to path
-  #>
-  param (
-    [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
-    [Alias('path')]
-      $path_to_add
-  )
-
-  # Check if folder exists on the file system.
-  if (!(Test-Path $path_to_add)) {
-    Write-Log "$path_to_add does not exist, cannot be added to $env:PATH."
-    return
-  }
-
-  try {
-    $path_reg_key = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
-    $current_path = (Get-ItemProperty $path_reg_key).Path
-    $check_path = ($current_path).split(';') | ? {$_ -like $path_to_add}
-  }
-  catch {
-    Write-Log 'Could not read path from the registry.'
-    _PrintError
-  }
-  # See if the folder is already in the path.
-  if ($check_path) {
-    Write-Log 'Folder already in system path.'
-  }
-  else {
-    try {
-      Write-Log "Adding $path_to_add to SYSTEM path."
-      $new_path = $current_path + ';' + $path_to_add
-      $env:Path = $new_path
-      Set-ItemProperty $path_reg_key -name 'Path' -value $new_path
-    }
-    catch {
-      Write-Log 'Failed to add to SYSTEM path.'
-      _PrintError
-    }
-  }
-}
-
-
-function Clear-EventLogs {
-  <#
-    .SYNOPSIS
-      Clear all eventlog enteries.
-    .DESCRIPTION
-      This uses the Get-Eventlog and Clear-EventLog powershell functions to
-      clean the eventlogs for a machine.
-  #>
-
-  Write-Log 'Clearing events in EventViewer.'
-  Get-WinEvent -ListLog * |
-    Where-Object {($_.IsEnabled -eq 'True') -and ($_.RecordCount -gt 0)} |
-    ForEach-Object {
-      try{[System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($_.LogName)}catch{}
-    }
-}
-
-
-function Clear-TempFolders {
-  <#
-    .SYNOPSIS
-      Delete all files from temp folder location.
-    .DESCRIPTION
-      This function calls an array variable which contain location of all the
-      temp files and folder which needs to be cleared out. We use the
-      Remove-Item routine to delete the files in the temp directories.
-  #>
-
-  # Array of files and folder that need to be deleted.
-  @("C:\Windows\Temp\*", "C:\Windows\Prefetch\*",
-    "C:\Documents and Settings\*\Local Settings\temp\*\*",
-    "C:\Users\*\Appdata\Local\Temp\*\*",
-    "C:\Users\*\Appdata\Local\Microsoft\Internet Explorer\*",
-    "C:\Users\*\Appdata\LocalLow\Temp\*\*",
-    "C:\Users\*\Appdata\LocalLow\Microsoft\Internet Explorer\*") | ForEach-Object {
-    if (Test-Path $_) {
-      Remove-Item $_ -Recurse -Force -ErrorAction Ignore
-    }
-  }
-}
-
-
 function Get-MetaData {
   <#
     .SYNOPSIS
@@ -169,45 +80,9 @@ function Get-MetaData {
   }
   catch {
     Write-Log "Unknown error in reading $url."
-    _PrintError
+    Write-LogError
   }
 }
-
-
-function _GenerateRandomPassword {
-  <#
-    .SYNOPSIS
-      Generates random password which meet windows complexity requirements.
-    .DESCRIPTION
-      This function generates a password to be set on built-in account before
-      it is disabled.
-    .OUTPUTS
-      Returns String
-    .EXAMPLE
-      _GeneratePassword
-  #>
-
-  # Define length of the password. Maximum and minimum.
-  [int] $pass_min = 20
-  [int] $pass_max = 35
-  [string] $random_password = $null
-
-  # Random password length should help prevent masking attacks.
-  $password_length = Get-Random -Minimum $pass_min -Maximum $pass_max
-
-  # Choose a set of ASCII characters we'll use to generate new passwords from.
-  $ascii_char_set = $null
-  for ($x=33; $x -le 126; $x++) {
-    $ascii_char_set+=,[char][byte]$x
-  }
-
-  # Generate random set of characters.
-  for ($loop=1; $loop -le $password_length; $loop++) {
-    $random_password += ($ascii_char_set | Get-Random)
-  }
-  return $random_password
-}
-
 
 function _GetCOMPorts  {
   <#
@@ -237,7 +112,7 @@ function _GetCOMPorts  {
     }
   }
   catch {
-    _PrintError
+    Write-LogError
   }
   return $exists
 }
@@ -259,13 +134,13 @@ function _GetWebClient {
   }
   catch [System.Net.WebException] {
     Write-Log 'Could not generate a WebClient object.'
-    _PrintError
+    Write-LogError
   }
   return $client
 }
 
 
-function _PrintError {
+function Write-LogError {
   <#
     .SYNOPSIS
       Prints Error Messages
@@ -274,7 +149,7 @@ function _PrintError {
     .OUTPUTS
       Error message found during execution is printed out to the console.
     .EXAMPLE
-      _PrintError
+      Write-LogError
   #>
 
   # See all error objects.
@@ -336,84 +211,6 @@ function Invoke-ExternalCommand {
       Write-Log "--> $_"
     }
   }
-}
-
-
-function _TestAdmin {
-  <#
-    .SYNOPSIS
-      Checks if the current Powershell instance is running with
-      elevated privileges or not.
-    .OUTPUTS
-      System.Boolean
-      True if the current Powershell is elevated, false if not.
-  #>
-  try {
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal -ArgumentList $identity
-    return $principal.IsInRole( [Security.Principal.WindowsBuiltInRole]::Administrator )
-  }
-  catch {
-    Write-Log 'Failed to determine if the current user has elevated privileges.'
-    _PrintError
-  }
-}
-
-
-function _TestTCPPort {
-  <#
-    .SYNOPSIS
-      Test TCP port on remote server
-    .DESCRIPTION
-      Use .Net Socket connection to connect to remote host and check if port is
-      open.
-    .PARAMETER remote_host
-      Remote host you want to check TCP port for.
-    .PARAMETER port_number
-      TCP port number you want to check.
-    .PARAMETER timeout
-      Time you want to wait for.
-    .RETURNS
-      Return bool. $true if server is reachable at tcp port $false is not.
-    .EXAMPLE
-      _TestTCPPort -host 127.0.0.1 -port 80
-  #>
-  param (
-   [Alias('host')]
-    [string]$remote_host,
-   [Alias('port')]
-    [int]$port_number,
-   [int]$timeout = 3000
-  )
-
-  $status = $false
-  try {
-    # Create a TCP Client.
-    $socket = New-Object Net.Sockets.TcpClient
-    # Use the TCP Client to connect to remote host port.
-    $connection = $socket.BeginConnect($remote_host, $port_number, $null, $null)
-    # Set the wait time
-    $wait = $connection.AsyncWaitHandle.WaitOne($timeout, $false)
-    if (!$wait) {
-      # Connection failed, timeout reached.
-      $socket.Close()
-    }
-    else {
-      # Close the connection and report the error if there is one.
-      $socket.EndConnect($connection) | Out-Null
-      if (!$?) {
-        Write-Log $error[0]
-      }
-      else {
-        $status = $true
-      }
-      $socket.Close()
-    }
-  }
-  catch {
-    _PrintError
-  }
-  return $status
 }
 
 
@@ -491,7 +288,7 @@ function Write-SerialPort {
       $port.Close()
     }
     catch {
-      _PrintError
+      Write-LogError
     }
   }
 }
@@ -558,7 +355,7 @@ ${timestamp} ${global:logger}: ${boundary}
     }
   }
   catch {
-    _PrintError
+    Write-LogError
     continue
   }
 }
@@ -581,7 +378,7 @@ function Set-LogFile {
       $global:log_file = $filename
     }
     catch {
-      _PrintError
+      Write-LogError
     }
   }
   Write-Log "Log file set to $global:log_file"
@@ -591,9 +388,8 @@ function Set-LogFile {
 # Export all modules.
 New-Alias -Name _WriteToSerialPort -Value Write-SerialPort
 New-Alias -Name _RunExternalCMD -Value Invoke-ExternalCommand
-New-Alias -Name _ClearEventLogs -Value Clear-EventLogs
-New-Alias -Name _ClearTempFolders -Value Clear-TempFolders
 New-Alias -Name _FetchFromMetadata -Value Get-Metadata
+New-Alias -Name _PrintError -Value Write-LogError
 Export-ModuleMember -Function * -Alias *
 
 if (_GetCOMPorts -portname 'COM1') {

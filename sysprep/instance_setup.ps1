@@ -34,15 +34,11 @@ param (
 Set-StrictMode -Version Latest
 
 $global:logger = 'GCEInstanceSetup'
-$script:disable_built_in_user = $false
 $script:gce_install_dir = 'C:\Program Files\Google\Compute Engine'
 $script:gce_base_loc = "$script:gce_install_dir\sysprep\gce_base.psm1"
-$script:instance_setup_script_loc = "$script:gce_install_dir\sysprep\instance_setup.ps1"
 $script:activate_instance_script_loc = "$script:gce_install_dir\sysprep\activate_instance.ps1"
 $script:metadata_script_loc = "$script:gce_install_dir\metadata_scripts\GCEMetadataScripts.exe"
-$script:setupscripts_dir_loc = "$env:WinDir\Setup\Scripts"
-$script:setupcomplete_loc = "$script:setupscripts_dir_loc\SetupComplete.cmd"
-$script:show_msgs = $false
+$script:setupcomplete_loc = "$env:WinDir\Setup\Scripts\SetupComplete.cmd"
 $script:write_to_serial = $false
 
 try {
@@ -88,7 +84,6 @@ function Change-InstanceName {
   while ($hostname_parts.Length -le 1)
 
   $new_hostname = $hostname_parts[0]
-  Write-Log "Changing hostname from $global:hostname to $new_hostname."
   # Change computer name to match GCE hostname.
   # This will take effect after reboot.
   try {
@@ -98,7 +93,7 @@ function Change-InstanceName {
   }
   catch {
     Write-Log 'Unable to change hostname.'
-    _PrintError
+    Write-LogError
   }
 }
 
@@ -116,55 +111,6 @@ function Change-InstanceProperties {
   # A null argument sets this to just use DHCP
   $nics | Invoke-CimMethod -Name SetDNSServerSearchOrder -Arguments @{DNSServerSearchOrder=$null}
   Write-Log 'All networks set to DHCP.'
-
-  $netkvm = Get-CimInstance Win32_NetworkAdapter -filter "ServiceName='netkvm'"
-  $netkvm | ForEach-Object {
-    Invoke-ExternalCommand netsh interface ipv4 set interface $_.NetConnectionID mtu=1460 | Out-Null
-  }
-  Write-Log 'MTU set to 1460.'
-
-  Invoke-ExternalCommand route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $netkvm[0].InterfaceIndex metric 1 -ErrorAction SilentlyContinue
-  Write-Log 'Added persistent route to metadata netblock via first netkvm adapter.'
-
-  # Enable access to Windows administrative file share.
-  Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
-      -Name 'LocalAccountTokenFilterPolicy' -Value 1 -Force
-}
-
-function Enable-RemoteDesktop {
-  <#
-    .SYNOPSIS
-      Enable RDP on the instance.
-    .DESCRIPTION
-      Modify the Terminal Server registry properties and restart Terminal
-      services.
-  #>
-
-  $ts_path = 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server'
-  if (-not (Test-Path $ts_path)) {
-    return
-  }
-  # Enable remote desktop in registry.
-  Set-ItemProperty -Path $ts_path -Name 'fDenyTSConnections' -Value 0 -Force
-
-  # Disable Ctrl + Alt + Del.
-  Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System' `
-      -Name 'DisableCAD' -Value 1 -Force
-  Write-Log 'Disabled Ctrl + Alt + Del.'
-
-  Write-Log 'Enable RDP firewall rules.'
-  Invoke-ExternalCommand netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
-
-  try {
-    Write-Log 'Restarting Terminal Service services, to enable RDP.'
-    Restart-Service UmRdpService,TermService -Force | Out-Null
-    Write-Log 'Enabled Remote Desktop.'
-  }
-  catch {
-    _PrintError
-    Write-Log ("Can't restart Terminal Service on $global:hostname. " +
-        'Try restarting this instance from the Cloud Console.')
-  }
 }
 
 function Configure-WinRM {
@@ -180,7 +126,7 @@ function Configure-WinRM {
   if (Get-Command Import-PfxCertificate -ErrorAction SilentlyContinue) {
     $tempDir = "${env:TEMP}\cert"
     New-Item $tempDir -Type Directory
-    & $script:gce_install_dir\tools\certgen.exe -outDir $tempDir
+    Invoke-ExternalCommand $script:gce_install_dir\tools\certgen.exe -outDir $tempDir -hostname $global:hostname
 
     if (-not (Test-Path "${tempDir}\cert.p12")) {
       Write-Log 'Error creating cert, unable to setup WinRM'
@@ -194,8 +140,8 @@ function Configure-WinRM {
     # with enhanced key usage object identifiers of Server Authentication and Client Authentication.
     # https://msdn.microsoft.com/en-us/library/windows/desktop/aa386968(v=vs.85).aspx
     $eku = '1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2'
-    & $script:gce_install_dir\tools\makecert.exe -r -a SHA1 -sk "$(hostname)" -n "CN=$(hostname)" -ss My -sr LocalMachine -eku $eku
-    $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=$(hostname)"} | Select-Object -First 1
+    & $script:gce_install_dir\tools\makecert.exe -r -a SHA1 -sk "${global:hostname}" -n "CN=${global:hostname}" -ss My -sr LocalMachine -eku $eku
+    $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=${global:hostname}"} | Select-Object -First 1
   }
 
   $xml = @"
@@ -214,35 +160,8 @@ function Configure-WinRM {
     $sess.Put('winrm/config/listener?Address=*+Transport=HTTPS', $xml)
   }
 
-  # Open the firewall.
-  $rule = 'Windows Remote Management (HTTPS-In)'
-  Invoke-ExternalCommand netsh advfirewall firewall add rule profile=any name=$rule dir=in localport=5986 protocol=TCP action=allow
   Restart-Service WinRM
   Write-Log 'Setup of WinRM complete.'
-}
-
-function Create-GCEStartup {
-   <#
-    .SYNOPSIS
-      Setup the GCEStartup scheduled task.
-    .DESCRIPTION
-      We have to use the API for this create call as schtasks.exe sets an 
-      activation time of now for a task with the onstart schedule, this causes
-      issues when the timezone is changed.
-  #>
-  $run_startup_scripts = "$script:gce_install_dir\metadata_scripts\run_startup_scripts.cmd"
-  
-  $service = New-Object -ComObject("Schedule.Service")
-  $service.Connect()
-  $task = $service.NewTask(0)
-  $task.Settings.Enabled = $true
-  $task.Settings.AllowDemandStart = $true
-  $task.Settings.Priority = 5
-  $action = $task.Actions.Create(0)
-  $action.Path = "`"$run_startup_scripts`""
-  $trigger = $task.Triggers.Create(8)
-  $folder = $service.GetFolder('\')
-  $folder.RegisterTaskDefinition('GCEStartup',$task,6,'System',$null,5) | Out-Null
 }
 
 # Check if COM1 exists.
@@ -255,46 +174,29 @@ if ($specialize) {
 
   Change-InstanceProperties
   Change-InstanceName
-
-  # Create setupcomplete.cmd to launch second half of instance setup.
-  # When Windows setup completes (after the sysprep OOBE phase), it looks
-  # for the file SetupComplete.cmd and automatically runs it; we
-  # will use it to launch this script a second time without the -specialize
-  # flag to run the second half of instance setup.
-  if (-not (Test-Path $script:setupscripts_dir_loc)) {
-    New-Item -ItemType Directory -Path $script:setupscripts_dir_loc
-  }
-  @"
-$PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$script:instance_setup_script_loc"
-"@ | Set-Content -Path $script:setupcomplete_loc -Force
+  Configure-WinRM
 
   try {
     # Call startup script during sysprep specialize phase.
     & $script:metadata_script_loc 'specialize'
   }
   catch {
-    _PrintError
+    Write-LogError
   }
 
   Write-Log 'Finished with sysprep specialize phase, restarting...'
 }
 else {
-  $activate_job = Start-Job -FilePath $script:activate_instance_script_loc
-  Enable-RemoteDesktop
-  Configure-WinRM
-
-  # Schedule startup script.
-  Write-Log 'Running startup scripts from metadata server.'
-  Create-GCEStartup
-  Invoke-ExternalCommand schtasks /run /tn GCEStartup
-
   Write-Log "Instance setup finished. $global:hostname is ready to use." -important
 
   if (Test-Path $script:setupcomplete_loc) {
     Remove-Item -Path $script:setupcomplete_loc -Force
   }
 
-  Wait-Job $activate_job | Receive-Job | ForEach-Object {
+  Invoke-ExternalCommand schtasks /change /tn GCEStartup /enable -ErrorAction SilentlyContinue
+  Invoke-ExternalCommand schtasks /run /tn GCEStartup
+
+  & $script:activate_instance_script_loc | ForEach-Object {
     Write-Log $_
   }
-}
+} 
