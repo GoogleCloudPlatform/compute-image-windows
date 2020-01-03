@@ -35,14 +35,21 @@ import (
 var (
 	validFor = flag.Duration("duration", 365*24*time.Hour, "Duration that certificate is valid for")
 	outDir   = flag.String("outDir", "", "Directory to create the cert file in.")
+	hostname = flag.String("hostname", "", "Hostname to use for the self signed cert.")
 )
 
 func main() {
 	flag.Parse()
 
-	hn, err := os.Hostname()
-	if err != nil {
-		log.Fatal(err)
+	var hn string
+	var err error
+	if *hostname != "" {
+		hn = *hostname
+	} else {
+		hn, err = os.Hostname()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
