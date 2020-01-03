@@ -1,6 +1,6 @@
 {
   "name": "google-compute-engine-sysprep",
-  "version": "3.10.1@1",
+  "version": "3.11.0@1",
   "arch": "noarch",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
@@ -15,6 +15,7 @@
     "path": "sysprep_uninstall.ps1"
   },
   "releaseNotes": [
+    "3.11.0- Remove features from instance_setup.ps1 that have been moved to the build/GCEAgent",
     "3.10.0- Support BYOL images by skipping GCE activation",
     "3.9.1 - Let gcesysprep pass /f to shutdown.exe to avoid an error on shutdown",
     "3.9.0 - Add -NoShutdown flag to gcesysprep",
@@ -38,9 +39,10 @@
       ]
   }],
   "pkgDependencies": {
-    "google-compute-engine-metadata-scripts": "4.0.0@1",
-    "google-compute-engine-powershell": "1.1.0@1",
-    "certgen": "1.0.0@1"
+    "google-compute-engine-windows": "20191204.00.0@1",
+    "google-compute-engine-metadata-scripts": "4.4.0@1",
+    "google-compute-engine-powershell": "2.0.0@1",
+    "certgen": "1.1.0@1"
   }
 }
 

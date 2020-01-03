@@ -1,6 +1,6 @@
 {
   "name": "google-compute-engine-powershell",
-  "version": "1.1.1@4",
+  "version": "2.0.0@1",
   "arch": "noarch",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
@@ -9,6 +9,7 @@
     "gce_base.psm1": "<ProgramFiles>/Google/Compute Engine/sysprep/gce_base.psm1"
   },
   "releaseNotes": [
+    "2.0.0 - Remove unused functions",
     "1.1.0 - Rename many functions to better match PowerShell style, provide aliases for old names",
     "      - Update Write-Log to include a global var of who is doing the logging",
     "      - Delete a few unused functions",

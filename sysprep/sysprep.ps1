@@ -55,7 +55,7 @@ param (
 
   [Parameter(HelpMessage = 'Destination dir from where scripts are executed.')]
   [alias('destination')]
-  $scripts_location = 'C:\Program Files\Google\Compute Engine',
+  $gce_install_dir = 'C:\Program Files\Google\Compute Engine',
 
   [Parameter(HelpMessage = 'Location to generate modified answer file. ' +
              'Ignored if an answer file is specified.')]
@@ -76,9 +76,11 @@ $ErrorActionPreference = 'Stop'
 # Script Default Values
 $global:logger = 'GCESysprep'
 $script:hostname = [System.Net.Dns]::GetHostName()
-$script:psversion = $PSVersionTable.PSVersion.Major
-$script:sysprep_dir = "$scripts_location\sysprep"
+$script:sysprep_dir = "$gce_install_dir\sysprep"
+$script:instance_setup_script_loc = "$gce_install_dir\sysprep\instance_setup.ps1"
 $script:sysprep_tag = 'C:\Windows\System32\Sysprep\Sysprep_succeeded.tag'
+$script:setupscripts_dir_loc = "$env:WinDir\Setup\Scripts"
+$script:setupcomplete_loc = "$script:setupscripts_dir_loc\SetupComplete.cmd"
 
 # Check if the help parameter was called.
 if ($help) {
@@ -97,8 +99,68 @@ catch [System.Management.Automation.ActionPreferenceStopException] {
   exit 2
 }
 
+function Clear-EventLogs {
+  <#
+    .SYNOPSIS
+      Clear all eventlog enteries.
+    .DESCRIPTION
+      This uses the Get-Eventlog and Clear-EventLog powershell functions to
+      clean the eventlogs for a machine.
+  #>
+
+  Write-Log 'Clearing events in EventViewer.'
+  Get-WinEvent -ListLog * |
+    Where-Object {($_.IsEnabled -eq 'True') -and ($_.RecordCount -gt 0)} |
+    ForEach-Object {
+      try{[System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog($_.LogName)}catch{}
+    }
+}
+
+function Clear-TempFolders {
+  <#
+    .SYNOPSIS
+      Delete all files from temp folder location.
+    .DESCRIPTION
+      This function calls an array variable which contain location of all the
+      temp files and folder which needs to be cleared out. We use the
+      Remove-Item routine to delete the files in the temp directories.
+  #>
+
+  # Array of files and folder that need to be deleted.
+  @("C:\Windows\Temp\*", "C:\Windows\Prefetch\*",
+    "C:\Documents and Settings\*\Local Settings\temp\*\*",
+    "C:\Users\*\Appdata\Local\Temp\*\*",
+    "C:\Users\*\Appdata\Local\Microsoft\Internet Explorer\*",
+    "C:\Users\*\Appdata\LocalLow\Temp\*\*",
+    "C:\Users\*\Appdata\LocalLow\Microsoft\Internet Explorer\*") | ForEach-Object {
+    if (Test-Path $_) {
+      Remove-Item $_ -Recurse -Force -ErrorAction Ignore
+    }
+  }
+}
+
+function Test-Admin {
+  <#
+    .SYNOPSIS
+      Checks if the current Powershell instance is running with
+      elevated privileges or not.
+    .OUTPUTS
+      System.Boolean
+      True if the current Powershell is elevated, false if not.
+  #>
+  try {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal -ArgumentList $identity
+    return $principal.IsInRole( [Security.Principal.WindowsBuiltInRole]::Administrator )
+  }
+  catch {
+    Write-Log 'Failed to determine if the current user has elevated privileges.'
+    Write-LogError
+  }
+}
+
 # Check if the script is running elevated.
-if (-not(_TestAdmin)) {
+if (-not(Test-Admin)) {
   $script:show_msgs = $true
   Write-Log 'Script is not running in a elevated prompt.'
   Write-Log 'Re-running as Administrator.'
@@ -133,8 +195,8 @@ if (-not($ans_file)) {
 
 # Run Sysprep
 try {
-  # Delete the startup task so it doesn't fire before sysprep completes.
-  Invoke-ExternalCommand schtasks /delete /tn GCEStartup /f -ErrorAction SilentlyContinue
+  # Disable the startup task so it doesn't fire before instance setup completes.
+  Invoke-ExternalCommand schtasks /change /tn GCEStartup /disable -ErrorAction SilentlyContinue
 
   # Do some clean up.
   Clear-TempFolders
@@ -153,8 +215,17 @@ try {
     Start-Sleep -Seconds 15
   }
 
-  Write-Log 'Setting new startup command.'
+  Write-Log 'Setting startup commands.'
   Set-ItemProperty -Path HKLM:\SYSTEM\Setup -Name CmdLine -Value "`"$PSScriptRoot\windeploy.cmd`""
+  if (-not (Test-Path $script:setupscripts_dir_loc)) {
+    New-Item -ItemType Directory -Path $script:setupscripts_dir_loc
+  }
+  # Create setupcomplete.cmd to launch second half of instance setup.
+  # When Windows setup completes (after the sysprep OOBE phase), it looks
+  # for the file SetupComplete.cmd and automatically runs it
+  @"
+$PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$script:instance_setup_script_loc"
+"@ | Set-Content -Path $script:setupcomplete_loc -Force
 
   Write-Log 'Forgetting persistent disks.'
   # While we are using the PersistAllDeviceInstalls setting to make boot faster on GCE, it's a
@@ -172,6 +243,10 @@ try {
     }
   }
 
+  Write-Log 'Enable RDP and WinRM firewall rules.'
+  Invoke-ExternalCommand netsh advfirewall firewall add rule profile=any name='Windows Remote Management (HTTPS-In)' dir=in localport=5986 protocol=TCP action=allow
+  Invoke-ExternalCommand netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
+
   if ($no_shutdown) {
     Write-Log 'GCESysprep complete, not shutting down.'
     exit 0
@@ -181,6 +256,6 @@ try {
   Invoke-ExternalCommand shutdown /s /t 00 /d p:2:4 /f
 }
 catch {
-  _PrintError
+  Write-LogError
   exit 1
 }
