@@ -9,7 +9,7 @@
     "certgen.exe": "<ProgramFiles>/Google/Compute Engine/tools/certgen.exe"
   },
   "releaseNotes": [
-    "1.1.0 - Add option -hostname flag.",
+    "1.1.0 - Add optional -hostname flag.",
     "1.0.0 - Initial release of certgen."
   ],
   "sources": [{
