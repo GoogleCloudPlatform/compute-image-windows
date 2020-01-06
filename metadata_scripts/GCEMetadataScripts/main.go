@@ -39,6 +39,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/guest-logging-go/logger"
+	"github.com/tarm/serial"
 )
 
 var (
@@ -48,7 +49,7 @@ var (
 	metadataHang   = "/?recursive=true&alt=json&timeout_sec=10&last_etag=NONE"
 	defaultTimeout = 20 * time.Second
 	powerShellArgs = []string{"-NoProfile", "-NoLogo", "-ExecutionPolicy", "Unrestricted", "-File"}
-	usageError     = fmt.Errorf("No valid arguments specified. Specify one of \"startup\", \"shutdown\" or \"specialize\"")
+	errUsage       = fmt.Errorf("No valid arguments specified. Specify one of \"startup\", \"shutdown\" or \"specialize\"")
 
 	storageURL = "storage.googleapis.com"
 
@@ -254,9 +255,7 @@ func runScript(ctx context.Context, key, value string) error {
 	// on other systems though.
 	tmpFile := filepath.Join(dir, key)
 	for _, ext := range []string{"bat", "cmd", "ps1"} {
-		switch {
-		case strings.HasSuffix(key, fmt.Sprintf("-%s", ext)),
-			u != nil && strings.HasSuffix(u.Path, fmt.Sprintf(".%s", ext)):
+		if strings.HasSuffix(key, "-"+ext) || (u != nil && strings.HasSuffix(u.Path, "."+ext)) {
 			tmpFile = fmt.Sprintf("%s.%s", tmpFile, ext)
 			break
 		}
@@ -272,10 +271,12 @@ func runScript(ctx context.Context, key, value string) error {
 			file.Close()
 			return err
 		}
-		file.Close()
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("error closing temp file: %v", err)
+		}
 	} else {
 		if err := ioutil.WriteFile(tmpFile, []byte(value), 0755); err != nil {
-			return err
+			return fmt.Errorf("error writing temp file: %v", err)
 		}
 	}
 
@@ -325,7 +326,7 @@ func runCmd(c *exec.Cmd, name string) error {
 // getWantedKeys returns the list of keys to check for a given type of script and OS.
 func getWantedKeys(args []string, os string) ([]string, error) {
 	if len(args) != 2 {
-		return nil, usageError
+		return nil, errUsage
 	}
 	prefix := args[1]
 	switch prefix {
@@ -339,7 +340,7 @@ func getWantedKeys(args []string, os string) ([]string, error) {
 		// 	return nil, fmt.Errorf("%s scripts disabled in instance config.", prefix)
 		// }
 	default:
-		return nil, usageError
+		return nil, errUsage
 	}
 
 	var mdkeys []string
@@ -387,6 +388,21 @@ func getExistingKeys(wanted []string) (map[string]string, error) {
 	return nil, nil
 }
 
+type serialPort struct {
+	port string
+}
+
+func (s *serialPort) Write(b []byte) (int, error) {
+	c := &serial.Config{Name: s.port, Baud: 115200}
+	p, err := serial.OpenPort(c)
+	if err != nil {
+		return 0, err
+	}
+	defer p.Close()
+
+	return p.Write(b)
+}
+
 func logFormat(e logger.LogEntry) string {
 	now := time.Now().Format("2006/01/02 15:04:05")
 	return fmt.Sprintf("%s %s: %s", now, programName, e.Message)
@@ -394,10 +410,15 @@ func logFormat(e logger.LogEntry) string {
 
 func main() {
 	ctx := context.Background()
+
 	opts := logger.LogOpts{
 		LoggerName:     programName,
 		FormatFunction: logFormat,
-		Writers:        []io.Writer{os.Stdout},
+	}
+	if runtime.GOOS == "windows" {
+		opts.Writers = []io.Writer{&serialPort{"COM1"}, os.Stdout}
+	} else {
+		opts.Writers = []io.Writer{os.Stdout}
 	}
 
 	// The keys to check vary based on the argument and the OS. Also functions to validate arguments.

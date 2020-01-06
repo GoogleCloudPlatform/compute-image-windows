@@ -1,6 +1,6 @@
 {
   "name": "google-compute-engine-metadata-scripts",
-  "version": "4.4.0@0",
+  "version": "4.4.0@1",
   "arch": "x86_64",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
