@@ -1,7 +1,8 @@
 ## Windows Guest Environment for Google Compute Engine
 This repository stores the collection of Windows packages installed on Google
 supported Compute Engine [images](https://cloud.google.com/compute/docs/images).
-The Windows agent has moved to https://github.com/GoogleCloudPlatform/guest-agent.
+
+### The Windows agent has moved to [https://github.com/GoogleCloudPlatform/guest-agent](https://github.com/GoogleCloudPlatform/guest-agent).
 
 **Table of Contents**
 
@@ -28,35 +29,6 @@ The Windows guest environment includes a set of scripts and binaries that read
 the content of the metadata server to make a virtual machine run properly on
 Google Compute Engine.
 
-## Agent
-
-#### Configuring
-
-The agent is configurable through
-[metadata or a local config file](https://cloud.google.com/compute/docs/instances/windows/creating-managing-windows-instances#configure-windows-features).
-
-#### Account Setup
-
-The agent handles [creating user accounts and setting/resetting passwords](https://cloud.google.com/compute/docs/instances/windows/creating-passwords-for-windows-instances).
-
-#### IP Forwarding
-
-The agent uses IP forwarding metadata to setup or remove IP routes.
-
-*   Only IPv4 IP addresses are currently supported.
-
-#### Windows Failover Cluster Support
-
-The agent can monitor the active node in the [Windows Failover Cluster](https://technet.microsoft.com/en-us/library/cc770737(v=ws.11).aspx) and coordinate with GCP [Internal Load Balancer](https://cloud.google.com/compute/docs/load-balancing/internal/) to forward all cluster traffic to the expected node.
-
-The following fields on instance metadata or instance_configs.cfg can control the behavior:
-
-* `enable-wsfc`: If set to true, all IP forwarding info will be ignored and agent will start responding to the health check port. Default false.
-* `wsfc-agent-port`: The port which the agent will respond to health checks. Default 59998.
-* `wsfc-addrs`: A comma separated list of IP address. This is an advanced setting to enable user have both normal forwarding IPs and cluster IPs on the same instance. If set, agent will only skip-auto configuring IPs in the list. Default empty. 
-
-Main code can be found here: [wsfc.go](GCEWindowsAgent/wsfc.go)
-
 ## Instance Setup
 
 `instance_setup.ps1` is configured by GCE sysprep to run on VM first boot.
@@ -80,7 +52,6 @@ packages and published to Google Cloud repositories.
 
 We build and install the following packages for the Windows guest environment:
 
-*   `google-compute-engine-windows` - Windows agent executable.
 *   `google-compute-engine-sysprep` - Utilities for running sysprep on new
     Windows virtual machines.
 *   `google-compute-engine-metadata-scripts` - Windows `exe` and `cmd` files
