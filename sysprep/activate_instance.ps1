@@ -193,10 +193,10 @@ function Get-ProductKmsClientKey {
     }
 
     'Windows Server Standard' {
-      $license_key = 'DPCNP-XQFKJ-BJF7R-FRC8D-GF6G4'
+      $license_key = 'N2KJX-J94YW-TQVFB-DG9YT-724CC'
     }
     'Windows Server Datacenter' {
-      $license_key = '6Y6KB-N82V8-D8CQV-23MJW-BWTG6'
+      $license_key = '6NMRW-2C8FM-D24W7-TQWMY-CWH2D'
     }
   }
   return $license_key
