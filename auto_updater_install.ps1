@@ -17,7 +17,7 @@ $ScheduleService.Connect()
 
 $task = $ScheduleService.NewTask(0)
 $task.RegistrationInfo.Description = 'Keeps core Compute Engine packages up to date'
-$task.Settings.Enabled = $true
+$task.Settings.Enabled = $false
 $task.Settings.AllowDemandStart = $true
 $task.Principal.RunLevel = 1
 
