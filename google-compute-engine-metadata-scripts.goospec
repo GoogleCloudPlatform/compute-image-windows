@@ -5,7 +5,7 @@
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
   "description": "Google Compute Engine metadata scripts",
-  "source": "https://github.com/GoogleCloudPlatform/compute-image-windows"
+  "source": "https://github.com/GoogleCloudPlatform/compute-image-windows",
   "files": {
     "metadata_scripts": "<ProgramFiles>/Google/Compute Engine/metadata_scripts"
   },
