@@ -177,6 +177,9 @@ function Get-ProductKmsClientKey {
     'Windows Server 2012 R2 Datacenter' {
       $license_key = 'W3GGN-FT8W3-Y4M27-J84CP-Q3VJ9'
     }
+    'Windows Server 2012 R2 Essentials' {
+      $license_key = 'KNC87-3J2TX-XB4WP-VCPJV-M4FWM'
+    }
 
     'Windows Server 2016 Standard' {
       $license_key = 'WC2BQ-8NRM3-FDDYY-2BFGV-KHKQY'
