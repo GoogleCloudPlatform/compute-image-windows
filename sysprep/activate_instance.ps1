@@ -218,7 +218,7 @@ function Verify-ActivationStatus {
   [String]$status = $null
 
   try {
-    $slmgr_status = & cscript //nologo C:\Windows\system32\slmgr.vbs /dli
+    $slmgr_status = & cscript //nologo $env:windir\system32\slmgr.vbs /dli
   }
   catch {
     return $active
