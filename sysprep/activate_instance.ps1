@@ -21,7 +21,7 @@
 
 Set-StrictMode -Version Latest
 
-if (Test-Path 'C:\Program Files\Google\Compute Engine\sysprep\byol_image') {
+if (Test-Path "$env:ProgramFiles\Google\Compute Engine\sysprep\byol_image") {
   Write-Output 'Image imported into GCE via BYOL workflow, skipping GCE activation'
   exit
 }
@@ -177,6 +177,9 @@ function Get-ProductKmsClientKey {
     'Windows Server 2012 R2 Datacenter' {
       $license_key = 'W3GGN-FT8W3-Y4M27-J84CP-Q3VJ9'
     }
+    'Windows Server 2012 R2 Essentials' {
+      $license_key = 'KNC87-3J2TX-XB4WP-VCPJV-M4FWM'
+    }
 
     'Windows Server 2016 Standard' {
       $license_key = 'WC2BQ-8NRM3-FDDYY-2BFGV-KHKQY'
@@ -215,7 +218,7 @@ function Verify-ActivationStatus {
   [String]$status = $null
 
   try {
-    $slmgr_status = & cscript //nologo C:\Windows\system32\slmgr.vbs /dli
+    $slmgr_status = & cscript //nologo $env:windir\system32\slmgr.vbs /dli
   }
   catch {
     return $active
