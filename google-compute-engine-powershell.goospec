@@ -5,6 +5,7 @@
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
   "description": "Google Compute Engine PowerShell module",
+  "source": "https://github.com/GoogleCloudPlatform/compute-image-windows",
   "files": {
     "gce_base.psm1": "<ProgramFiles>/Google/Compute Engine/sysprep/gce_base.psm1"
   },
