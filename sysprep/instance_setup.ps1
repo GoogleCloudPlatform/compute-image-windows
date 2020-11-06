@@ -51,6 +51,22 @@ catch [System.Management.Automation.ActionPreferenceStopException] {
   exit 2
 }
 
+function Write-GuestAttributes {
+  param (
+    [Parameter(Mandatory=$true)]
+    $Key,
+    [Parameter(Mandatory=$true)]
+    $Property
+  )
+
+  $request_url = '/computeMetadata/v1/instance/guest-attributes/'
+  $url = "http://$global:metadata_server$request_url$Key"
+
+  $client = _GetWebClient
+  $client.Headers.Add('Metadata-Flavor', 'Google')
+  $client.UploadString($url, 'PUT', $Property)
+}
+
 function Change-InstanceName {
   <#
     .SYNOPSIS
@@ -150,7 +166,7 @@ function Configure-WinRM {
     # https://msdn.microsoft.com/en-us/library/windows/desktop/aa386968(v=vs.85).aspx
     $eku = '1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2'
     & $script:gce_install_dir\tools\makecert.exe -r -a SHA1 -sk "${global:hostname}" -n "CN=${global:hostname}" -ss My -sr LocalMachine -eku $eku
-    $cert = Get-ChildItem Cert:\LocalMachine\my | Where-Object {$_.Subject -eq "CN=${global:hostname}"} | Select-Object -First 1
+    $cert = Get-ChildItem 'Cert:\LocalMachine\My' | Where-Object {$_.Subject -eq "CN=${global:hostname}"} | Select-Object -First 1
   }
 
   $xml = @"
@@ -171,6 +187,17 @@ function Configure-WinRM {
 
   Restart-Service WinRM
   Write-Log 'Setup of WinRM complete.'
+}
+
+function Write-Certs {
+  $rdp_cert = Get-ChildItem 'Cert:\LocalMachine\Remote Desktop\' | Where-Object {$_.Subject -eq "CN=${global:hostname}"} | Select-Object -First 1
+  $winrm_cert = Get-ChildItem 'Cert:\LocalMachine\My' | Where-Object {$_.Subject -eq "CN=${global:hostname}"} | Select-Object -First 1
+  Write-Log "WinRM certificate details: Subject: $($winrm_cert.Subject), Thumbprint: $($winrm_cert.Thumbprint)"
+  Write-Log "RDP certificate details: Subject: $($winrm_cert.Subject), Thumbprint: $($rdp_cert.Thumbprint)"
+
+  # We ignore any errors as guest attributes may not be enabled.
+  Write-GuestAttributes -Key 'hostkeys/winrm' -Property $winrm_cert.Thumbprint -ErrorAction SilentlyContinue
+  Write-GuestAttributes -Key 'hostkeys/rdp' -Property $rdp_cert.Thumbprint -ErrorAction SilentlyContinue
 }
 
 # Check if COM1 exists.
@@ -197,6 +224,7 @@ if ($specialize) {
 }
 else {
   Write-Log "Instance setup finished. $global:hostname is ready to use." -important
+  Write-Certs
 
   if (Test-Path $script:setupcomplete_loc) {
     Remove-Item -Path $script:setupcomplete_loc -Force
