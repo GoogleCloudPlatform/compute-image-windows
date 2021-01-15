@@ -19,6 +19,7 @@ import copy
 import datetime
 import json
 import time
+import argparse
 
 # PyCrypto library: https://pypi.python.org/pypi/pycrypto
 from Crypto.Cipher import PKCS1_OAEP
@@ -76,12 +77,18 @@ def GetExpirationTimeString():
 
 def GetJsonString(user, modulus, exponent, email):
     """Return the JSON string object that represents the windows-keys entry."""
+
+
+    converted_modulus = modulus.decode('utf-8')
+    converted_exponent = exponent.decode('utf-8')
+
     expire = GetExpirationTimeString()
     data = {'userName': user,
-            'modulus': modulus,
-            'exponent': exponent,
+            'modulus': converted_modulus,
+            'exponent': converted_exponent,
             'email': email,
             'expireOn': expire}
+
     return json.dumps(data)
 
 
@@ -120,11 +127,14 @@ def GetEncryptedPasswordFromSerialPort(serial_port_output, modulus):
     """Find and return the correct encrypted password, based on the modulus."""
     # In production code, this may need to be run multiple times if the output
     # does not yet contain the correct entry.
+
+    converted_modulus = modulus.decode('utf-8')
+
     output = serial_port_output.split('\n')
     for line in reversed(output):
         try:
             entry = json.loads(line)
-            if modulus == entry['modulus']:
+            if converted_modulus == entry['modulus']:
                 return entry['encryptedPassword']
         except ValueError:
             pass
@@ -132,27 +142,63 @@ def GetEncryptedPasswordFromSerialPort(serial_port_output, modulus):
 
 def DecryptPassword(encrypted_password, key):
     """Decrypt a base64 encoded encrypted password using the provided key."""
+
     decoded_password = base64.b64decode(encrypted_password)
     cipher = PKCS1_OAEP.new(key)
     password = cipher.decrypt(decoded_password)
     return password
 
+def Arguments():
+    # Create the parser
+    args = argparse.ArgumentParser(description='List the content of a folder')
 
-def main(instance, zone, project, user, email):
+    # Add the arguments
+    args.add_argument('--instance',
+                        metavar='instance',
+                        type=str,
+                        help='compute instance name')
+
+    args.add_argument('--zone',
+                        metavar='zone',
+                        type=str,
+                        help='compute zone')
+
+
+    args.add_argument('--project',
+                        metavar='project',
+                        type=str,
+                        help='gcp project')
+
+    args.add_argument('--username',
+                        metavar='username',
+                        type=str,
+                        help='username')
+
+    args.add_argument('--email',
+                        metavar='email',
+                        type=str,
+                        help='email')
+
+    # return arguments
+    return args.parse_args()
+
+def main():
+    config_args = Arguments()
+
     # Setup
     compute = GetCompute()
     key = GetKey()
     modulus, exponent = GetModulusExponentInBase64(key)
 
     # Get existing metadata
-    instance_ref = GetInstance(compute, instance, zone, project)
+    instance_ref = GetInstance(compute, config_args.instance, config_args.zone, config_args.project)
     old_metadata = instance_ref['metadata']
 
     # Create and set new metadata
-    metadata_entry = GetJsonString(user, modulus,
-                                   exponent, email)
+    metadata_entry = GetJsonString(config_args.username, modulus,
+                                   exponent, config_args.email)
     new_metadata = UpdateWindowsKeys(old_metadata, metadata_entry)
-    result = UpdateInstanceMetadata(compute, instance, zone, project,
+    result = UpdateInstanceMetadata(compute, config_args.instance, config_args.zone, config_args.project,
                                     new_metadata)
 
     # For this sample code, just sleep for 30 seconds instead of checking for
@@ -161,23 +207,26 @@ def main(instance, zone, project, user, email):
     time.sleep(30)
 
     # Get and decrypt password from serial port output
-    serial_port_output = GetSerialPortFourOutput(compute, instance,
-                                                 zone, project)
+    serial_port_output = GetSerialPortFourOutput(compute, config_args.instance,
+                                                 config_args.zone, config_args.project)
     enc_password = GetEncryptedPasswordFromSerialPort(serial_port_output,
                                                       modulus)
+
     password = DecryptPassword(enc_password, key)
+    converted_password = password.decode('utf-8')
 
     # Display the username, password and IP address for the instance
-    print 'Username:   {0}'.format(user)
-    print 'Password:   {0}'.format(password)
-    ip = instance_ref['networkInterfaces'][0]['accessConfigs'][0]['natIP']
-    print 'IP Address: {0}'.format(ip)
+    print('Username:   {0}'.format(config_args.username))
+    print('Password:   {0}'.format(converted_password))
+
+    # Attempt to get public IP and if only a private IP exists print that
+    try:
+        ip = instance_ref['networkInterfaces'][0]['accessConfigs'][0]['natIP']
+        print('IP Address: {0}'.format(ip))
+    except KeyError:
+        ip = instance_ref['networkInterfaces'][0]['networkIP']
+        print('IP Address: {0}'.format(ip))
 
 
 if __name__ == '__main__':
-    instance = 'my-instance'
-    zone = 'us-central1-a'
-    project = 'my-project'
-    user = 'example-user'
-    email = 'user@example.com'
-    main(instance, zone, project, user, email)
+    main()
