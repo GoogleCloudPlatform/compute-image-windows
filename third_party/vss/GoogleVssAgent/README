@@ -1,5 +1,0 @@
-This directory contains GoogleVssAgent service application.
-
-This service provides communication between Google Cloud snapshot service and
-the Windows guest.  Specifically, it intercepts snapshot requests sent to the
-guest and in turn fires up the GoogleVssRequester application.

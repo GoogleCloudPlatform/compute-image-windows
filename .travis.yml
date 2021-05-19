@@ -1,8 +1,0 @@
-dist: trusty
-sudo: false
-language: go
-go: stable
-script:
-  - go vet $(go list ./... | grep -v /vendor/)
-  - ./.travis.gofmt.sh
-  - go test -v -race $(go list ./... | grep -v /vendor/)
