@@ -1,6 +1,0 @@
-This directory contains Google VSS HW Provider.  Its purpose is to provide
-communication with Windows VSS service during GCE snapshot process.
-The Provider implements VSS provider interfaces:
-    IVssHardwareSnapshotProviderEx,
-    IVssProviderCreateSnapshotSet,
-    IVssProviderNotifications.
