@@ -1,6 +1,6 @@
 {
   "name": "google-compute-engine-sysprep",
-  "version": "3.14.0@1",
+  "version": "3.15.0@1",
   "arch": "noarch",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
@@ -16,6 +16,9 @@
     "path": "sysprep_uninstall.ps1"
   },
   "releaseNotes": [
+    "3.15.0- Change google_osconfig_agent StartupType:",
+    "      - to Disabled after Sysprep",
+    "      - to Automatic in instance_setup.ps1",
     "3.14.0- Added Windows Server 2016/19 Essentials license keys",
     "3.13.0- Write certs to serial console and Guest Attributes",
     "3.11.0- Remove features from instance_setup.ps1 that have been moved to the build/GCEAgent",
