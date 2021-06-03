@@ -205,6 +205,9 @@ if (-not ($global:write_to_serial)) {
   Write-Log 'COM1 does not exist on this machine. Logs will not be written to GCE console.'
 }
 
+Write-Log 'Enable google_osconfig_agent during the specialize configuration pass.'
+Set-Service google_osconfig_agent -StartupType Automatic -Verbose -ErrorAction Continue
+
 if ($specialize) {
   Write-Log 'Starting sysprep specialize phase.'
 
@@ -219,9 +222,6 @@ if ($specialize) {
   catch {
     Write-LogError
   }
-
-  Write-Log 'Enable google_osconfig_agent during the specialize configuration pass.'
-  Set-Service google_osconfig_agent -StartupType Automatic -Verbose -ErrorAction Continue
 
   Write-Log 'Finished with sysprep specialize phase, restarting...'
 }
