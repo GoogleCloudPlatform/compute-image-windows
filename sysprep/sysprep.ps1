@@ -252,6 +252,8 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
     exit 0
   }
 
+  Write-Log 'Disable google_osconfig_agent during the specialize configuration pass.'
+  Set-Service google_osconfig_agent -StartupType Disabled -Verbose -ErrorAction Continue
   Write-Log 'Shutting down.'
   Invoke-ExternalCommand shutdown /s /t 00 /d p:2:4 /f
 }
