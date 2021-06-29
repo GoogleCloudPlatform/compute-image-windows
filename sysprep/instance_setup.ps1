@@ -177,6 +177,17 @@ function Configure-WinRM {
 </p:Listener>
 "@
 
+  try {
+    Write-Log 'Waiting for WinRM to be running...'
+    $svcTimeout = '00:05:00'
+    $svc = Get-Service -name "WinRM"
+    $svc.WaitForStatus('Running',$svcTimeout)
+  }
+  catch {
+    Write-Log 'Error - Could not start WinRM service'
+    return
+  }
+
   $sess = (New-Object -ComObject 'WSMAN.Automation').CreateSession()
   try {
     $sess.Create('winrm/config/listener?Address=*+Transport=HTTPS', $xml)
