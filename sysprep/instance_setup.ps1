@@ -179,7 +179,7 @@ function Configure-WinRM {
 
   try {
     Write-Log 'Waiting for WinRM to be running...'
-    $svcTimeout = '00:05:00'
+    $svcTimeout = '00:02:00'
     $svc = Get-Service -name "WinRM"
     $svc.WaitForStatus('Running',$svcTimeout)
   }
