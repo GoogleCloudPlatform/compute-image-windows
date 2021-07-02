@@ -17,8 +17,8 @@
   },
   "releaseNotes": [
     "3.16.0- Ensure WinRM service is started before update HTTPS listener",
-    "      - Set a 5 minutes timeout for WinRM service to start",
-    "      - Throw an error message if WinRM fails to start within 5 minutes",
+    "      - Set a 2 minutes timeout for WinRM service to start",
+    "      - Throw an error message if WinRM fails to start within 2 minutes",
     "3.15.0- Change google_osconfig_agent StartupType:",
     "      - to Disabled after Sysprep",
     "      - to Automatic in instance_setup.ps1",
