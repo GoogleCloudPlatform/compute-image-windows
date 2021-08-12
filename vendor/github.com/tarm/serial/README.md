@@ -25,7 +25,7 @@ parity, no hardware flow control, and no software flow control.  This
 works fine for many real devices and many faux serial devices
 including usb-to-serial converters and bluetooth serial ports.
 
-You may Read() and Write() simulantiously on the same connection (from
+You may Read() and Write() simultaneously on the same connection (from
 different goroutines).
 
 Usage
