@@ -201,6 +201,13 @@ function Get-ProductKmsClientKey {
       $license_key = 'WVDHN-86M7X-466P6-VHXV7-YY726'
     }
 
+    'Windows Server 2022 Datacenter' {
+      $license_key = 'WX4NM-KYWYW-QJJR4-XV3QB-6VM33'
+    }
+    'Windows Server 2022 Standard' {
+      $license_key = 'VDYBN-27WPP-V4HQT-9VMD4-VMK7H'
+    }
+
     'Windows Server Standard' {
       $license_key = 'N2KJX-J94YW-TQVFB-DG9YT-724CC'
     }
