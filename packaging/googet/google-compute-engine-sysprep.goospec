@@ -7,13 +7,19 @@
   "description": "Google Compute Engine sysprep scripts",
   "source": "https://github.com/GoogleCloudPlatform/compute-image-windows",
   "files": {
-    "sysprep": "<ProgramFiles>/Google/Compute Engine/sysprep"
+    "sysprep/activate_instance.ps1": "<ProgramFiles>/Google/Compute Engine/sysprep/activate_instance.ps1"
+    "sysprep/gcesysprep.bat": "<ProgramFiles>/Google/Compute Engine/sysprep/gcesysprep.bat"
+    "sysprep/gcp.bmp": "<ProgramFiles>/Google/Compute Engine/sysprep/gcp.bmp"
+    "sysprep/instance_setup.ps1": "<ProgramFiles>/Google/Compute Engine/sysprep/instance_setup.ps1"
+    "sysprep/sysprep.ps1": "<ProgramFiles>/Google/Compute Engine/sysprep/sysprep.ps1"
+    "sysprep/unattended.xml": "<ProgramFiles>/Google/Compute Engine/sysprep/unattended.xml"
+    "sysprep/windeploy.cmd": "<ProgramFiles>/Google/Compute Engine/sysprep/windeploy.cmd"
   },
   "install": {
-    "path": "sysprep\\sysprep_install.ps1"
+    "path": "sysprep/sysprep_install.ps1"
   },
   "uninstall": {
-    "path": "sysprep\\sysprep_uninstall.ps1"
+    "path": "sysprep/sysprep_uninstall.ps1"
   },
   "releaseNotes": [
     "3.17.0- Add Windows Server 2022 KMS client keys",
@@ -43,7 +49,7 @@
   ],
   "sources": [{
       "include": [
-        "sysprep\\*"
+        "sysprep/*"
       ]
   }],
   "pkgDependencies": {

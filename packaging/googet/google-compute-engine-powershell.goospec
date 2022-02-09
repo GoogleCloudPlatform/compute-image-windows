@@ -7,7 +7,7 @@
   "description": "Google Compute Engine PowerShell module",
   "source": "https://github.com/GoogleCloudPlatform/compute-image-windows",
   "files": {
-    "powershell\\gce_base.psm1": "<ProgramFiles>/Google/Compute Engine/sysprep/gce_base.psm1"
+    "powershell/gce_base.psm1": "<ProgramFiles>/Google/Compute Engine/sysprep/gce_base.psm1"
   },
   "releaseNotes": [
     "2.0.0 - Remove unused functions",
@@ -18,7 +18,7 @@
   ],
   "sources": [{
       "include": [
-        "powershell\\gce_base.psm1"
+        "powershell/gce_base.psm1"
       ]
   }]
 }

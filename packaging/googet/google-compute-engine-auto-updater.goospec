@@ -7,14 +7,14 @@
   "source": "https://github.com/GoogleCloudPlatform/compute-image-windows",
   "description": "Google Compute Engine automatic updater for core Google packages",
   "files": {
-    "auto_updater\\auto_updater.ps1": "<ProgramFiles>/Google/Compute Engine/tools/auto_updater.ps1",
+    "auto_updater/auto_updater.ps1": "<ProgramFiles>/Google/Compute Engine/tools/auto_updater.ps1",
     "LICENSE": "<ProgramFiles>/Google/Compute Engine/tools/LICENSE.txt"
   },
   "install": {
-    "path": "auto_updater\\auto_updater_install.ps1"
+    "path": "auto_updater/auto_updater_install.ps1"
   },
   "uninstall": {
-    "path": "auto_updater\\auto_updater_uninstall.ps1"
+    "path": "auto_updater/auto_updater_uninstall.ps1"
   },
   "releaseNotes": [
     "1.2.0 - Add google-compute-engine-vss",
@@ -25,9 +25,9 @@
   ],
   "sources": [{
       "include": [
-        "auto_updater\\auto_updater.ps1",
-        "auto_updater\\auto_updater_install.ps1",
-        "auto_updater\\auto_updater_uninstall.ps1",
+        "auto_updater/auto_updater.ps1",
+        "auto_updater/auto_updater_install.ps1",
+        "auto_updater/auto_updater_uninstall.ps1",
         "LICENSE"
       ]
   }]
