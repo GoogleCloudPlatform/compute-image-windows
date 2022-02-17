@@ -29,7 +29,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/mitchellh/packer/builder/azure/pkcs12"
+	"github.com/hashicorp/packer-plugin-azure/builder/azure/pkcs12"
 )
 
 var (
