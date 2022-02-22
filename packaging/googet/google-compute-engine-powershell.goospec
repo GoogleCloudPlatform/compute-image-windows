@@ -1,0 +1,24 @@
+{
+  "name": "google-compute-engine-powershell",
+  "version": "{{.version}}@1",
+  "arch": "noarch",
+  "authors": "Google Inc.",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "description": "Google Compute Engine PowerShell module",
+  "source": "https://github.com/GoogleCloudPlatform/compute-image-windows",
+  "files": {
+    "powershell/gce_base.psm1": "<ProgramFiles>/Google/Compute Engine/sysprep/gce_base.psm1"
+  },
+  "releaseNotes": [
+    "2.0.0 - Remove unused functions",
+    "1.1.0 - Rename many functions to better match PowerShell style, provide aliases for old names",
+    "      - Update Write-Log to include a global var of who is doing the logging",
+    "      - Delete a few unused functions",
+    "1.0.0 - Create the google-compute-engine-powershell package"
+  ],
+  "sources": [{
+      "include": [
+        "powershell/gce_base.psm1"
+      ]
+  }]
+}

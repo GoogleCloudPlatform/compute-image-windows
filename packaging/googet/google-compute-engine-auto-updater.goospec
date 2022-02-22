@@ -1,0 +1,34 @@
+{
+  "name": "google-compute-engine-auto-updater",
+  "version": "{{.version}}@1",
+  "arch": "noarch",
+  "authors": "Google Inc.",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "source": "https://github.com/GoogleCloudPlatform/compute-image-windows",
+  "description": "Google Compute Engine automatic updater for core Google packages",
+  "files": {
+    "auto_updater/auto_updater.ps1": "<ProgramFiles>/Google/Compute Engine/tools/auto_updater.ps1",
+    "LICENSE": "<ProgramFiles>/Google/Compute Engine/tools/LICENSE.txt"
+  },
+  "install": {
+    "path": "auto_updater/auto_updater_install.ps1"
+  },
+  "uninstall": {
+    "path": "auto_updater/auto_updater_uninstall.ps1"
+  },
+  "releaseNotes": [
+    "1.2.0 - Add google-compute-engine-vss",
+    "1.1.1 - Add certgen",
+    "1.1.0 - Remove google-compute-engine-windows-common",
+    "      - Replace Invoke-WebRequest to make updater work with PowerShell Core",
+    "1.0.0 - Initial release of google-compute-engine-auto-updater."
+  ],
+  "sources": [{
+      "include": [
+        "auto_updater/auto_updater.ps1",
+        "auto_updater/auto_updater_install.ps1",
+        "auto_updater/auto_updater_uninstall.ps1",
+        "LICENSE"
+      ]
+  }]
+}
