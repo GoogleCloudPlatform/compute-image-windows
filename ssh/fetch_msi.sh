@@ -2,7 +2,7 @@
 
 # Should be run from the compute-image-windows directory.
 # Usage:
-#   ./ssh/fetch_msi.sh <url> <sha256sum>
+#   ./ssh/fetch_msi.sh <filename> <url> <sha256sum>
 #
 # Description:
 #   Downloads a .msi file from the given URL and compares the sha256sum
