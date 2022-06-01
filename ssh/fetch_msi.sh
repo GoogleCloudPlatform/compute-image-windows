@@ -10,17 +10,19 @@
 #   match, the msi will be moved into the ssh directory for packaging. If
 #   they do not match, this will display an error and exit.
 
-msi=$1
-expectedsha256=$2
+msifilename=$1
+msiurl=$2
+expectedsha256=$3
 
 # Remove any existing .msi files.
 rm -f *.msi
+rm -f ssh/*.msi
 
 # Download .msi file
-curl -O -L $msi
+curl -o $msifilename -L $msiurl
 
 # Get sha256sum for downloaded file.
-actualsha256=`sha256sum *.msi | cut -d' ' -f1`
+actualsha256=`sha256sum $msifilename | cut -d' ' -f1`
 
 # Compare sha256sum values.
 if [ "$expectedsha256" != "$actualsha256" ]; then
@@ -29,4 +31,4 @@ if [ "$expectedsha256" != "$actualsha256" ]; then
 fi
 
 # Move the .msi file to the ssh directory.
-mv *.msi ssh/.
+mv $msifilename ssh/$msifilename

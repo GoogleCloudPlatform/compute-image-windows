@@ -17,10 +17,14 @@
     Install (or uninstall) sshd on a Windows GCE instance.
   .PARAMETER Uninstall
     If true, uninstall instead of installing.
+  .PARAMETER Installfile
+    Name of .msi file to pass to the installer. File should be in the same
+    directory as the script.
 #>
 
 param (
-    [switch] $Uninstall
+    [switch] $Uninstall,
+    [string] $Installfile
 )
 
 # Configuration Data
@@ -38,28 +42,6 @@ PasswordAuthentication no
 $end_pattern
 "@
 
-function Find-MSI {
-  <#
-  .SYNOPSIS
-    Finds a .msi file where the script is running.
-  .OUTPUTS
-    Returns the full path to a single .msi file. If there are none or
-    multiple, exit with an error.
-  #>
-  $path = Join-Path -Path $PSScriptRoot -ChildPath '*'
-  $msi_files = Get-ChildItem -Name -Path $path -Include '*.msi'
-  if (@($msi_files).Length -lt 1) {
-    Write-Output 'Cannot find MSI package.'
-    Exit 1
-  } elseif (@($msi_files).Length -gt 1) {
-    Write-Output 'Multiple MSI files found in package. Exiting.'
-    Exit 1
-  }
-
-  $msi_path = Join-Path -Path $PSScriptRoot -ChildPath $msi_files
-  return $msi_path
-}
-
 function Install-MSI {
   <#
   .SYNOPSIS
@@ -75,22 +57,21 @@ function Install-MSI {
   )
 
   $action = '/i'
-  $install = 'Install'
-  $installing = 'Installing'
+  $operation = 'Install'
   if ($Uninstall) {
     $action = '/x'
-    $install = 'Uninstall'
-    $installing = 'Uninstalling'
+    $operation = 'Uninstall'
   }
 
-  Write-Output "$installing OpenSSH from: $Path"
+  Write-Output "${operation}ing OpenSSH from: $Path"
 
   $msi_install = Start-Process C:\Windows\System32\msiexec.exe -ArgumentList "$action $Path /qn" -wait -PassThru
   $msi_exit_code = $msi_install.ExitCode
   if ($msi_exit_code -ne 0) {
-    Write-Output "MSI $install Failed: Exit Code: $msi_exit_code"
+    Write-Output "MSI $operation Failed: Exit Code: $msi_exit_code"
     Exit $msi_exit_code
   }
+  Write-Output "MSI $operation Succeeded."
 }
 
 function Update-SSHDConfig {
@@ -133,7 +114,7 @@ function Update-SSHDConfig {
   $sshd_conf | Set-Content $Path
 }
 
-$msi_path = Find-MSI
+$msi_path = Join-Path -Path $PSScriptRoot -ChildPath $Installfile
 
 if ($Uninstall) {
   Install-MSI -Path $msi_path -Uninstall
