@@ -1,0 +1,39 @@
+{{$msifile := "OpenSSH-Win64-v8.9.1.0.msi"}}
+{{$msiurl := "https://github.com/PowerShell/Win32-OpenSSH/releases/download/v8.9.1.0p1-Beta/OpenSSH-Win64-v8.9.1.0.msi"}}
+{{$msisha256 := "f4b9808d0fa29bfc50feb4bd4611ee852458638480dc63ad97380b10abd9aa39"}}
+{
+  "name": "google-compute-engine-ssh",
+  "version": "{{.version}}.0@1",
+  "arch": "x86_64",
+  "authors": "Google Inc.",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "description": "Google Windows OpenSSH Package",
+  "files": {
+    "THIRD_PARTY_LICENSES": "<ProgramFiles>/Google/Compute Engine/THIRD_PARTY_LICENSES/",
+    "LICENSE": "<ProgramFiles>/Google/Compute Engine/ssh/LICENSE.txt"
+  },
+  "install": {
+    "path": "ssh/install.ps1",
+    "args": ["-Installfile", "{{$msifile}}"]
+  },
+  "uninstall": {
+    "path": "ssh/install.ps1",
+    "args": ["-Uninstall", "-Installfile", "{{$msifile}}"]
+  },
+  "releaseNotes": [
+    "20220601 - Initial package using OpenSSH-x64-v8.9.1.0.msi"
+  ],
+  "sources": [{
+      "include": [
+        "ssh/{{$msifile}}",
+        "ssh/install.ps1",
+	"LICENSE",
+	"THIRD_PARTY_LICENSES/**"
+      ]
+  }],
+  "build": {
+    "linux": "/bin/bash",
+    "linuxArgs": ["-c", "./ssh/fetch_msi.sh {{$msifile}} {{$msiurl}} {{$msisha256}}"]
+  }
+}
+
