@@ -6,7 +6,7 @@
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
   "description": "Simple self signed cert generator",
   "files": {
-    "certgen.exe": "<ProgramFiles>/Google/Compute Engine/tools/certgen.exe"
+    "certgen.exe": "<ProgramFiles>/Google/Compute Engine/tools/certgen.exe",
     "LICENSE": "<ProgramFiles>/Google/Compute Engine/tools/LICENSE.txt"
   },
   "releaseNotes": [
