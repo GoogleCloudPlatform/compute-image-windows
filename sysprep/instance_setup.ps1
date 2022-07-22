@@ -129,10 +129,6 @@ function Change-InstanceProperties {
   Write-Log 'All networks set to DHCP.'
 
   $netkvm = Get-CimInstance Win32_NetworkAdapter -filter "ServiceName='netkvm'"
-  $netkvm | ForEach-Object {
-    Invoke-ExternalCommand netsh interface ipv4 set interface $_.NetConnectionID mtu=1460 | Out-Null
-  }
-  Write-Log 'MTU set to 1460.'
 
   Invoke-ExternalCommand route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $netkvm[0].InterfaceIndex metric 1 -ErrorAction SilentlyContinue
   Write-Log 'Added persistent route to metadata netblock via first netkvm adapter.'
