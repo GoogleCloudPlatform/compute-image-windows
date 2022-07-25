@@ -140,7 +140,7 @@ function Change-InstanceProperties {
     Write-Log 'gVNIC network adapter detected.'
   }
   else {
-    Write-Log 'Error retrieving network adapter, unable to identify network adapter as gVNIC or VirtIO.'
+    Write-Log 'Error retrieving network adapter, no gVNIC or VirtIO network adapter found.'
   }
 
   if ($interface -ne $null) {
@@ -149,8 +149,8 @@ function Change-InstanceProperties {
     }
     Write-Log 'MTU set to 1500.'
 
-    Invoke-ExternalCommand route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $netkvm[0].InterfaceIndex metric 1 -ErrorAction SilentlyContinue
-    Write-Log 'Added persistent route to metadata netblock via first adapter.'
+    Invoke-ExternalCommand route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $interface[0].InterfaceIndex metric 1 -ErrorAction SilentlyContinue
+    Write-Log 'Added persistent route to metadata netblock via ' + $interface.ServiceName + ' adapter.'
   }
   else {
     Write-Log 'Error identifying network adapter as gVNIC or VirtIO, unable to set MTU and route to metadata server.'
