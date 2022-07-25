@@ -128,14 +128,33 @@ function Change-InstanceProperties {
   $nics | Invoke-CimMethod -Name SetDNSServerSearchOrder -Arguments @{DNSServerSearchOrder=$null}
   Write-Log 'All networks set to DHCP.'
 
+  # Find which interface type is being used
   $netkvm = Get-CimInstance Win32_NetworkAdapter -filter "ServiceName='netkvm'"
-  $netkvm | ForEach-Object {
-    Invoke-ExternalCommand netsh interface ipv4 set interface $_.NetConnectionID mtu=1500 | Out-Null
+  $gvnic = Get-CimInstance Win32_NetworkAdapter -filter "ServiceName='gvnic'"
+  if ($netkvm -ne $null) {
+    $interface = $netkvm
+    Write-Log 'VirtIO network adapter detected.'
   }
-  Write-Log 'MTU set to 1500.'
+  elseif ($gvnic -ne $null) {
+    $interface = $gvnic
+    Write-Log 'gVNIC network adapter detected.'
+  }
+  else {
+    Write-Log 'Error retrieving network adapter, unable to identify network adapter as gVNIC or VirtIO.'
+  }
 
-  Invoke-ExternalCommand route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $netkvm[0].InterfaceIndex metric 1 -ErrorAction SilentlyContinue
-  Write-Log 'Added persistent route to metadata netblock via first netkvm adapter.'
+  if ($interface -ne $null) {
+    $interface | ForEach-Object {
+      Invoke-ExternalCommand netsh interface ipv4 set interface $_.NetConnectionID mtu=1500 | Out-Null
+    }
+    Write-Log 'MTU set to 1500.'
+
+    Invoke-ExternalCommand route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $netkvm[0].InterfaceIndex metric 1 -ErrorAction SilentlyContinue
+    Write-Log 'Added persistent route to metadata netblock via first adapter.'
+  }
+  else {
+    Write-Log 'Error identifying network adapter as gVNIC or VirtIO, unable to set MTU and route to metadata server.'
+  }
 }
 
 function Configure-WinRM {
