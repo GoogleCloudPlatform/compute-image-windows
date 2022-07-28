@@ -54,9 +54,9 @@
   }],
   "pkgDependencies": {
     "google-compute-engine-windows": "20191204.00.0@1",
-    "google-compute-engine-metadata-scripts": "4.4.0@1",
-    "google-compute-engine-powershell": "2.0.0@1",
-    "certgen": "1.1.0@1"
+    "google-compute-engine-metadata-scripts": "20220713.00.0@1",
+    "google-compute-engine-powershell": "20220726.00@1",
+    "certgen": "20220603.00.0@1"
   }
 }
 
