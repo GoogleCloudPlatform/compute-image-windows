@@ -256,17 +256,17 @@ if ($specialize) {
   Write-Log 'Finished with sysprep specialize phase, restarting...'
 }
 else {
-  Write-Log "Instance setup finished. $global:hostname is ready to use." -important
   Write-Certs
 
   if (Test-Path $script:setupcomplete_loc) {
     Remove-Item -Path $script:setupcomplete_loc -Force
   }
 
-  Invoke-ExternalCommand schtasks /change /tn GCEStartup /enable -ErrorAction SilentlyContinue
-  Invoke-ExternalCommand schtasks /run /tn GCEStartup
-
   & $script:activate_instance_script_loc | ForEach-Object {
     Write-Log $_
   }
+  
+  Invoke-ExternalCommand schtasks /change /tn GCEStartup /enable -ErrorAction SilentlyContinue
+  Invoke-ExternalCommand schtasks /run /tn GCEStartup
+  Write-Log "Instance setup finished. $global:hostname is ready to use." -important
 }
