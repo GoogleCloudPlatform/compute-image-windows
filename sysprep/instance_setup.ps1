@@ -148,10 +148,10 @@ function Change-InstanceProperties {
     $isWin10ClientOrLater = ($productMajorVersion -eq 10 -and $productMinorVersion -eq 0 -and $productBuildNumber -ge 10240 -and $productType -notmatch 'server')
     $isWinServer2022OrLater = ($productMajorVersion -eq 10 -and $productMinorVersion -eq 0 -and $productBuildNumber -gt 17763 -and $productType -match 'server')
     if ($isWin10ClientOrLater -or $isWinServer2022OrLater) {
-      Write-Output 'Disabling GVNIC IPv4 Large Send Offload (LSO)'
+      Write-Log 'Disabling GVNIC IPv4 Large Send Offload (LSO)'
       Set-NetAdapterAdvancedProperty -InterfaceDescription 'Google Ethernet Adapter' -RegistryKeyword '*LSOV2Ipv4' -RegistryValue 0
 
-      Write-Output 'Disabling GVNIC IPv6 Large Send Offload (LSO)'
+      Write-Log 'Disabling GVNIC IPv6 Large Send Offload (LSO)'
       Set-NetAdapterAdvancedProperty -InterfaceDescription 'Google Ethernet Adapter' -RegistryKeyword '*LSOV2Ipv6' -RegistryValue 0
     }
   }
