@@ -85,12 +85,13 @@ function Activate-Instance {
       break
     }
     else {
-      Write-Output 'Activation failed.'
       $retry_count = $retry_count - 1
-    }
-
-    if ($retry_count -gt 0) {
-      Write-Output "Retrying activation. Will try $retry_count more time(s)"
+      if ($retry_count -eq 0) {
+        Write-Output 'Activation failed. Max activation retry count reached: Giving up.'
+      }
+      else {
+        Write-Output "Activation failed. Will try $retry_count more time(s)."
+      }
     }
   }
 }
