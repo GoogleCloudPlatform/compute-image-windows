@@ -161,7 +161,7 @@ function Change-InstanceProperties {
 
   if ($interface -ne $null) {
     $interface | ForEach-Object {
-      Invoke-ExternalCommand netsh interface ipv4 set interface $_.NetConnectionID mtu=1460 | Out-Null
+      Set-NetAdapterAdvancedProperty -InterfaceDescription $_.Name -RegistryKeyword 'MTU' -RegistryValue 1460 | Out-Null
     }
     Write-Log 'MTU set to 1460.'
 

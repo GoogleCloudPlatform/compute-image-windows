@@ -244,8 +244,8 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
   }
 
   Write-Log 'Enable RDP and WinRM firewall rules.'
-  Invoke-ExternalCommand netsh advfirewall firewall add rule profile=any name='Windows Remote Management (HTTPS-In)' dir=in localport=5986 protocol=TCP action=allow
-  Invoke-ExternalCommand netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
+  New-NetFirewallRule -Name "WINRM-HTTPS-In-TCP" -DisplayName 'Windows Remote Management (HTTPS-In)' -Group "Windows Remote Management" -Profile Any -Direction Inbound -LocalPort 5986 -Protocol TCP -Action Allow
+  Set-NetFirewallRule -DisplayGroup "Remote Desktop" -Enabled True
 
   if ($no_shutdown) {
     Write-Log 'GCESysprep complete, not shutting down.'
