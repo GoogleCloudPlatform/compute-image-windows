@@ -37,6 +37,7 @@ $byolLicenses.Add('622639362407469665')  # windows-cloud/global/licenses/windows
 $byolLicenses.Add('7036859048284197429') # windows-cloud/global/licenses/windows-8-x64-byol
 $byolLicenses.Add('3720924436396315642') # windows-cloud/global/licenses/windows-8-x86-byol
 $byolLicenses.Add('5366577783322166007') # windows-cloud/global/licenses/windows-81-x64-byol
+$byolLicenses.Add('4551215591257167608') # windows-cloud/global/licenses/windows-server-2008-r2-byol
 $byolLicenses.Add('5559842820536817947') # windows-cloud/global/licenses/windows-server-2012-byol
 $byolLicenses.Add('6738952703547430631') # windows-cloud/global/licenses/windows-server-2012-r2-byol
 $byolLicenses.Add('4322823184804632846') # windows-cloud/global/licenses/windows-server-2016-byol
