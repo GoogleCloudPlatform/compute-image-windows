@@ -17,13 +17,47 @@
     Activates a GCE instance.
 #>
 
-#requires -version 2
+#requires -version 3
 
 Set-StrictMode -Version Latest
 
 if (Test-Path "$env:ProgramFiles\Google\Compute Engine\sysprep\byol_image") {
   Write-Output 'Image imported into GCE via BYOL workflow, skipping GCE activation'
   exit
+}
+
+$byolLicenses = New-Object System.Collections.ArrayList
+$byolLicenses.Add('2089835370828997959') # windows-cloud/global/licenses/windows-10-enterprise-byol
+$byolLicenses.Add('8727879116868096918') # windows-cloud/global/licenses/windows-10-x64-byol
+$byolLicenses.Add('3732182829874353001') # windows-cloud/global/licenses/windows-10-x86-byol
+$byolLicenses.Add('5378533650449772437') # windows-cloud/global/licenses/windows-11-x64-byol
+$byolLicenses.Add('752112173778412950')  # windows-cloud/global/licenses/windows-7-enterprise-byol
+$byolLicenses.Add('5016528181960184510') # windows-cloud/global/licenses/windows-7-x64-byol
+$byolLicenses.Add('622639362407469665')  # windows-cloud/global/licenses/windows-7-x86-byol
+$byolLicenses.Add('7036859048284197429') # windows-cloud/global/licenses/windows-8-x64-byol
+$byolLicenses.Add('3720924436396315642') # windows-cloud/global/licenses/windows-8-x86-byol
+$byolLicenses.Add('5366577783322166007') # windows-cloud/global/licenses/windows-81-x64-byol
+$byolLicenses.Add('5559842820536817947') # windows-cloud/global/licenses/windows-server-2012-byol
+$byolLicenses.Add('6738952703547430631') # windows-cloud/global/licenses/windows-server-2012-r2-byol
+$byolLicenses.Add('4322823184804632846') # windows-cloud/global/licenses/windows-server-2016-byol
+$byolLicenses.Add('6532438499690676691') # windows-cloud/global/licenses/windows-server-2019-byol
+$byolLicenses.Add('2808834792899686364') # windows-cloud/global/licenses/windows-server-2022-byol
+
+try {
+  $licenseCountOutput = (Invoke-RestMethod -Headers @{'Metadata-Flavor' = 'Google'} -Uri "http://metadata.google.internal/computeMetadata/v1/instance/licenses")
+  $licenseCount = [regex]::matches($licenseCountOutput,"/").count
+  
+  For ($licenseIndex=0; $licenseIndex -lt $licenseCount; $licenseIndex++) {
+    $licenseID = (Invoke-RestMethod -Headers @{'Metadata-Flavor' = 'Google'} -Uri "http://metadata.google.internal/computeMetadata/v1/instance/licenses/$licenseIndex/id").ToString()
+    if ($byolLicenses.Contains($licenseID)) {
+      Write-Output "BYOL license $licenseID found. Aborting setting the KMS server to Google Cloud KMS Server."
+      exit
+    }
+  }
+  Write-Output 'No BYOL license detected. Proceeding with activation.'
+}
+catch {
+  Write-Output "Failed to identify if a known BYOL license is attached. Continuing to set the KMS server to Google Cloud KMS Server and activate. Error: $_"
 }
 
 $script:kms_server = 'kms.windows.googlecloud.com'
