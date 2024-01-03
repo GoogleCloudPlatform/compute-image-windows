@@ -243,9 +243,16 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
     }
   }
 
-  Write-Log 'Enable RDP and WinRM firewall rules.'
-  Invoke-ExternalCommand netsh advfirewall firewall add rule profile=any name='Windows Remote Management (HTTPS-In)' dir=in localport=5986 protocol=TCP action=allow
-  Invoke-ExternalCommand netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
+  if ([System.Environment]::OSVersion.Version.Build -ge 10240) {
+    Write-Log "Enabling RDP and WinRM firewall rules using PowerShell. Build $([System.Environment]::OSVersion.Version.Build)"
+    New-NetFirewallRule -DisplayName 'Windows Remote Management (HTTPS-In)' -Direction Inbound -LocalPort 5986 -Protocol TCP -Action Allow -Profile Any
+    Set-NetFirewallRule -DisplayGroup 'Remote Desktop' -Enabled True
+  } 
+  else {
+    Write-Log "Enabling RDP and WinRM firewall rules using netsh. Build $([System.Environment]::OSVersion.Version.Build)"
+    Invoke-ExternalCommand netsh advfirewall firewall add rule profile=any name='Windows Remote Management (HTTPS-In)' dir=in localport=5986 protocol=TCP action=allow
+    Invoke-ExternalCommand netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
+  }
 
   if ($no_shutdown) {
     Write-Log 'GCESysprep complete, not shutting down.'

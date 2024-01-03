@@ -161,12 +161,19 @@ function Change-InstanceProperties {
 
   if ($interface -ne $null) {
     $interface | ForEach-Object {
-      Invoke-ExternalCommand netsh interface ipv4 set interface $_.NetConnectionID mtu=1460 | Out-Null
+      if ([System.Environment]::OSVersion.Version.Build -ge 10240) {
+        Set-NetIPInterface -InterfaceIndex $_.InterfaceIndex -NlMtuBytes 1460
+        Write-Log "MTU set to 1460 for IPv4 and IPv6 using PowerShell for interface $($_.InterfaceIndex) - $($_.Name). Build $([System.Environment]::OSVersion.Version.Build)"
+      }
+      else {
+        Invoke-ExternalCommand netsh interface ipv4 set interface $_.NetConnectionID mtu=1460 | Out-Null
+        Invoke-ExternalCommand netsh interface ipv6 set interface $_.NetConnectionID mtu=1460 | Out-Null
+        Write-Log "MTU set to 1460 for IPv4 and IPv6 using netsh for interface $($_.NetConnectionID) - $($_.Name)."
+      }
     }
-    Write-Log 'MTU set to 1460.'
-
+  
     Invoke-ExternalCommand route /p add 169.254.169.254 mask 255.255.255.255 0.0.0.0 if $interface[0].InterfaceIndex metric 1 -ErrorAction SilentlyContinue
-    Write-Log 'Added persistent route to metadata netblock via ' + $interface.ServiceName + ' adapter.'
+    Write-Log "Added persistent route to metadata netblock to $($interface.ServiceName) adapter."
   }
   else {
     Write-Log 'Error identifying network adapter as gVNIC or VirtIO, unable to set MTU and route to metadata server.'
