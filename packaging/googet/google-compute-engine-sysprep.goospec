@@ -22,7 +22,7 @@
     "path": "sysprep/sysprep_uninstall.ps1"
   },
   "releaseNotes": [
-    "3.19.0 - Migrating MTU & Firewall rule modifications to use PowerShell cmdlets instead of netsh for Win10/2016 and above."
+    "3.19.0 - Migrating MTU & Firewall rule modifications to use PowerShell cmdlets instead of netsh for Win10/2016 and above.",
     "3.18.0 - Updated activate_instance.ps1 to skip setting KMS and activation, if any known GCE Windows BYOL license is attached.",
     "3.17.0 - Add Windows Server 2022 KMS client keys",
     "3.16.0 - Ensure WinRM service is started before update HTTPS listener",
