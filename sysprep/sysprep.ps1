@@ -247,20 +247,21 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
     Write-Log "Enabling RDP and WinRM firewall rules using PowerShell. Build $([System.Environment]::OSVersion.Version.Build)"
     New-NetFirewallRule -DisplayName 'Windows Remote Management (HTTPS-In)' -Direction Inbound -LocalPort 5986 -Protocol TCP -Action Allow -Profile Any
     Set-NetFirewallRule -DisplayGroup 'Remote Desktop' -Enabled True
-  } 
+  }
   else {
     Write-Log "Enabling RDP and WinRM firewall rules using netsh. Build $([System.Environment]::OSVersion.Version.Build)"
     Invoke-ExternalCommand netsh advfirewall firewall add rule profile=any name='Windows Remote Management (HTTPS-In)' dir=in localport=5986 protocol=TCP action=allow
     Invoke-ExternalCommand netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
   }
 
+  Write-Log 'Disable google_osconfig_agent during the specialize configuration pass.'
+  Set-Service google_osconfig_agent -StartupType Disabled -Verbose -ErrorAction Continue
+
   if ($no_shutdown) {
     Write-Log 'GCESysprep complete, not shutting down.'
     exit 0
   }
 
-  Write-Log 'Disable google_osconfig_agent during the specialize configuration pass.'
-  Set-Service google_osconfig_agent -StartupType Disabled -Verbose -ErrorAction Continue
   Write-Log 'Shutting down.'
   Invoke-ExternalCommand shutdown /s /t 00 /d p:2:4 /f
 }
