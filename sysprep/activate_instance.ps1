@@ -264,7 +264,6 @@ function Verify-ActivationStatus {
 
   [bool]$active = $false
   [String]$activation_status = $null
-  [String]$status = $null
 
   try {
     $activation_status = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\Activation" -Name ProductActivationResult).ProductActivationResult
