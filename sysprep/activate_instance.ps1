@@ -264,18 +264,16 @@ function Verify-ActivationStatus {
 
   [bool]$active = $false
   [String]$activation_status = $null
-  [String]$status = $null
 
   try {
-    $slmgr_status = & cscript //E:VBScript //nologo $env:windir\system32\slmgr.vbs /dli
+    $activation_status = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\Activation" -Name ProductActivationResult).ProductActivationResult
   }
   catch {
     return $active
   }
 
-  $status = $slmgr_status | Select-String -Pattern '^License Status:'
-  # The initial space is to ensure "Unlicensed" does not match.
-  if ($status -match ' Licensed') {
+  # Anything other than 0x0 is a failure.
+  if ($activation_status -eq '0') {
     $active = $true
   }
   return $active
