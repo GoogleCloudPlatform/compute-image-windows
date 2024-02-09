@@ -276,7 +276,6 @@ function Verify-ActivationStatus {
   if ($activation_status -eq '0') {
     $active = $true
   }
-  Write-Host $activation_status
   return $active
 }
 
