@@ -132,6 +132,7 @@ function Clear-TempFolders {
     "C:\Users\*\Appdata\Local\Temp\*\*",
     "C:\Users\*\Appdata\Local\Microsoft\Internet Explorer\*",
     "C:\Users\*\Appdata\LocalLow\Temp\*\*",
+    "C:\ProgramData\Google\Compute Engine\mds-mtls-*"
     "C:\Users\*\Appdata\LocalLow\Microsoft\Internet Explorer\*") | ForEach-Object {
     if (Test-Path $_) {
       Remove-Item $_ -Recurse -Force -ErrorAction Ignore
@@ -215,6 +216,9 @@ try {
     Start-Sleep -Seconds 15
   }
 
+  Write-Log 'Stopping GCEAgent.'
+  Stop-Service -name GCEAgent
+
   Write-Log 'Setting startup commands.'
   Set-ItemProperty -Path HKLM:\SYSTEM\Setup -Name CmdLine -Value "`"$PSScriptRoot\windeploy.cmd`""
   if (-not (Test-Path $script:setupscripts_dir_loc)) {
@@ -240,6 +244,13 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
   @('Cert:\LocalMachine\Remote Desktop', 'Cert:\LocalMachine\My') | ForEach-Object {
     if (Test-Path $_) {
       Get-ChildItem $_ | Where-Object {$_.Subject -eq $_.Issuer} | Remove-Item
+    }
+  }
+
+  Write-Log 'Clearing MTLS MDS certs.'
+  @('Cert:\LocalMachine\My', 'Cert:\LocalMachine\Root') | ForEach-Object {
+    if (Test-Path $_) {
+      Get-ChildItem $_ | Where-Object {$_.Issuer -Match 'google.internal'} | Remove-Item
     }
   }
 
