@@ -132,6 +132,7 @@ function Clear-TempFolders {
     "C:\Users\*\Appdata\Local\Temp\*\*",
     "C:\Users\*\Appdata\Local\Microsoft\Internet Explorer\*",
     "C:\Users\*\Appdata\LocalLow\Temp\*\*",
+    "C:\ProgramData\Google\Compute Engine\mds-mtls-*"
     "C:\Users\*\Appdata\LocalLow\Microsoft\Internet Explorer\*") | ForEach-Object {
     if (Test-Path $_) {
       Remove-Item $_ -Recurse -Force -ErrorAction Ignore
@@ -215,6 +216,9 @@ try {
     Start-Sleep -Seconds 15
   }
 
+  Write-Log 'Stopping GCEAgent.'
+  Stop-Service -name GCEAgent
+
   Write-Log 'Setting startup commands.'
   Set-ItemProperty -Path HKLM:\SYSTEM\Setup -Name CmdLine -Value "`"$PSScriptRoot\windeploy.cmd`""
   if (-not (Test-Path $script:setupscripts_dir_loc)) {
@@ -243,24 +247,32 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
     }
   }
 
+  Write-Log 'Clearing MTLS MDS certs.'
+  @('Cert:\LocalMachine\My', 'Cert:\LocalMachine\Root') | ForEach-Object {
+    if (Test-Path $_) {
+      Get-ChildItem $_ | Where-Object {$_.Issuer -Match 'google.internal'} | Remove-Item
+    }
+  }
+
   if ([System.Environment]::OSVersion.Version.Build -ge 10240) {
     Write-Log "Enabling RDP and WinRM firewall rules using PowerShell. Build $([System.Environment]::OSVersion.Version.Build)"
     New-NetFirewallRule -DisplayName 'Windows Remote Management (HTTPS-In)' -Direction Inbound -LocalPort 5986 -Protocol TCP -Action Allow -Profile Any
     Set-NetFirewallRule -DisplayGroup 'Remote Desktop' -Enabled True
-  } 
+  }
   else {
     Write-Log "Enabling RDP and WinRM firewall rules using netsh. Build $([System.Environment]::OSVersion.Version.Build)"
     Invoke-ExternalCommand netsh advfirewall firewall add rule profile=any name='Windows Remote Management (HTTPS-In)' dir=in localport=5986 protocol=TCP action=allow
     Invoke-ExternalCommand netsh advfirewall firewall set rule group='remote desktop' new enable=Yes
   }
 
+  Write-Log 'Disable google_osconfig_agent during the specialize configuration pass.'
+  Set-Service google_osconfig_agent -StartupType Disabled -Verbose -ErrorAction Continue
+
   if ($no_shutdown) {
     Write-Log 'GCESysprep complete, not shutting down.'
     exit 0
   }
 
-  Write-Log 'Disable google_osconfig_agent during the specialize configuration pass.'
-  Set-Service google_osconfig_agent -StartupType Disabled -Verbose -ErrorAction Continue
   Write-Log 'Shutting down.'
   Invoke-ExternalCommand shutdown /s /t 00 /d p:2:4 /f
 }
