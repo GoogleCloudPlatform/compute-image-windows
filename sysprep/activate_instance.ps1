@@ -267,19 +267,20 @@ function Verify-ActivationStatus {
   [String]$status = $null
 
   # Server 2008 doesn't store activation status in registry; check slmgr
-  if([Environment]::OSVersion.Version.Major -eq 6 -and [Environment]::OSVersion.Version.Minor -le 1)
+  if([Environment]::OSVersion.Version.Major -eq 6 -and [Environment]::OSVersion.Version.Minor -le 3)
   {
     try {
       $slmgr_status = & cscript //E:VBScript //nologo $env:windir\system32\slmgr.vbs /dli
     }
     catch {
-      Write-Host "Error getting slmgr license status output."
+      return $active
     }
     $status = $slmgr_status | Select-String -Pattern '^License Status:'
     # The initial space is to ensure "Unlicensed" does not match.
     if ($status -match ' Licensed') {
       $active = $true
     }
+    return $active
   }
   # All server versions newer than 2008
   else {
@@ -287,14 +288,14 @@ function Verify-ActivationStatus {
       $activation_status = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\Activation" -Name ProductActivationResult).ProductActivationResult
     }
     catch {
-      Write-Host "Error retrieving last activation result registry key."
+      return $active
     }
     # Anything other than 0x0 is a failure.
     if ($activation_status -eq '0') {
       $active = $true
     }
-  }
   return $active
+  }
 }
 
 function Test-TCPPort {
