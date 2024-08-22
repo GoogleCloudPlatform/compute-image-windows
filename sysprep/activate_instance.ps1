@@ -273,14 +273,13 @@ function Verify-ActivationStatus {
       $slmgr_status = & cscript //E:VBScript //nologo $env:windir\system32\slmgr.vbs /dli
     }
     catch {
-      return $active
+      $active = $false
     }
     $status = $slmgr_status | Select-String -Pattern '^License Status:'
     # The initial space is to ensure "Unlicensed" does not match.
     if ($status -match ' Licensed') {
       $active = $true
     }
-    return $active
   }
   # All server versions newer than 2008
   else {
@@ -288,14 +287,14 @@ function Verify-ActivationStatus {
       $activation_status = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\Activation" -Name ProductActivationResult).ProductActivationResult
     }
     catch {
-      return $active
+      $active = $false
     }
     # Anything other than 0x0 is a failure.
     if ($activation_status -eq '0') {
       $active = $true
     }
-  return $active
   }
+  return $active
 }
 
 function Test-TCPPort {
