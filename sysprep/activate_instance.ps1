@@ -273,7 +273,7 @@ function Verify-ActivationStatus {
       $slmgr_status = & cscript //E:VBScript //nologo $env:windir\system32\slmgr.vbs /dli
     }
     catch {
-      $active = $false
+      Write-Host "Error getting slmgr license status output."
     }
     $status = $slmgr_status | Select-String -Pattern '^License Status:'
     # The initial space is to ensure "Unlicensed" does not match.
@@ -287,7 +287,7 @@ function Verify-ActivationStatus {
       $activation_status = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\Activation" -Name ProductActivationResult).ProductActivationResult
     }
     catch {
-      $active = $false
+      Write-Host "Error retrieving last activation result registry key."
     }
     # Anything other than 0x0 is a failure.
     if ($activation_status -eq '0') {
