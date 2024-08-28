@@ -281,7 +281,7 @@ function Verify-ActivationStatus {
       $active = $true
     }
   }
-  # All server versions newer than 2008
+  # All server versions newer than 2012R2
   else {
     try {
       $activation_status = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\Activation" -Name ProductActivationResult).ProductActivationResult
