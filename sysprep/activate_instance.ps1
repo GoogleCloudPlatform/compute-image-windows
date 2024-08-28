@@ -267,7 +267,7 @@ function Verify-ActivationStatus {
   [String]$status = $null
 
   # Server 2008 doesn't store activation status in registry; check slmgr
-  if([Environment]::OSVersion.Version.Major -eq 6 -and [Environment]::OSVersion.Version.Minor -le 1)
+  if([Environment]::OSVersion.Version.Major -eq 6 -and [Environment]::OSVersion.Version.Minor -le 3)
   {
     try {
       $slmgr_status = & cscript //E:VBScript //nologo $env:windir\system32\slmgr.vbs /dli
@@ -281,7 +281,7 @@ function Verify-ActivationStatus {
       $active = $true
     }
   }
-  # All server versions newer than 2008
+  # All server versions newer than 2012R2
   else {
     try {
       $activation_status = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform\Activation" -Name ProductActivationResult).ProductActivationResult
