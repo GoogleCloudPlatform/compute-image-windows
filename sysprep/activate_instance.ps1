@@ -266,7 +266,7 @@ function Verify-ActivationStatus {
   [String]$activation_status = $null
   [String]$status = $null
 
-  # Server 2008 doesn't store activation status in registry; check slmgr
+  # Server 2008/2012R2 don't store activation status in registry; check slmgr
   if([Environment]::OSVersion.Version.Major -eq 6 -and [Environment]::OSVersion.Version.Minor -le 3)
   {
     try {
