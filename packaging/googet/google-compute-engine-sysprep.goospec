@@ -22,6 +22,7 @@
     "path": "sysprep/sysprep_uninstall.ps1"
   },
   "releaseNotes": [
+    "3.21.0 - Updating activate_instance.ps1.",
     "3.20.0 - Remove MTLS MDS certificates from certificate store and disk during sysprep.",
     "3.19.0 - Migrating MTU & Firewall rule modifications to use PowerShell cmdlets instead of netsh for Win10/2016 and above.",
     "3.18.0 - Updated activate_instance.ps1 to skip setting KMS and activation, if any known GCE Windows BYOL license is attached.",
