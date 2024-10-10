@@ -86,12 +86,6 @@ function Activate-Instance {
   [string]$license_key = $null
   [int]$retry_count = 3 # Try activation three times.
 
-  Write-Output 'Checking instance license activation status.'
-  if (Verify-ActivationStatus) {
-    Write-Output "$script:hostname is already licensed and activated."
-    return
-  }
-
   Write-Output "$script:hostname needs to be activated by a KMS Server."
   $license_key = Get-ProductKmsClientKey
   if (-not $license_key) {
