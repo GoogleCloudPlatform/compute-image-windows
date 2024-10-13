@@ -40,6 +40,7 @@ $script:activate_instance_script_loc = "$script:gce_install_dir\sysprep\activate
 $script:metadata_script_loc = "$script:gce_install_dir\metadata_scripts\GCEMetadataScripts.exe"
 $script:setupcomplete_loc = "$env:WinDir\Setup\Scripts\SetupComplete.cmd"
 $script:write_to_serial = $false
+$script:gvnic_sys_driver = "$env:SystemRoot\System32\drivers\gvnic.sys"
 
 try {
   Import-Module $script:gce_base_loc -ErrorAction Stop 3> $null
@@ -148,11 +149,21 @@ function Change-InstanceProperties {
     $isWin10ClientOrLater = ($productMajorVersion -eq 10 -and $productMinorVersion -eq 0 -and $productBuildNumber -ge 10240 -and $productType -notmatch 'server')
     $isWinServer2022OrLater = ($productMajorVersion -eq 10 -and $productMinorVersion -eq 0 -and $productBuildNumber -gt 17763 -and $productType -match 'server')
     if ($isWin10ClientOrLater -or $isWinServer2022OrLater) {
-      Write-Log 'Disabling GVNIC IPv4 Large Send Offload (LSO)'
-      Set-NetAdapterAdvancedProperty -InterfaceDescription 'Google Ethernet Adapter' -RegistryKeyword '*LSOV2Ipv4' -RegistryValue 0
-
-      Write-Log 'Disabling GVNIC IPv6 Large Send Offload (LSO)'
-      Set-NetAdapterAdvancedProperty -InterfaceDescription 'Google Ethernet Adapter' -RegistryKeyword '*LSOV2Ipv6' -RegistryValue 0
+      if (Test-Path $script:gvnic_sys_driver) {
+        if ((Get-Item $script:gvnic_sys_driver).VersionInfo.FileVersion -lt 1.1) {
+          Write-Log 'Disabling gvNIC IPv4 Large Send Offload (LSO) for v1.0.x'
+          Set-NetAdapterAdvancedProperty -InterfaceDescription 'Google Ethernet Adapter' -RegistryKeyword '*LSOV2Ipv4' -RegistryValue 0
+    
+          Write-Log 'Disabling gvNIC IPv6 Large Send Offload (LSO) for v1.0.x'
+          Set-NetAdapterAdvancedProperty -InterfaceDescription 'Google Ethernet Adapter' -RegistryKeyword '*LSOV2Ipv6' -RegistryValue 0
+        }
+        else {
+          Write-Log 'gvNIC version greater than 1.1. LSO modification not needed.'
+        }
+      }
+      else {
+        Write-Log "gvNIC driver not found at $script:gvnic_sys_driver for LSO settings."
+      }
     }
   }
   else {
@@ -162,8 +173,22 @@ function Change-InstanceProperties {
   if ($interface -ne $null) {
     $interface | ForEach-Object {
       if ([System.Environment]::OSVersion.Version.Build -ge 10240) {
-        Set-NetIPInterface -InterfaceIndex $_.InterfaceIndex -NlMtuBytes 1460
-        Write-Log "MTU set to 1460 for IPv4 and IPv6 using PowerShell for interface $($_.InterfaceIndex) - $($_.Name). Build $([System.Environment]::OSVersion.Version.Build)"
+        if ($interface.ServiceName -eq 'gvnic') {
+          if (Test-Path $script:gvnic_sys_driver) {
+            if ((Get-Item $script:gvnic_sys_driver).VersionInfo.FileVersion -lt 1.1) {
+              Set-NetIPInterface -InterfaceIndex $_.InterfaceIndex -NlMtuBytes 1460
+              Write-Log "MTU set to 1460 for IPv4 and IPv6 using PowerShell for interface $($_.InterfaceIndex) - $($_.Name). Build $([System.Environment]::OSVersion.Version.Build)"
+            } else {
+              Write-Log 'gvNIC version greater than 1.1, not setting MTU.'
+            }
+          }
+          else {
+            Write-Log "gvNIC driver not found at $script:gvnic_sys_driver for MTU setting."
+          }
+        } else {
+          Set-NetIPInterface -InterfaceIndex $_.InterfaceIndex -NlMtuBytes 1460
+          Write-Log "MTU set to 1460 for IPv4 and IPv6 using PowerShell for interface $($_.InterfaceIndex) - $($_.Name). Build $([System.Environment]::OSVersion.Version.Build)"  
+        }
       }
       else {
         Invoke-ExternalCommand netsh interface ipv4 set interface $_.NetConnectionID mtu=1460 | Out-Null
