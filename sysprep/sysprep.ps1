@@ -141,19 +141,6 @@ function Clear-TempFolders {
   }
 }
 
-function Clear-Packages {
-  <#
-    .SYNOPSIS
-      Remove all unwanted packages.
-    .DESCRIPTION
-      This function defines an array which contains all packages that need to be removed.
-      We use Get-AppxPackage with Remove-AppxPackage to remove each package in the array.
-  #>
-  @("Microsoft.Copilot*") | ForEach-Object {
-    Get-AppxPackage $_ | Remove-AppxPackage -ErrorAction Ignore
-  }
-}
-
 function Test-Admin {
   <#
     .SYNOPSIS
@@ -214,7 +201,6 @@ try {
   Invoke-ExternalCommand schtasks /change /tn GCEStartup /disable -ErrorAction SilentlyContinue
 
   # Do some clean up.
-  Clear-Packages
   Clear-TempFolders
   Clear-EventLogs
 
