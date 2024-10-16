@@ -81,6 +81,7 @@ $script:instance_setup_script_loc = "$gce_install_dir\sysprep\instance_setup.ps1
 $script:sysprep_tag = 'C:\Windows\System32\Sysprep\Sysprep_succeeded.tag'
 $script:setupscripts_dir_loc = "$env:WinDir\Setup\Scripts"
 $script:setupcomplete_loc = "$script:setupscripts_dir_loc\SetupComplete.cmd"
+$script:sysprep_output_file_loc = "C:\Windows\System32\Sysprep\Panther\setupact.log"
 
 # Check if the help parameter was called.
 if ($help) {
@@ -137,6 +138,19 @@ function Clear-TempFolders {
     if (Test-Path $_) {
       Remove-Item $_ -Recurse -Force -ErrorAction Ignore
     }
+  }
+}
+
+function Clear-Packages {
+  <#
+    .SYNOPSIS
+      Remove all unwanted packages.
+    .DESCRIPTION
+      This function defines an array which contains all packages that need to be removed.
+      We use Get-AppxPackage with Remove-AppxPackage to remove each package in the array.
+  #>
+  @("Microsoft.Copilot*") | ForEach-Object {
+    Get-AppxPackage $_ | Remove-AppxPackage -ErrorAction Ignore
   }
 }
 
@@ -200,6 +214,7 @@ try {
   Invoke-ExternalCommand schtasks /change /tn GCEStartup /disable -ErrorAction SilentlyContinue
 
   # Do some clean up.
+  Clear-Packages
   Clear-TempFolders
   Clear-EventLogs
 
@@ -208,12 +223,26 @@ try {
     Remove-Item $script:sysprep_tag
   }
 
-  # Run sysprep.
+  # Run sysprep
   Invoke-ExternalCommand C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /quit /unattend:$ans_file
+  $sysprepExitCode = $LASTEXITCODE
+  if ($sysprepExitCode -ne 0) {
+      Write-Log "Sysprep ExitCode:"
+      Write-Log $sysprepexitCode
 
-  Write-Log 'Waiting for sysprep to complete.'
-  while (-not (Test-Path $script:sysprep_tag)) {
-    Start-Sleep -Seconds 15
+      # Capture the last lines of the log for debugging.
+      $lastLines = Get-Content $script:sysprep_output_file_loc -Tail 15
+      Write-Log "Last 15 lines from setupact.log:"
+      $lastLines | ForEach-Object { Write-Log $_ }
+
+      # Sysprep failed or timed out.
+      Write-LogError
+      exit 1
+  } else {
+      Write-Log 'Waiting for sysprep to complete.'
+      while (-not (Test-Path $script:sysprep_tag)) {
+        Start-Sleep -Seconds 15
+      }
   }
 
   Write-Log 'Stopping GCEAgent.'
