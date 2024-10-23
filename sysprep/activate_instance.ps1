@@ -21,57 +21,74 @@
 
 Set-StrictMode -Version Latest
 
-if (Test-Path "$env:ProgramFiles\Google\Compute Engine\sysprep\byol_image") {
-  Write-Output 'Image imported into GCE via BYOL workflow, skipping GCE activation'
-  exit
-}
-
-$byolLicenses = New-Object System.Collections.ArrayList
-$byolLicenses.Add('2089835370828997959') # windows-cloud/global/licenses/windows-10-enterprise-byol
-$byolLicenses.Add('8727879116868096918') # windows-cloud/global/licenses/windows-10-x64-byol
-$byolLicenses.Add('3732182829874353001') # windows-cloud/global/licenses/windows-10-x86-byol
-$byolLicenses.Add('5378533650449772437') # windows-cloud/global/licenses/windows-11-x64-byol
-$byolLicenses.Add('752112173778412950')  # windows-cloud/global/licenses/windows-7-enterprise-byol
-$byolLicenses.Add('5016528181960184510') # windows-cloud/global/licenses/windows-7-x64-byol
-$byolLicenses.Add('622639362407469665')  # windows-cloud/global/licenses/windows-7-x86-byol
-$byolLicenses.Add('7036859048284197429') # windows-cloud/global/licenses/windows-8-x64-byol
-$byolLicenses.Add('3720924436396315642') # windows-cloud/global/licenses/windows-8-x86-byol
-$byolLicenses.Add('5366577783322166007') # windows-cloud/global/licenses/windows-81-x64-byol
-$byolLicenses.Add('4551215591257167608') # windows-cloud/global/licenses/windows-server-2008-r2-byol
-$byolLicenses.Add('5559842820536817947') # windows-cloud/global/licenses/windows-server-2012-byol
-$byolLicenses.Add('6738952703547430631') # windows-cloud/global/licenses/windows-server-2012-r2-byol
-$byolLicenses.Add('4322823184804632846') # windows-cloud/global/licenses/windows-server-2016-byol
-$byolLicenses.Add('6532438499690676691') # windows-cloud/global/licenses/windows-server-2019-byol
-$byolLicenses.Add('2808834792899686364') # windows-cloud/global/licenses/windows-server-2022-byol
-
-try {
-  $licenseCountOutput = (Invoke-RestMethod -Headers @{'Metadata-Flavor' = 'Google'} -Uri "http://metadata.google.internal/computeMetadata/v1/instance/licenses")
-  $licenseCount = [regex]::matches($licenseCountOutput,"/").count
-  
-  For ($licenseIndex=0; $licenseIndex -lt $licenseCount; $licenseIndex++) {
-    $licenseID = (Invoke-RestMethod -Headers @{'Metadata-Flavor' = 'Google'} -Uri "http://metadata.google.internal/computeMetadata/v1/instance/licenses/$licenseIndex/id").ToString()
-    if ($byolLicenses.Contains($licenseID)) {
-      Write-Output "BYOL license $licenseID found. Aborting setting the KMS server to Google Cloud KMS Server."
-      exit
-    }
-  }
-  Write-Output 'No BYOL license detected. Proceeding with activation.'
-}
-catch {
-  Write-Output "Failed to identify if a known BYOL license is attached. Continuing to set the KMS server to Google Cloud KMS Server and activate. Error: $_"
-}
-
 $script:kms_server = 'kms.windows.googlecloud.com'
 $script:kms_server_port = 1688
-$script:hostname = hostname
-$reg = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion'
+
 try {
-  $script:product_name = (Get-ItemProperty -Path $reg -Name ProductName).ProductName
+  $script:product_name = (Get-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion' -Name ProductName).ProductName
 }
 catch {
   Write-Output 'Failed to get the product details. Skipping activation.'
   exit
 }
+
+function Verify-PAYGLicense {
+  <#
+    .SYNOPSIS
+      Identify if a PAYG license is present on the boot disk.
+  #>
+
+  $paygLicenses = New-Object System.Collections.ArrayList
+  $paygLicenses.Add('7142647615590922601') | out-null # windows-cloud/global/licenses/windows-server-2025-dc
+  $paygLicenses.Add('4079807029871201927') | out-null # windows-cloud/global/licenses/windows-server-2022-dc
+  $paygLicenses.Add('3389558045860892917') | out-null # windows-cloud/global/licenses/windows-server-2019-dc
+  $paygLicenses.Add('1000213') | out-null             # windows-cloud/global/licenses/windows-server-2016-dc
+  $paygLicenses.Add('1000017') | out-null             # windows-cloud/global/licenses/windows-server-2012-r2-dc
+  $paygLicenses.Add('1000015') | out-null             # windows-cloud/global/licenses/windows-server-2012-dc
+  $paygLicenses.Add('1000000') | out-null             # windows-cloud/global/licenses/windows-server-2008-r2-dc
+  $paygLicenses.Add('1000502') | out-null             # windows-cloud/global/licenses/windows-server-2008-dc
+  $paygLicenses.Add('5507061839551517143') | out-null # windows-cloud/global/licenses/windows-server-2000
+  $paygLicenses.Add('5030842449011296880') | out-null # windows-cloud/global/licenses/windows-server-2003
+
+  $paygLicenses.Add('5194306116883728686') | out-null # windows-cloud/global/licenses/windows-server-1709-dc
+  $paygLicenses.Add('6476660300603799873') | out-null # windows-cloud/global/licenses/windows-server-1803-dc
+  $paygLicenses.Add('8597854123084943473') | out-null # windows-cloud/global/licenses/windows-server-1809-dc
+  $paygLicenses.Add('5980382382909462329') | out-null # windows-cloud/global/licenses/windows-server-1903-dc
+  $paygLicenses.Add('1413572828508235433') | out-null # windows-cloud/global/licenses/windows-server-1909-dc
+  $paygLicenses.Add('6710259852346942597') | out-null # windows-cloud/global/licenses/windows-server-2004-dc
+  $paygLicenses.Add('8578754948912497438') | out-null # windows-cloud/global/licenses/windows-server-20h2-dc
+  $paygLicenses.Add('7248135684629163401') | out-null # windows-cloud/global/licenses/windows-server-21h1-dc
+
+  $paygLicenses.Add('1656378918552316916') | out-null # windows-cloud/global/licenses/windows-server-2008
+  $paygLicenses.Add('3284763237085719542') | out-null # windows-cloud/global/licenses/windows-server-2008-r2
+  $paygLicenses.Add('7695108898142923768') | out-null # windows-cloud/global/licenses/windows-server-2012
+  $paygLicenses.Add('7798417859637521376') | out-null # windows-cloud/global/licenses/windows-server-2012-r2
+  $paygLicenses.Add('4819555115818134498') | out-null # windows-cloud/global/licenses/windows-server-2016
+  $paygLicenses.Add('1000214') | out-null             # windows-cloud/global/licenses/windows-server-2016-nano
+  $paygLicenses.Add('4874454843789519845') | out-null # windows-cloud/global/licenses/windows-server-2019
+  $paygLicenses.Add('6107784707477449232') | out-null # windows-cloud/global/licenses/windows-server-2022
+  $paygLicenses.Add('973054079889996136') | out-null  # windows-cloud/global/licenses/windows-server-2025
+
+  try {
+    $licenseCountOutput = (Invoke-RestMethod -Headers @{'Metadata-Flavor' = 'Google'} -Uri "http://169.254.169.254/computeMetadata/v1/instance/licenses")
+    $licenseCount = [regex]::matches($licenseCountOutput,"/").count
+    
+    For ($licenseIndex=0; $licenseIndex -lt $licenseCount; $licenseIndex++) {
+      $licenseID = (Invoke-RestMethod -Headers @{'Metadata-Flavor' = 'Google'} -Uri "http://169.254.169.254/computeMetadata/v1/instance/licenses/$licenseIndex/id").ToString()
+      if ($paygLicenses.Contains($licenseID)) {
+        Write-Output "PAYG license $licenseID found."
+        return $true
+      }
+    }
+    Write-Output 'No PAYG license found.'
+    return $false
+  }
+  catch {
+    Write-Output "Failed to identify if a PAYG license is attached. Error: $_"
+    return $false
+  }
+  return $false
+} 
 
 function Activate-Instance {
   <#
@@ -86,7 +103,6 @@ function Activate-Instance {
   [string]$license_key = $null
   [int]$retry_count = 3 # Try activation three times.
 
-  Write-Output "$script:hostname needs to be activated by a KMS Server."
   $license_key = Get-ProductKmsClientKey
   if (-not $license_key) {
     Write-Output ("$script:product_name activations are currently not supported on GCE. Activation skipped.")
@@ -331,4 +347,14 @@ function Test-TCPPort {
   return $status
 }
 
-Activate-Instance
+if (Test-Path "$env:ProgramFiles\Google\Compute Engine\sysprep\byol_image") {
+  Write-Output 'Image imported into GCE via BYOL workflow, skipping GCE activation'
+}
+else {
+  if (Verify-PAYGLicense -eq $true){
+    Activate-Instance
+  }
+  else {
+    Write-Output 'PAYG license not found, skipping GCE activation'
+  }
+}

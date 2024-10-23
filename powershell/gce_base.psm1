@@ -23,7 +23,7 @@
 
 # Default Values
 $global:write_to_serial = $false
-$global:metadata_server = 'metadata.google.internal'
+$global:metadata_server = '169.254.169.254'
 $global:hostname = [System.Net.Dns]::GetHostName()
 $global:log_file = $null
 

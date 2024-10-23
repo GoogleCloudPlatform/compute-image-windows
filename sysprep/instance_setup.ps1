@@ -79,7 +79,7 @@ function Change-InstanceName {
   Write-Log 'Getting hostname from metadata server.'
 
   if ((Get-CimInstance Win32_BIOS).Manufacturer -cne 'Google') {
-    if (-not (Test-Connection -Count 1 metadata.google.internal -ErrorAction SilentlyContinue)) {
+    if (-not (Test-Connection -Count 1 169.254.169.254 -ErrorAction SilentlyContinue)) {
       Write-Log 'Not running in a Google Compute Engine VM.' -error
       return
     }
