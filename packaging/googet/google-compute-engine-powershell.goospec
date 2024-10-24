@@ -10,6 +10,7 @@
     "powershell/gce_base.psm1": "<ProgramFiles>/Google/Compute Engine/sysprep/gce_base.psm1"
   },
   "releaseNotes": [
+    "2.1.0 - Updated gce_base.psm1 to use 169.254.169.254 instead of metadata.google.internal",
     "2.0.0 - Remove unused functions",
     "1.1.0 - Rename many functions to better match PowerShell style, provide aliases for old names",
     "      - Update Write-Log to include a global var of who is doing the logging",
