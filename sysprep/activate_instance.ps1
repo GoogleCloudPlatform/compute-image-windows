@@ -254,6 +254,13 @@ function Get-ProductKmsClientKey {
       $license_key = 'VDYBN-27WPP-V4HQT-9VMD4-VMK7H'
     }
 
+    'Windows Server 2025 Datacenter' {
+      $license_key = 'D764K-2NDRG-47T6Q-P8T8W-YP6DF'
+    }
+    'Windows Server 2025 Standard' {
+      $license_key = 'TVRH6-WHNXV-R9WG3-9XRFY-MY832'
+    }
+
     'Windows Server Standard' {
       $license_key = 'N2KJX-J94YW-TQVFB-DG9YT-724CC'
     }
