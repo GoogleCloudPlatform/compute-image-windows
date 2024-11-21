@@ -78,8 +78,8 @@ def GetJsonString(user, modulus, exponent, email):
     """Return the JSON string object that represents the windows-keys entry."""
     expire = GetExpirationTimeString()
     data = {'userName': user,
-            'modulus': modulus,
-            'exponent': exponent,
+            'modulus': modulus.decode('utf-8'),
+            'exponent': exponent.decode('utf-8'),
             'email': email,
             'expireOn': expire}
     return json.dumps(data)
@@ -124,9 +124,9 @@ def GetEncryptedPasswordFromSerialPort(serial_port_output, modulus):
     for line in reversed(output):
         try:
             entry = json.loads(line)
-            if modulus == entry['modulus']:
+            if modulus.decode('utf-8') == entry['modulus']:
                 return entry['encryptedPassword']
-        except ValueError:
+        except (ValueError, json.decoder.JSONDecodeError):
             pass
 
 
@@ -168,10 +168,10 @@ def main(instance, zone, project, user, email):
     password = DecryptPassword(enc_password, key)
 
     # Display the username, password and IP address for the instance
-    print 'Username:   {0}'.format(user)
-    print 'Password:   {0}'.format(password)
+    print(f'Username:   {user}')
+    print(f'Password:   {password}')
     ip = instance_ref['networkInterfaces'][0]['accessConfigs'][0]['natIP']
-    print 'IP Address: {0}'.format(ip)
+    print(f'IP Address: {ip}')
 
 
 if __name__ == '__main__':
