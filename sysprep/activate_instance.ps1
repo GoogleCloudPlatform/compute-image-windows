@@ -77,17 +77,18 @@ function Verify-PAYGLicense {
       $licenseID = (Invoke-RestMethod -Headers @{'Metadata-Flavor' = 'Google'} -Uri "http://169.254.169.254/computeMetadata/v1/instance/licenses/$licenseIndex/id").ToString()
       if ($paygLicenses.Contains($licenseID)) {
         Write-Output "PAYG license $licenseID found."
-        return $true
+        Activate-Instance
+        return
       }
     }
-    Write-Output 'No PAYG license found.'
-    return $false
+    Write-Output 'PAYG license not found, skipping GCE activation'
+    return
   }
   catch {
     Write-Output "Failed to identify if a PAYG license is attached. Error: $_"
-    return $false
+    return
   }
-  return $false
+  return
 } 
 
 function Activate-Instance {
@@ -358,10 +359,5 @@ if (Test-Path "$env:ProgramFiles\Google\Compute Engine\sysprep\byol_image") {
   Write-Output 'Image imported into GCE via BYOL workflow, skipping GCE activation'
 }
 else {
-  if (Verify-PAYGLicense -eq $true){
-    Activate-Instance
-  }
-  else {
-    Write-Output 'PAYG license not found, skipping GCE activation'
-  }
+  Verify-PAYGLicense
 }

@@ -206,6 +206,7 @@ try {
 
   # Delete the tag file so we don't think it already succeeded.
   if (Test-Path $script:sysprep_tag) {
+    Write-Log "Removing $script:sysprep_tag"
     Remove-Item $script:sysprep_tag
   }
 
