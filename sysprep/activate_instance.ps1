@@ -32,121 +32,6 @@ catch {
   exit
 }
 
-function Verify-PAYGLicense {
-  <#
-    .SYNOPSIS
-      Identify if a PAYG license is present on the boot disk.
-  #>
-
-  $paygLicenses = New-Object System.Collections.ArrayList
-  $paygLicenses.Add('7142647615590922601') | out-null # windows-cloud/global/licenses/windows-server-2025-dc
-  $paygLicenses.Add('4079807029871201927') | out-null # windows-cloud/global/licenses/windows-server-2022-dc
-  $paygLicenses.Add('3389558045860892917') | out-null # windows-cloud/global/licenses/windows-server-2019-dc
-  $paygLicenses.Add('1000213') | out-null             # windows-cloud/global/licenses/windows-server-2016-dc
-  $paygLicenses.Add('1000017') | out-null             # windows-cloud/global/licenses/windows-server-2012-r2-dc
-  $paygLicenses.Add('1000015') | out-null             # windows-cloud/global/licenses/windows-server-2012-dc
-  $paygLicenses.Add('1000000') | out-null             # windows-cloud/global/licenses/windows-server-2008-r2-dc
-  $paygLicenses.Add('1000502') | out-null             # windows-cloud/global/licenses/windows-server-2008-dc
-  $paygLicenses.Add('5507061839551517143') | out-null # windows-cloud/global/licenses/windows-server-2000
-  $paygLicenses.Add('5030842449011296880') | out-null # windows-cloud/global/licenses/windows-server-2003
-
-  $paygLicenses.Add('5194306116883728686') | out-null # windows-cloud/global/licenses/windows-server-1709-dc
-  $paygLicenses.Add('6476660300603799873') | out-null # windows-cloud/global/licenses/windows-server-1803-dc
-  $paygLicenses.Add('8597854123084943473') | out-null # windows-cloud/global/licenses/windows-server-1809-dc
-  $paygLicenses.Add('5980382382909462329') | out-null # windows-cloud/global/licenses/windows-server-1903-dc
-  $paygLicenses.Add('1413572828508235433') | out-null # windows-cloud/global/licenses/windows-server-1909-dc
-  $paygLicenses.Add('6710259852346942597') | out-null # windows-cloud/global/licenses/windows-server-2004-dc
-  $paygLicenses.Add('8578754948912497438') | out-null # windows-cloud/global/licenses/windows-server-20h2-dc
-  $paygLicenses.Add('7248135684629163401') | out-null # windows-cloud/global/licenses/windows-server-21h1-dc
-
-  $paygLicenses.Add('1656378918552316916') | out-null # windows-cloud/global/licenses/windows-server-2008
-  $paygLicenses.Add('3284763237085719542') | out-null # windows-cloud/global/licenses/windows-server-2008-r2
-  $paygLicenses.Add('7695108898142923768') | out-null # windows-cloud/global/licenses/windows-server-2012
-  $paygLicenses.Add('7798417859637521376') | out-null # windows-cloud/global/licenses/windows-server-2012-r2
-  $paygLicenses.Add('4819555115818134498') | out-null # windows-cloud/global/licenses/windows-server-2016
-  $paygLicenses.Add('1000214') | out-null             # windows-cloud/global/licenses/windows-server-2016-nano
-  $paygLicenses.Add('4874454843789519845') | out-null # windows-cloud/global/licenses/windows-server-2019
-  $paygLicenses.Add('6107784707477449232') | out-null # windows-cloud/global/licenses/windows-server-2022
-  $paygLicenses.Add('973054079889996136') | out-null  # windows-cloud/global/licenses/windows-server-2025
-
-  try {
-    $licenseCountOutput = (Invoke-RestMethod -Headers @{'Metadata-Flavor' = 'Google'} -Uri "http://169.254.169.254/computeMetadata/v1/instance/licenses")
-    $licenseCount = [regex]::matches($licenseCountOutput,"/").count
-    
-    For ($licenseIndex=0; $licenseIndex -lt $licenseCount; $licenseIndex++) {
-      $licenseID = (Invoke-RestMethod -Headers @{'Metadata-Flavor' = 'Google'} -Uri "http://169.254.169.254/computeMetadata/v1/instance/licenses/$licenseIndex/id").ToString()
-      if ($paygLicenses.Contains($licenseID)) {
-        Write-Output "PAYG license $licenseID found."
-        Activate-Instance
-        return
-      }
-    }
-    Write-Output 'PAYG license not found, skipping GCE activation'
-    return
-  }
-  catch {
-    Write-Output "Failed to identify if a PAYG license is attached. Error: $_"
-    return
-  }
-  return
-} 
-
-function Activate-Instance {
-  <#
-    .SYNOPSIS
-      Activate instance via a KMS SERVER.
-    .DESCRIPTION
-      Tries to Activate Instance with a KMS server. This function checks if the
-      instance is already activated and if Yes skips. This Function can be uses
-      for instance checkups in the future.
-  #>
-
-  [string]$license_key = $null
-  [int]$retry_count = 2 # Retry activation two additional times.
-
-  $license_key = Get-ProductKmsClientKey
-  if (-not $license_key) {
-    Write-Output ("$script:product_name activations are currently not supported on GCE. Activation skipped.")
-    return
-  }
-
-  # Set the KMS server.
-  & $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /skms $script:kms_server | ForEach-Object {
-    Write-Output $_
-  }
-  # Apply the license key to the host.
-  & $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ipk $license_key  | ForEach-Object {
-    Write-Output $_
-  }
-
-  Write-Output 'Activating instance...'
-  & $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ato  | ForEach-Object {
-    Write-Output $_
-  }
-
-  while ($retry_count -gt 0) {
-    # Helps to avoid activation failures.
-    Start-Sleep -Seconds 1
-
-    if (Verify-ActivationStatus) {
-      Write-Output 'Activation successful.'
-      break
-    }
-    else {
-      $retry_count = $retry_count - 1
-      if ($retry_count -eq 0) {
-        Write-Output 'Activation failed. Max activation retry count reached: Giving up.'
-      }
-      else {
-        Write-Output "Activation failed. Will try $retry_count more time(s)."
-        & $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ato | ForEach-Object {
-          Write-Output $_
-        }
-      }
-    }
-  }
-}
-
 function Get-ProductKmsClientKey {
   <#
     .SYNOPSIS
@@ -322,7 +207,104 @@ function Verify-ActivationStatus {
 
 if (Test-Path "$env:ProgramFiles\Google\Compute Engine\sysprep\byol_image") {
   Write-Output 'Image imported into GCE via BYOL workflow, skipping GCE activation'
+  exit
 }
-else {
-  Verify-PAYGLicense
+
+# Verify the instance has a Windows Pay as you go (PAYG) GCE License.
+$paygLicenses = New-Object System.Collections.ArrayList
+$paygLicenses.Add('7142647615590922601') | out-null # windows-cloud/global/licenses/windows-server-2025-dc
+$paygLicenses.Add('4079807029871201927') | out-null # windows-cloud/global/licenses/windows-server-2022-dc
+$paygLicenses.Add('3389558045860892917') | out-null # windows-cloud/global/licenses/windows-server-2019-dc
+$paygLicenses.Add('1000213') | out-null             # windows-cloud/global/licenses/windows-server-2016-dc
+$paygLicenses.Add('1000017') | out-null             # windows-cloud/global/licenses/windows-server-2012-r2-dc
+$paygLicenses.Add('1000015') | out-null             # windows-cloud/global/licenses/windows-server-2012-dc
+$paygLicenses.Add('1000000') | out-null             # windows-cloud/global/licenses/windows-server-2008-r2-dc
+$paygLicenses.Add('1000502') | out-null             # windows-cloud/global/licenses/windows-server-2008-dc
+$paygLicenses.Add('5507061839551517143') | out-null # windows-cloud/global/licenses/windows-server-2000
+$paygLicenses.Add('5030842449011296880') | out-null # windows-cloud/global/licenses/windows-server-2003
+
+$paygLicenses.Add('5194306116883728686') | out-null # windows-cloud/global/licenses/windows-server-1709-dc
+$paygLicenses.Add('6476660300603799873') | out-null # windows-cloud/global/licenses/windows-server-1803-dc
+$paygLicenses.Add('8597854123084943473') | out-null # windows-cloud/global/licenses/windows-server-1809-dc
+$paygLicenses.Add('5980382382909462329') | out-null # windows-cloud/global/licenses/windows-server-1903-dc
+$paygLicenses.Add('1413572828508235433') | out-null # windows-cloud/global/licenses/windows-server-1909-dc
+$paygLicenses.Add('6710259852346942597') | out-null # windows-cloud/global/licenses/windows-server-2004-dc
+$paygLicenses.Add('8578754948912497438') | out-null # windows-cloud/global/licenses/windows-server-20h2-dc
+$paygLicenses.Add('7248135684629163401') | out-null # windows-cloud/global/licenses/windows-server-21h1-dc
+
+$paygLicenses.Add('1656378918552316916') | out-null # windows-cloud/global/licenses/windows-server-2008
+$paygLicenses.Add('3284763237085719542') | out-null # windows-cloud/global/licenses/windows-server-2008-r2
+$paygLicenses.Add('7695108898142923768') | out-null # windows-cloud/global/licenses/windows-server-2012
+$paygLicenses.Add('7798417859637521376') | out-null # windows-cloud/global/licenses/windows-server-2012-r2
+$paygLicenses.Add('4819555115818134498') | out-null # windows-cloud/global/licenses/windows-server-2016
+$paygLicenses.Add('1000214') | out-null             # windows-cloud/global/licenses/windows-server-2016-nano
+$paygLicenses.Add('4874454843789519845') | out-null # windows-cloud/global/licenses/windows-server-2019
+$paygLicenses.Add('6107784707477449232') | out-null # windows-cloud/global/licenses/windows-server-2022
+$paygLicenses.Add('973054079889996136') | out-null  # windows-cloud/global/licenses/windows-server-2025
+
+$paygLicensePresent = $false
+
+try {
+  $licenseCountOutput = (Invoke-RestMethod -Headers @{'Metadata-Flavor' = 'Google'} -Uri "http://metadata.google.internal/computeMetadata/v1/instance/licenses")
+  $licenseCount = [regex]::matches($licenseCountOutput,"/").count
+  
+  For ($licenseIndex=0; $licenseIndex -lt $licenseCount; $licenseIndex++) {
+    $licenseID = (Invoke-RestMethod -Headers @{'Metadata-Flavor' = 'Google'} -Uri "http://metadata.google.internal/computeMetadata/v1/instance/licenses/$licenseIndex/id").ToString()
+    if ($paygLicenses.Contains($licenseID)) {
+      Write-Output "Microsoft Windows PAYG license $licenseID found."
+      $paygLicensePresent = $true
+    }
+  }
+  if (-not $paygLicensePresent) {
+    Write-Output 'Microsoft Windows PAYG license not found, skipping GCE activation'
+    exit
+  }
+}
+catch {
+  Write-Output "Failed to identify if a Microsoft Windows PAYG license is attached. Error: $_"
+  exit
+}
+
+[string]$license_key = $null
+[int]$retry_count = 2 # Retry activation two additional times.
+
+$license_key = Get-ProductKmsClientKey
+if (-not $license_key) {
+  Write-Output ("$script:product_name activations are currently not supported on GCE. Activation skipped.")
+}
+
+# Set the KMS server.
+& $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /skms $script:kms_server | ForEach-Object {
+  Write-Output $_
+}
+# Apply the license key to the host.
+& $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ipk $license_key  | ForEach-Object {
+  Write-Output $_
+}
+
+Write-Output 'Activating instance...'
+& $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ato  | ForEach-Object {
+  Write-Output $_
+}
+
+while ($retry_count -gt 0) {
+  # Helps to avoid activation failures.
+  Start-Sleep -Seconds 1
+
+  if (Verify-ActivationStatus) {
+    Write-Output 'Activation successful.'
+    break
+  }
+  else {
+    $retry_count = $retry_count - 1
+    if ($retry_count -eq 0) {
+      Write-Output 'Activation failed. Max activation retry count reached: Giving up.'
+    }
+    else {
+      Write-Output "Activation failed. Will try $retry_count more time(s)."
+      & $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ato | ForEach-Object {
+        Write-Output $_
+      }
+    }
+  }
 }
