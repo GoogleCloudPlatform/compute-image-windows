@@ -102,7 +102,7 @@ function Activate-Instance {
   #>
 
   [string]$license_key = $null
-  [int]$retry_count = 3 # Try activation three times.
+  [int]$retry_count = 2 # Retry activation two additional times.
 
   $license_key = Get-ProductKmsClientKey
   if (-not $license_key) {
@@ -115,9 +115,10 @@ function Activate-Instance {
   # Apply the license key to the host.
   & cscript //nologo $env:windir\system32\slmgr.vbs /ipk $license_key
 
+  Write-Output 'Activating instance...'
+  & cscript //nologo $env:windir\system32\slmgr.vbs /ato
+
   while ($retry_count -gt 0) {
-    Write-Output 'Activating instance...'
-    & cscript //nologo $env:windir\system32\slmgr.vbs /ato
     # Helps to avoid activation failures.
     Start-Sleep -Seconds 1
 
@@ -132,6 +133,7 @@ function Activate-Instance {
       }
       else {
         Write-Output "Activation failed. Will try $retry_count more time(s)."
+        & cscript //nologo $env:windir\system32\slmgr.vbs /ato
       }
     }
   }
