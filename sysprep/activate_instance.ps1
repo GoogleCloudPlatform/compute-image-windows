@@ -115,11 +115,6 @@ function Activate-Instance {
   # Apply the license key to the host.
   & cscript //nologo $env:windir\system32\slmgr.vbs /ipk $license_key
 
-  if (-not (Test-TCPPort -Address $script:kms_server -Port $script:kms_server_port)) {
-    Write-Output 'Could not contact activation server. Will retry activation later.'
-    return
-  }
-
   while ($retry_count -gt 0) {
     Write-Output 'Activating instance...'
     & cscript //nologo $env:windir\system32\slmgr.vbs /ato
@@ -313,46 +308,6 @@ function Verify-ActivationStatus {
     }
   }
   return $active
-}
-
-function Test-TCPPort {
-  <#
-    .SYNOPSIS
-      Test TCP port on remote server
-    .DESCRIPTION
-      Use .Net Socket connection to connect to remote host and check if port is
-      open.
-    .PARAMETER host
-      Remote host you want to check TCP port for.
-    .PARAMETER port
-      TCP port number you want to check.
-    .RETURNS
-      Return bool. $true if server is reachable at tcp port $false is not.
-  #>
-  param (
-   [string]$Address,
-   [int]$Port
-  )
-
-  $status = $false
-  $socket = New-Object Net.Sockets.TcpClient
-  $connection = $socket.BeginConnect($Address, $Port, $null, $null)
-  $wait = $connection.AsyncWaitHandle.WaitOne(3000, $false)
-  if (!$wait) {
-    # Connection failed, timeout reached.
-    $socket.Close()
-  }
-  else {
-    $socket.EndConnect($connection) | Out-Null
-    if (!$?) {
-      Write-Host $error[0]
-    }
-    else {
-      $status = $true
-    }
-    $socket.Close()
-  }
-  return $status
 }
 
 if (Test-Path "$env:ProgramFiles\Google\Compute Engine\sysprep\byol_image") {
