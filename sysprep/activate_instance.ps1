@@ -111,12 +111,18 @@ function Activate-Instance {
   }
 
   # Set the KMS server.
-  & cscript //nologo $env:windir\system32\slmgr.vbs /skms $script:kms_server
+  & $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /skms $script:kms_server | ForEach-Object {
+    Write-Output $_
+  }
   # Apply the license key to the host.
-  & cscript //nologo $env:windir\system32\slmgr.vbs /ipk $license_key
+  & $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ipk $license_key  | ForEach-Object {
+    Write-Output $_
+  }
 
   Write-Output 'Activating instance...'
-  & cscript //nologo $env:windir\system32\slmgr.vbs /ato
+  & $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ato  | ForEach-Object {
+    Write-Output $_
+  }
 
   while ($retry_count -gt 0) {
     # Helps to avoid activation failures.
@@ -133,7 +139,9 @@ function Activate-Instance {
       }
       else {
         Write-Output "Activation failed. Will try $retry_count more time(s)."
-        & cscript //nologo $env:windir\system32\slmgr.vbs /ato
+        & $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ato | ForEach-Object {
+          Write-Output $_
+        }
       }
     }
   }
