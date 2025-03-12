@@ -139,6 +139,12 @@ function Change-InstanceProperties {
     $interface = $gvnic
     Write-Log 'gVNIC network adapter detected.'
     
+    $gvnicVersion = "0.0"
+    $gvnicDriver = "$env:SystemRoot\System32\drivers\gvnic.sys"
+    if (Test-Path $gvnicDriver) {
+      $gvnicVersion = (Get-Item $gvnicDriver).VersionInfo.FileVersion
+    }
+    
     # Disable IPv4 Large Send Offload (LSO) on Win 10, 11, and server 2022.
     $productMajorVersion = [Environment]::OSVersion.Version.Major
     $productMinorVersion = [Environment]::OSVersion.Version.Minor
@@ -147,7 +153,7 @@ function Change-InstanceProperties {
   
     $isWin10ClientOrLater = ($productMajorVersion -eq 10 -and $productMinorVersion -eq 0 -and $productBuildNumber -ge 10240 -and $productType -notmatch 'server')
     $isWinServer2022OrLater = ($productMajorVersion -eq 10 -and $productMinorVersion -eq 0 -and $productBuildNumber -gt 17763 -and $productType -match 'server')
-    if ($isWin10ClientOrLater -or $isWinServer2022OrLater) {
+    if (($isWin10ClientOrLater -or $isWinServer2022OrLater) -and $gvnicVersion -lt 2.0 ) {
       Write-Log 'Disabling GVNIC IPv4 Large Send Offload (LSO)'
       Set-NetAdapterAdvancedProperty -InterfaceDescription 'Google Ethernet Adapter' -RegistryKeyword '*LSOV2Ipv4' -RegistryValue 0
 
