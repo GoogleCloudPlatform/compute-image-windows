@@ -22,7 +22,7 @@
     "path": "sysprep/sysprep_uninstall.ps1"
   },
   "releaseNotes": [
-    "3.27.0 - Update instance_setup.ps1 to only disable LSO for GVNIC for driver versions less than 2.0 (GQ)"
+    "3.27.0 - Update instance_setup.ps1 to only disable LSO for GVNIC for driver versions less than 2.0 (GQ)",
     "3.26.0 - Updated activate_instance.ps1 to to support Server 2025",
     "3.25.0 - Updated instance_setup.ps1 to 169.254.169.254 instead of metadata.google.internal",
     "3.24.0 - Updating activate_instance.ps1 to detect PAYG licenses.",
