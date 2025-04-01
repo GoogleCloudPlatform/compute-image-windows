@@ -37,9 +37,20 @@ $global:logger = 'GCEInstanceSetup'
 $script:gce_install_dir = 'C:\Program Files\Google\Compute Engine'
 $script:gce_base_loc = "$script:gce_install_dir\sysprep\gce_base.psm1"
 $script:activate_instance_script_loc = "$script:gce_install_dir\sysprep\activate_instance.ps1"
-$script:metadata_script_loc = "$script:gce_install_dir\metadata_scripts\GCEMetadataScripts.exe"
 $script:setupcomplete_loc = "$env:WinDir\Setup\Scripts\SetupComplete.cmd"
 $script:write_to_serial = $false
+
+$script:metadata_script_loc = "$script:gce_install_dir\metadata_scripts\GCEMetadataScripts.exe"
+$script:compatRunner = "$script:gce_install_dir\metadata_scripts\GCECompatMetadataScripts.exe"
+$script:runnerV2 = "$script:gce_install_dir\agent\GCEMetadataScriptRunner.exe"
+
+if (Test-Path $script:runnerV2) {
+  $script:metadata_script_loc = $script:runnerV2
+}
+
+if (Test-Path $script:compatRunner) {
+  $script:metadata_script_loc = $script:compatRunner
+}
 
 try {
   Import-Module $script:gce_base_loc -ErrorAction Stop 3> $null
@@ -275,6 +286,7 @@ if ($specialize) {
   Configure-WinRM
 
   try {
+    Write-Log "Launching specialize phase scripts from $script:metadata_script_loc"
     # Call startup script during sysprep specialize phase.
     & $script:metadata_script_loc 'specialize'
   }
