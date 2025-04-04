@@ -30,8 +30,20 @@ param (
 # Configuration Data
 $start_pattern = '# Start Google Added Lines'
 $end_pattern = '# End Google Added Lines'
-$akc_path = '"C:/Program Files/Google/Compute Engine/agent/GCEAuthorizedKeysCommand.exe"'
 $sshd_config_path = 'C:\ProgramData\ssh\sshd_config'
+
+# Google Authorized Keys command.
+$akc_path = '"C:/Program Files/Google/Compute Engine/agent/GCEAuthorizedKeysCommand.exe"'
+$akc_compat = '"C:/Program Files/Google/Compute Engine/agent/GCEAuthorizedKeysCompat.exe"'
+$akc_v2 = '"C:/Program Files/Google/Compute Engine/agent/GCEAuthorizedKeys.exe"'
+
+If (Test-Path $akc_v2) {
+        $akc_path = $akc_v2
+}
+
+If (Test-Path $akc_compat) {
+        $akc_path = $akc_compat
+}
 
 $sshd_config_text = @"
 
