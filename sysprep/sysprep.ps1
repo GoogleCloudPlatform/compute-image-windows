@@ -82,6 +82,7 @@ $script:sysprep_tag = 'C:\Windows\System32\Sysprep\Sysprep_succeeded.tag'
 $script:setupscripts_dir_loc = "$env:WinDir\Setup\Scripts"
 $script:setupcomplete_loc = "$script:setupscripts_dir_loc\SetupComplete.cmd"
 $script:sysprep_output_file_loc = "C:\Windows\System32\Sysprep\Panther\setupact.log"
+$script:ggactl = "$gce_install_dir\agent\ggactl_plugin.exe"
 
 # Check if the help parameter was called.
 if ($help) {
@@ -233,7 +234,13 @@ try {
   }
 
   Write-Log 'Stopping GCEAgent.'
-  Stop-Service -name GCEAgent
+  Stop-Service -name GCEAgent -ErrorAction SilentlyContinue
+  Write-Log 'Stopping GCEAgentManager.'
+  Stop-Service -name GCEAgentManager -ErrorAction SilentlyContinue
+  if (Test-Path $script:ggactl) {
+    Write-Log 'Stopping Guest Agent CorePlugin.'
+    & $script:ggactl coreplugin stop
+  }
 
   Write-Log 'Setting startup commands.'
   Set-ItemProperty -Path HKLM:\SYSTEM\Setup -Name CmdLine -Value "`"$PSScriptRoot\windeploy.cmd`""
