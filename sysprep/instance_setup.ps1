@@ -41,15 +41,10 @@ $script:setupcomplete_loc = "$env:WinDir\Setup\Scripts\SetupComplete.cmd"
 $script:write_to_serial = $false
 
 $script:metadata_script_loc = "$script:gce_install_dir\metadata_scripts\GCEMetadataScripts.exe"
-$script:compatRunner = "$script:gce_install_dir\metadata_scripts\GCECompatMetadataScripts.exe"
-$script:runnerV2 = "$script:gce_install_dir\agent\GCEMetadataScriptRunner.exe"
+$script:runnerV2 = "$script:gce_install_dir\agent\google_metadata_script_runner_adapt.ps1"
 
 if (Test-Path $script:runnerV2) {
   $script:metadata_script_loc = $script:runnerV2
-}
-
-if (Test-Path $script:compatRunner) {
-  $script:metadata_script_loc = $script:compatRunner
 }
 
 try {
