@@ -1,6 +1,6 @@
 {
   "Name": "certgen",
-  "Version": "20251003.00.0@1",
+  "Version": "{{.version}}.0@1",
   "Arch": "x86_64",
   "Authors": "Google",
   "Description": "Manages GCE instance certificate generation.",
