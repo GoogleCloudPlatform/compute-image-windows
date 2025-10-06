@@ -4,7 +4,7 @@
   "arch": "x86_64",
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
-  "description": "Manages GCE instance certificate generation.",
+  "description": "Simple self signed cert generator",
   "sources": [
     {
       "include": [
