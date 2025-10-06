@@ -1,31 +1,32 @@
 {
-  "Name": "certgen",
-  "Version": "{{.version}}.0@1",
-  "Arch": "x86_64",
-  "Authors": "Google",
-  "Description": "Manages GCE instance certificate generation.",
-  "Sources": [
+  "name": "certgen",
+  "version": "{{.version}}.0@1",
+  "arch": "x86_64",
+  "authors": "Google Inc.",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "description": "Manages GCE instance certificate generation.",
+  "sources": [
     {
-      "Include": [
+      "include": [
         "certgen.exe",
         "install_certgen.ps1",
         "LICENSE"
       ]
     },
     {
-      "Root": "last_known_good/win_ver_6_1",
-      "Include": [
+      "root": "last_known_good/win_ver_6_1",
+      "include": [
         "certgen.exe"
       ],
-      "Target": "last_known_good/win_ver_6_1"
+      "target": "last_known_good/win_ver_6_1"
     }
   ],
   "files": {
     "certgen.exe": "<ProgramFiles>/Google/Compute Engine/tools/certgen.exe",
     "LICENSE": "<ProgramFiles>/Google/Compute Engine/tools/LICENSE.txt"
   },
-  "Install": {
-    "Path": "install_certgen.ps1"
+  "install": {
+    "path": "install_certgen.ps1"
   },
   "build": {
     "linux": "/bin/bash",
