@@ -5,20 +5,29 @@
   "authors": "Google Inc.",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
   "description": "Simple self signed cert generator",
+  "sources": [
+    {
+      "include": [
+        "certgen.exe",
+        "install_certgen.ps1",
+        "LICENSE"
+      ]
+    },
+    {
+      "root": "last_known_good/win_ver_6_1",
+      "include": [
+        "certgen.exe"
+      ],
+      "target": "last_known_good/win_ver_6_1"
+    }
+  ],
   "files": {
     "certgen.exe": "<ProgramFiles>/Google/Compute Engine/tools/certgen.exe",
     "LICENSE": "<ProgramFiles>/Google/Compute Engine/tools/LICENSE.txt"
   },
-  "releaseNotes": [
-    "1.1.0 - Add optional -hostname flag.",
-    "1.0.0 - Initial release of certgen."
-  ],
-  "sources": [{
-      "include": [
-        "certgen.exe",
-        "LICENSE"
-      ]
-  }],
+  "install": {
+    "path": "install_certgen.ps1"
+  },
   "build": {
     "linux": "/bin/bash",
     "linuxArgs": ["-c", "GOOS=windows /tmp/go/bin/go build -ldflags='-X main.version={{.version}}' -mod=readonly -o certgen.exe ./certgen"]
