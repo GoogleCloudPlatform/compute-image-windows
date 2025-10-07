@@ -9,8 +9,13 @@
     {
       "include": [
         "certgen.exe",
-        "install_certgen.ps1",
         "LICENSE"
+      ]
+    },
+    {
+      "root": "certgen",
+      "include": [
+        "install_certgen.ps1"
       ]
     },
     {
