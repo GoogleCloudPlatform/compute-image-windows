@@ -32,7 +32,7 @@ if (!(Test-Path $googet_root)) {
     Write-Host "Created $googet_root directory."
 }
 
-# === Conditional GooGet Binary Placement ===
+# === Check Windows Version ===
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path # Directory of the running script
 
 $SourceGooGetExe = ""
@@ -53,7 +53,7 @@ if (!(Test-Path $SourceGooGetExe)) {
 $TargetGooGetExe = Join-Path $googet_root "googet.exe"
 Write-Host "Copying $SourceGooGetExe to $TargetGooGetExe"
 Copy-Item -Path $SourceGooGetExe -Destination $TargetGooGetExe -Force
-# === End Conditional Placement ===
+# === End Windows version check ===
 
 if (!((Get-ItemProperty $machine_env -ErrorAction SilentlyContinue).GooGetRoot -eq $googet_root)) {
   Set-ItemProperty $machine_env -Name 'GooGetRoot' -Value $googet_root
