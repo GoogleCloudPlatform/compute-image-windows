@@ -1,0 +1,99 @@
+{
+  "name": "googet",
+  "version": "{{.version}}.0@1",
+  "arch": "x86_64",
+  "authors": "Google LLC",
+  "license": "http://www.apache.org/licenses/LICENSE-2.0",
+  "description": "GooGet Package Manager",
+  "files": {
+    "googet.exe": "<ProgramData>/GooGet/googet.exe",
+    "THIRD_PARTY_LICENSES": "<ProgramData>/GooGet/THIRD_PARTY_LICENSES/",
+    "LICENSE": "<ProgramData>/GooGet/LICENSE.txt"
+  },
+  "install": {
+    "path": "install_googet.ps1"
+  },
+  "releaseNotes": [
+    "3.1.0  - Updated Go to 1.25. Kept last known good version for Windows version 6.1 or prior.",
+    "3.0.0  - Replace googet state file with sqlite database. Add json output for installed command.",
+    "2.21.0 - Add arm64 arch support.",
+    "2.20.0 - Add installdate metadata to registry key for consumption by external tools.",
+    "2.19.0 - Updated to Go 1.19.",
+    "2.18.5 - Fixed 'googet verify' bug that caused failure where it should succeed.",
+    "2.18.4 - Fixed rmrepo bug. All other repos from the repo file were removed.",
+    "2.18.2 - Rename Oauth credential configuration and manually set Authorization header in requests.",
+    "2.18.0 - Add support for passing Oauth credentials with GooGet requests.",
+    "2.17.5 - Use strings.EqualFold for string comparison",
+    "2.17.4 - Removing x86 detection error message",
+    "2.17.3 - Retry once on any Get failure",
+    "2.17.2 - Add Source field in GooGet Spec",
+    "2.17.1 - Use the root directory to reference GooGet's lock file.",
+    "2.17.0 - Update lock functionality.",
+    "2.16.7 - Add a status code check for HTTP responses.",
+    "2.16.6 - Additional error logging in cleanOld.",
+    "2.16.4 - Add flag to 'googet installed' to list directly-managed files.",
+    "2.16.3 - Handle missing LocalPath state in the reinstall command",
+    "2.16.2 - Mitigations for undefined LocalPath in package states",
+    "2.16.1 - Enhance state file handling to minimize loss/corruption",
+    "2.16.0 - GooGet release number is now parsed as an int64",
+    "2.15.1 - Ensure unique cache file for each repo.",
+    "2.15.0 - Add verify subcommand.",
+    "2.14.1 - Prevent path traversal in package unpack and install/uninstall paths.",
+    "2.14.0 - Add support for GCS repositories.",
+    "2.13.0 - Add Conflicts and Replaces fields to the GooGet PkgSpec.",
+    "2.12.0 - Store goo files unextracted in cache, ensure checksum match on reinstall.",
+    "2.11.0 - Add allowunsafeurl config option to enable HTTP repos, otherwise disable.",
+    "       - Force the use of a package checksum when downloading from a repository.",
+    "2.10.1 - Semver compatibility bug fix for '0' patch numbers.",
+    "2.10.0 - Files that had to be moved during install are cleaned up at end of package install or next reboot.",
+    "       - When replacing files during install files are not moved between volumes.",
+    "2.9.5 - Expand MSI success code usage to MSU and EXE files.",
+    "2.9.1 - Add ability to add proxy server.",
+    "2.9.0 - Add addrepo, rmrepo, and listrepos commands.",
+    "      - Use args instead of flags for available and installed commands.",
+    "2.8.0 - Add clean command for cleaning cache directory.",
+    "2.7.1 - Add option for multiple repository entries.",
+    "2.7.0 - Support for extended-length paths on Windows.",
+    "2.6.1 - Remove some old code.",
+    "2.5.3 - COM errors no longer stop GooGet from running.",
+    "2.5.2 - Switch from Changelog to ReleaseNotes in state file and info.",
+    "2.5.1 - Subcommands 'help', 'commands' and 'flags' don't require a lock.",
+    "2.5.0 - Remove deprecated files on upgrade, any files that were referenced in the last package install that are not in the new version will get removed.",
+    "      - Store installed files and their hashes in the state file.",
+    "2.4.2 - Add additional logging to msi install/uninstalls.",
+    "2.4.0 - Add googet locking and ability to setup a googet.conf config file.",
+    "2.3.5 - Add info flag to installed and available commands.",
+    "2.3.4 - Attempt to redownload packages if unpack directory does not exist.",
+    "2.3.3 - Resolve environmental variables in Files.",
+    "2.3.1 - Bug fixes to googet downlad, available and installed filtering.",
+    "2.3.0 - Enumerate install deps before asking for confirmation.",
+    "2.2.0 - Move some flags around, add option to apply changes to DB only.",
+    "2.1.0 - Add ability to install files without a script."
+  ],
+  "sources": [
+    {
+      "include": [
+        "googet.exe", 
+        "THIRD_PARTY_LICENSES/**",
+        "LICENSE"
+      ]
+    },
+    {
+      "Root": "googet",
+      "Include": [
+        "install_googet.ps1"
+      ]
+    },
+    {
+      "Root": "last_known_good/win_ver_6_1",
+      "Include": [
+        "googet.exe"
+      ],
+      "Target": "last_known_good/win_ver_6_1"
+    }
+  ],
+  "build": {
+    "linux": "/bin/bash",
+    "linuxArgs": ["-c", "./googet/googet_build.sh {{.version}}"]
+  }
+}
