@@ -23,7 +23,7 @@ $Minor = $OSVersion.Minor
 
 # Windows Server 2008 is 6.0
 # Windows Server 2008 R2 is 6.1
-$IsWin2008Legacy = ($Major -eq 6 -and ($Minor -eq 0 -or $Minor -eq 1))
+$IsWin2008Legacy = ($Major -eq 6 -and ($Minor -eq 0 -or $Minor -eq 3))
 
 # $PSScriptRoot is the directory where the script is running, inside the expanded GooGet package.
 $PackageRoot = $PSScriptRoot

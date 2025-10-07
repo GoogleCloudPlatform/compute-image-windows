@@ -22,7 +22,7 @@ $Minor = $OSVersion.Minor
 
 # Windows Server 2008 is 6.0
 # Windows Server 2008 R2 is 6.1
-$IsWin2008Legacy = ($Major -eq 6 -and ($Minor -eq 0 -or $Minor -eq 1))
+$IsWin2008Legacy = ($Major -eq 6 -and ($Minor -eq 0 -or $Minor -eq 3))
 
 $googet_root = "${env:ProgramData}\GooGet"
 $machine_env = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
@@ -41,7 +41,7 @@ if ($IsWin2008Legacy) {
     $SourceGooGetExe = Join-Path $PSScriptRoot "last_known_good/win_ver_6_1/googet.exe"
 }
 else {
-    Write-Host "Detected modern Windows version. Installing current GooGet with Go 1.25."
+    Write-Host "Detected modern Windows version. Installing latest GooGet."
     $SourceGooGetExe = Join-Path $PSScriptRoot "googet.exe"
 }
 
@@ -67,7 +67,7 @@ if ($path -notlike "*${googet_root}*") {
   Write-Host "GooGetRoot added to PATH."
 }
 
-# Set permisons on GooGet root
+# Set permissions on GooGet root
 Write-Host "Setting permissions on $googet_root"
 $icaclsArgs = @($googet_root, '/grant:r', 'Administrators:(OI)(CI)F', '/grant:r', 'SYSTEM:(OI)(CI)F', '/grant:r', 'Users:(OI)(CI)RX', '/inheritance:r')
 $process = Start-Process icacls.exe -ArgumentList $icaclsArgs -Wait -NoNewWindow -PassThru
