@@ -79,17 +79,16 @@
       ]
     },
     {
-      "Root": "googet",
-      "Include": [
+      "root": "googet",
+      "include": [
         "install_googet.ps1"
       ]
     },
     {
-      "Root": "last_known_good/win_ver_6_3",
-      "Include": [
-        "googet.exe"
-      ],
-      "Target": "last_known_good/win_ver_6_3"
+      "root": "legacy_bin",
+      "include": [
+        "googet/legacy_win2012/googet.exe"
+      ]
     }
   ],
   "build": {

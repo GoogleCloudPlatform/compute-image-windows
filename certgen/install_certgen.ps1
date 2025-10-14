@@ -38,7 +38,7 @@ $TargetExePath = Join-Path $InstallDir "certgen.exe"
 
 if ($IsWin2012Legacy) {
     Write-Host "Detected Windows version $Major.$Minor. Installing legacy certgen due to Go compatibility."
-    $SourceExe = Join-Path $PackageRoot "last_known_good\win_ver_6_3\certgen.exe"
+    $SourceExe = Join-Path $PackageRoot "legacy_bin/certgen/legacy_win2012/certgen.exe"
 }
 else {
     Write-Host "Detected modern Windows version. Installing current certgen."

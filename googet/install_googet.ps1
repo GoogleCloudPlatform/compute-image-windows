@@ -38,7 +38,7 @@ $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path # Directory of t
 $SourceGooGetExe = ""
 if ($IsWin2012Legacy) {
     Write-Host "Detected Windows version $Major.$Minor. Installing legacy GooGet."
-    $SourceGooGetExe = Join-Path $PSScriptRoot "last_known_good/win_ver_6_3/googet.exe"
+    $SourceGooGetExe = Join-Path $PSScriptRoot "legacy_bin/googet/legacy_win2012/googet.exe"
 }
 else {
     Write-Host "Detected modern Windows version. Installing latest GooGet."

@@ -19,15 +19,13 @@
       ]
     },
     {
-      "root": "last_known_good/win_ver_6_3",
+      "root": "legacy_bin",
       "include": [
-        "certgen.exe"
-      ],
-      "target": "last_known_good/win_ver_6_3"
+        "certgen/legacy_win2012/certgen.exe"
+      ]
     }
   ],
   "files": {
-    "certgen.exe": "<ProgramFiles>/Google/Compute Engine/tools/certgen.exe",
     "LICENSE": "<ProgramFiles>/Google/Compute Engine/tools/LICENSE.txt"
   },
   "install": {
