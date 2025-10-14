@@ -19,11 +19,11 @@
       ]
     },
     {
-      "root": "last_known_good/win_ver_6_1",
+      "root": "last_known_good/win_ver_6_3",
       "include": [
         "certgen.exe"
       ],
-      "target": "last_known_good/win_ver_6_1"
+      "target": "last_known_good/win_ver_6_3"
     }
   ],
   "files": {

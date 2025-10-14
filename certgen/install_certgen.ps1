@@ -21,8 +21,8 @@ $OSVersion = [System.Environment]::OSVersion.Version
 $Major = $OSVersion.Major
 $Minor = $OSVersion.Minor
 
-# Windows Server 2008 is 6.0
-# Windows Server 2008 R2 is 6.1
+# Windows Server 2012 is 6.2
+# Windows Server 2012 R2 is 6.3
 $IsWin2008Legacy = ($Major -eq 6 -and ($Minor -eq 0 -or $Minor -eq 3))
 
 # $PSScriptRoot is the directory where the script is running, inside the expanded GooGet package.
@@ -38,7 +38,7 @@ $TargetExePath = Join-Path $InstallDir "certgen.exe"
 
 if ($IsWin2008Legacy) {
     Write-Host "Detected Windows version $Major.$Minor. Installing legacy certgen due to Go compatibility."
-    $SourceExe = Join-Path $PackageRoot "last_known_good\win_ver_6_1\certgen.exe"
+    $SourceExe = Join-Path $PackageRoot "last_known_good\win_ver_6_3\certgen.exe"
 }
 else {
     Write-Host "Detected modern Windows version. Installing current certgen."

@@ -85,11 +85,11 @@
       ]
     },
     {
-      "Root": "last_known_good/win_ver_6_1",
+      "Root": "last_known_good/win_ver_6_3",
       "Include": [
         "googet.exe"
       ],
-      "Target": "last_known_good/win_ver_6_1"
+      "Target": "last_known_good/win_ver_6_3"
     }
   ],
   "build": {
