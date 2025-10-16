@@ -9,20 +9,23 @@
     {
       "include": [
         "certgen.exe",
-        "install_certgen.ps1",
         "LICENSE"
       ]
     },
     {
-      "root": "last_known_good/win_ver_6_1",
+      "root": "certgen",
       "include": [
-        "certgen.exe"
-      ],
-      "target": "last_known_good/win_ver_6_1"
+        "install_certgen.ps1"
+      ]
+    },
+    {
+      "root": "legacy_bin",
+      "include": [
+        "certgen/legacy_win2012/certgen.exe"
+      ]
     }
   ],
   "files": {
-    "certgen.exe": "<ProgramFiles>/Google/Compute Engine/tools/certgen.exe",
     "LICENSE": "<ProgramFiles>/Google/Compute Engine/tools/LICENSE.txt"
   },
   "install": {
