@@ -85,10 +85,11 @@
       ]
     },
     {
-      "root": "legacy_bin",
+      "root": "legacy_bin/googet/legacy_win2012",
       "include": [
-        "googet/legacy_win2012/googet.exe"
-      ]
+        "googet.exe"
+      ],
+      "target": "legacy_bin/googet/legacy_win2012"
     }
   ],
   "build": {

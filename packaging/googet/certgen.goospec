@@ -19,10 +19,11 @@
       ]
     },
     {
-      "root": "legacy_bin",
+      "root": "legacy_bin/certgen/legacy_win2012",
       "include": [
-        "certgen/legacy_win2012/certgen.exe"
-      ]
+        "certgen.exe"
+      ],
+      "target": "legacy_bin/certgen/legacy_win2012"
     }
   ],
   "files": {

@@ -20,9 +20,11 @@ $OSVersion = [System.Environment]::OSVersion.Version
 $Major = $OSVersion.Major
 $Minor = $OSVersion.Minor
 
+# Windows Server 2008 is 6.0
+# Windows Server 2008 R2 is 6.1
 # Windows Server 2012 is 6.2
 # Windows Server 2012 R2 is 6.3
-$IsWin2012Legacy = ($Major -eq 6 -and ($Minor -eq 0 -or $Minor -eq 3))
+$IsWin2012Legacy = $Major -eq 6
 
 $googet_root = "${env:ProgramData}\GooGet"
 $machine_env = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
