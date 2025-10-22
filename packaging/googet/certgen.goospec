@@ -9,16 +9,21 @@
     {
       "include": [
         "certgen.exe",
-        "install_certgen.ps1",
         "LICENSE"
       ]
     },
     {
-      "root": "last_known_good/win_ver_6_1",
+      "root": "certgen",
+      "include": [
+        "install_certgen.ps1"
+      ]
+    },
+    {
+      "root": "legacy_bin/certgen/legacy_win2012",
       "include": [
         "certgen.exe"
       ],
-      "target": "last_known_good/win_ver_6_1"
+      "target": "legacy_bin/certgen/legacy_win2012"
     }
   ],
   "files": {
