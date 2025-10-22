@@ -27,6 +27,7 @@
     }
   ],
   "files": {
+    "certgen.exe": "<ProgramFiles>/Google/Compute Engine/tools/certgen.exe",
     "LICENSE": "<ProgramFiles>/Google/Compute Engine/tools/LICENSE.txt"
   },
   "install": {
