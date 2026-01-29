@@ -83,6 +83,7 @@ $script:setupscripts_dir_loc = "$env:WinDir\Setup\Scripts"
 $script:setupcomplete_loc = "$script:setupscripts_dir_loc\SetupComplete.cmd"
 $script:sysprep_output_file_loc = "C:\Windows\System32\Sysprep\Panther\setupact.log"
 $script:ggactl = "$gce_install_dir\agent\ggactl_plugin.exe"
+$script:mds_creds = "C:\ProgramData\Google\Compute Engine\mds-mtls-*"
 
 # Check if the help parameter was called.
 if ($help) {
@@ -270,11 +271,16 @@ $PSHome\powershell.exe -NoProfile -NoLogo -ExecutionPolicy Unrestricted -File "$
     }
   }
 
-  Write-Log 'Clearing MTLS MDS certs.'
+  Write-Log 'Clearing MTLS MDS certs from cert store.'
   @('Cert:\LocalMachine\My', 'Cert:\LocalMachine\Root') | ForEach-Object {
     if (Test-Path $_) {
       Get-ChildItem $_ | Where-Object {$_.Issuer -Match 'google.internal'} | Remove-Item
     }
+  }
+
+  Write-Log 'Clearing MDS MTLS credentials from disk.'
+  if (Test-Path $script:mds_creds) {
+    Remove-Item $script:mds_creds -Recurse -Force -ErrorAction SilentlyContinue
   }
 
   if ([System.Environment]::OSVersion.Version.Build -ge 10240) {
