@@ -266,7 +266,7 @@ catch {
 }
 
 [string]$license_key = $null
-[int]$retry_count = 10 # Retry activation ten additional times.
+[int]$retry_count = 2 # Retry activation two additional times.
 
 $license_key = Get-ProductKmsClientKey
 if (-not $license_key) {
