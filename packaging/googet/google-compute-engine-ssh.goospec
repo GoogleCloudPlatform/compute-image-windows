@@ -9,7 +9,7 @@
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
   "description": "Google Windows OpenSSH Package",
   "files": {
-    "THIRD_PARTY_LICENSES": "<ProgramFiles>/Google/Compute Engine/THIRD_PARTY_LICENSES/",
+    "THIRD_PARTY_LICENSES": "<ProgramFiles>/Google/Compute Engine/google-compute-engine-ssh/THIRD_PARTY_LICENSES/",
     "LICENSE": "<ProgramFiles>/Google/Compute Engine/ssh/LICENSE.txt"
   },
   "install": {
