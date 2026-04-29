@@ -60,7 +60,6 @@ We build and install the following packages for the Windows guest environment:
     used by other packages.
 *   `google-compute-engine-auto-updater` - Automatic updater for core Google
     packages.
-*   `google-compute-engine-vss` - Google Compute Engine VSS agent and provider
 
 The package build specs are published in this project.
 
