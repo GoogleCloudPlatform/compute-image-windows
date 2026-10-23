@@ -205,6 +205,35 @@ function Verify-ActivationStatus {
   return $active
 }
 
+function Test-GceKmsLicensed {
+  <#
+    .SYNOPSIS
+      Check if Windows is already licensed through the GCE KMS server.
+    .DESCRIPTION
+      Unlike the last activation result stored in the registry, the license
+      status reported by the Software Licensing WMI provider reflects whether
+      the installation currently holds a valid license, so a rearmed or expired
+      installation is not treated as licensed.
+    .OUTPUTS
+      [bool] Is Windows licensed through the GCE KMS server.
+  #>
+
+  try {
+    $products = Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f' AND PartialProductKey IS NOT NULL" -ErrorAction Stop
+  }
+  catch {
+    Write-Host "Error querying the Windows license status: $_"
+    return $false
+  }
+  foreach ($product in @($products)) {
+    # LicenseStatus 1 is Licensed.
+    if ($product.LicenseStatus -eq 1 -and $product.KeyManagementServiceMachine -eq $script:kms_server) {
+      return $true
+    }
+  }
+  return $false
+}
+
 if (Test-Path "$env:ProgramFiles\Google\Compute Engine\sysprep\byol_image") {
   Write-Output 'Image imported into GCE via BYOL workflow, skipping GCE activation'
   exit
@@ -262,6 +291,13 @@ try {
 }
 catch {
   Write-Output "Failed to identify if a Microsoft Windows PAYG license is attached. Error: $_"
+  exit
+}
+
+# Re-running the script on an activated instance would otherwise send a
+# redundant activation request to the KMS server.
+if (Test-GceKmsLicensed) {
+  Write-Output 'Instance is already activated. Skipping GCE activation.'
   exit
 }
 
