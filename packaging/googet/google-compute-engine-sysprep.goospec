@@ -22,6 +22,7 @@
     "path": "sysprep/sysprep_uninstall.ps1"
   },
   "releaseNotes": [
+    "3.28.0 - Updated activate_instance.ps1 to fall back to slc.dll when slmgr.vbs fails with 0x80041008 (Nov 2026 CU known issue).",
     "3.27.0 - Update instance_setup.ps1 to only disable LSO for GVNIC for driver versions less than 2.0 (GQ)",
     "3.26.0 - Updated activate_instance.ps1 to to support Server 2025",
     "3.25.0 - Updated instance_setup.ps1 to 169.254.169.254 instead of metadata.google.internal",

@@ -162,6 +162,161 @@ function Get-ProductKmsClientKey {
   return $license_key
 }
 
+# Microsoft's November 2026 cumulative updates (KB5131085 / KB5131090 /
+# KB5131080) break WMI method execution in sppwmi.dll: every slmgr.vbs command
+# that modifies licensing state (/skms, /ipk, /ato) fails locally with
+# 0x80041008 (WBEM_E_INVALID_PARAMETER, SWbemObjectEx). WMI reads and the
+# native Software Licensing Client API (slc.dll / slcext.dll) still work, so
+# when slmgr.vbs fails with that error we fall back to calling slc.dll directly.
+$script:wmi_invalid_parameter = '0x80041008'
+$script:windows_app_id = '55c92734-d682-4d71-983e-d6ec3f16059f'
+$script:spp_reg_path = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform'
+
+$script:slc_type_loaded = $false
+$script:slmgr_wmi_failed = $false
+function Initialize-SlcInterop {
+  if ($script:slc_type_loaded) {
+    return
+  }
+  Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class GceSlc {
+  [DllImport("slc.dll")]
+  public static extern int SLOpen(out IntPtr phSLC);
+
+  [DllImport("slc.dll")]
+  public static extern int SLClose(IntPtr hSLC);
+
+  [DllImport("slc.dll", CharSet = CharSet.Unicode)]
+  public static extern int SLInstallProofOfPurchase(
+      IntPtr hSLC, string pwszPKeyAlgorithm, string pwszPKeyString,
+      uint cbPKeySpecificData, IntPtr pbPKeySpecificData, out Guid pPkeyId);
+
+  [DllImport("slcext.dll", CharSet = CharSet.Unicode)]
+  public static extern int SLActivateProduct(
+      IntPtr hSLC, ref Guid pProductSkuId, uint cbAppSpecificData,
+      IntPtr pvAppSpecificData, IntPtr pActivationInfo,
+      string pwszProxyServer, ushort wProxyPort);
+}
+'@
+  $script:slc_type_loaded = $true
+}
+
+function Invoke-Slmgr {
+  <#
+    .SYNOPSIS
+      Runs slmgr.vbs and echoes its output. Sets $script:slmgr_wmi_failed if it
+      failed with the sppwmi.dll WBEM_E_INVALID_PARAMETER error. (Not returned,
+      because Write-Output would mix the log lines into the return value.)
+  #>
+  param([Parameter(Mandatory=$true)][string[]]$Arguments)
+
+  $output = & $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs @Arguments 2>&1
+  $output | ForEach-Object {
+    Write-Output $_
+  }
+  $script:slmgr_wmi_failed = [bool]($output | Select-String -SimpleMatch $script:wmi_invalid_parameter)
+}
+
+function Invoke-WithSlc {
+  <#
+    .SYNOPSIS
+      Opens an SLC handle, runs the script block with it, and closes the handle.
+  #>
+  param([Parameter(Mandatory=$true)][scriptblock]$Action)
+
+  Initialize-SlcInterop
+  $hslc = [IntPtr]::Zero
+  $hr = [GceSlc]::SLOpen([ref]$hslc)
+  if ($hr -ne 0) {
+    throw ('SLOpen failed: 0x{0:X8}' -f $hr)
+  }
+  try {
+    & $Action $hslc
+  }
+  finally {
+    [GceSlc]::SLClose($hslc) | Out-Null
+  }
+}
+
+function Get-WindowsActivationId {
+  <#
+    .SYNOPSIS
+      Returns the Activation (SKU) ID of the installed Windows product key.
+      WMI property reads are unaffected by the sppwmi.dll regression.
+  #>
+  $product = Get-CimInstance -ClassName SoftwareLicensingProduct `
+      -Filter "ApplicationID='$script:windows_app_id' AND PartialProductKey IS NOT NULL" |
+      Select-Object -First 1
+  if (-not $product) {
+    throw 'No installed Windows product key found.'
+  }
+  return [Guid]$product.ID
+}
+
+function Set-KmsServer {
+  Invoke-Slmgr -Arguments @('/skms', $script:kms_server)
+  if (-not $script:slmgr_wmi_failed) {
+    return
+  }
+  Write-Output "slmgr.vbs /skms failed with $script:wmi_invalid_parameter, setting KMS server in the registry."
+  # Same values slmgr.vbs /skms persists via SetKeyManagementServiceMachine/Port.
+  Set-ItemProperty -Path $script:spp_reg_path -Name KeyManagementServiceName -Value $script:kms_server -Type String
+  Set-ItemProperty -Path $script:spp_reg_path -Name KeyManagementServicePort -Value ([string]$script:kms_server_port) -Type String
+  # sppsvc is trigger-started; stop it so it re-reads the KMS settings when the
+  # next SLC call starts it again.
+  Stop-Service -Name sppsvc -Force -ErrorAction SilentlyContinue
+  Write-Output "Key Management Service machine name set to $script:kms_server successfully."
+}
+
+function Install-KmsClientKey {
+  param([Parameter(Mandatory=$true)][string]$Key)
+
+  Invoke-Slmgr -Arguments @('/ipk', $Key)
+  if (-not $script:slmgr_wmi_failed) {
+    return
+  }
+  Write-Output "slmgr.vbs /ipk failed with $script:wmi_invalid_parameter, installing key via slc.dll."
+  Invoke-WithSlc {
+    param($hslc)
+    $pkey_id = [Guid]::Empty
+    $hr = [GceSlc]::SLInstallProofOfPurchase($hslc, 'msft:rm/algorithm/pkey/detect', $Key, 0, [IntPtr]::Zero, [ref]$pkey_id)
+    if ($hr -ne 0) {
+      Write-Output ('SLInstallProofOfPurchase failed: 0x{0:X8}' -f $hr)
+    }
+    else {
+      Write-Output "Installed product key $pkey_id successfully."
+    }
+  }
+}
+
+function Invoke-Activation {
+  Invoke-Slmgr -Arguments @('/ato')
+  if (-not $script:slmgr_wmi_failed) {
+    return
+  }
+  Write-Output "slmgr.vbs /ato failed with $script:wmi_invalid_parameter, activating via slcext.dll."
+  try {
+    $sku_id = Get-WindowsActivationId
+    Invoke-WithSlc {
+      param($hslc)
+      # [NullString]::Value passes a real NULL so SLC auto-discovers any proxy.
+      $hr = [GceSlc]::SLActivateProduct($hslc, [ref]$sku_id, 0, [IntPtr]::Zero, [IntPtr]::Zero, [NullString]::Value, 0)
+      if ($hr -ne 0) {
+        Write-Output ('SLActivateProduct failed: 0x{0:X8}' -f $hr)
+      }
+      else {
+        Write-Output "Product $sku_id activated successfully."
+      }
+    }
+  }
+  catch {
+    Write-Output "slc.dll activation failed: $_"
+  }
+}
+
 function Verify-ActivationStatus {
   <#
     .SYNOPSIS
@@ -200,6 +355,18 @@ function Verify-ActivationStatus {
     # Anything other than 0x0 is a failure.
     if ($activation_status -eq '0') {
       $active = $true
+    }
+    else {
+      try {
+        $licensed = Get-CimInstance -ClassName SoftwareLicensingProduct `
+            -Filter "ApplicationID='$script:windows_app_id' AND PartialProductKey IS NOT NULL AND LicenseStatus=1"
+        if ($licensed) {
+          $active = $true
+        }
+      }
+      catch {
+        Write-Host "Error retrieving WMI license status."
+      }
     }
   }
   return $active
@@ -274,18 +441,12 @@ if (-not $license_key) {
 }
 
 # Set the KMS server.
-& $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /skms $script:kms_server | ForEach-Object {
-  Write-Output $_
-}
+Set-KmsServer
 # Apply the license key to the host.
-& $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ipk $license_key  | ForEach-Object {
-  Write-Output $_
-}
+Install-KmsClientKey -Key $license_key
 
 Write-Output 'Activating instance...'
-& $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ato  | ForEach-Object {
-  Write-Output $_
-}
+Invoke-Activation
 
 while ($retry_count -gt 0) {
   # Helps to avoid activation failures.
@@ -302,9 +463,7 @@ while ($retry_count -gt 0) {
     }
     else {
       Write-Output "Activation failed. Will try $retry_count more time(s)."
-      & $env:windir\system32\cscript.exe //nologo $env:windir\system32\slmgr.vbs /ato | ForEach-Object {
-        Write-Output $_
-      }
+      Invoke-Activation
     }
   }
 }
