@@ -28,34 +28,88 @@ $IsWin2012Legacy = $Major -eq 6
 
 $googet_root = "${env:ProgramData}\GooGet"
 $machine_env = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
-
-if (!(Test-Path $googet_root)) {
-    New-Item -ItemType Directory -Path $googet_root -Force
-    Write-Host "Created $googet_root directory."
+$icaclsExe = Join-Path $env:SystemRoot 'System32\icacls.exe'
+if (!(Test-Path -LiteralPath $icaclsExe)) {
+    throw "icacls executable not found at $icaclsExe"
 }
 
 # === Check Windows Version ===
-$PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path # Directory of the running script
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $SourceGooGetExe = ""
 if ($IsWin2012Legacy) {
     Write-Host "Detected Windows version $Major.$Minor. Installing legacy GooGet."
-    $SourceGooGetExe = Join-Path $PSScriptRoot "legacy_bin/googet/legacy_win2012/googet.exe"
+    $SourceGooGetExe = Join-Path $ScriptDir "legacy_bin/googet/legacy_win2012/googet.exe"
 }
 else {
     Write-Host "Detected modern Windows version. Installing latest GooGet."
-    $SourceGooGetExe = Join-Path $PSScriptRoot "googet.exe"
+    $SourceGooGetExe = Join-Path $ScriptDir "googet.exe"
 }
 
-if (!(Test-Path $SourceGooGetExe)) {
-    Write-Error "Required GooGet executable not found at $SourceGooGetExe"
-    exit 1
+if (!(Test-Path -LiteralPath $SourceGooGetExe)) {
+    throw "Required GooGet executable not found at $SourceGooGetExe"
+}
+# === End Windows version check ===
+
+# Build a protected DACL using well-known SIDs:
+#   S-1-5-32-544 = BUILTIN\Administrators
+#   S-1-5-18     = NT AUTHORITY\SYSTEM
+#   S-1-5-32-545 = BUILTIN\Users
+function New-GooGetRootAcl {
+    $inherit = [System.Security.AccessControl.InheritanceFlags]::ContainerInherit -bor
+               [System.Security.AccessControl.InheritanceFlags]::ObjectInherit
+    $noProp = [System.Security.AccessControl.PropagationFlags]::None
+    $allow = [System.Security.AccessControl.AccessControlType]::Allow
+
+    $acl = New-Object System.Security.AccessControl.DirectorySecurity
+    $acl.SetAccessRuleProtection($true, $false)
+    $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule(
+        (New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')),
+        [System.Security.AccessControl.FileSystemRights]::FullControl, $inherit, $noProp, $allow)))
+    $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule(
+        (New-Object System.Security.Principal.SecurityIdentifier('S-1-5-18')),
+        [System.Security.AccessControl.FileSystemRights]::FullControl, $inherit, $noProp, $allow)))
+    $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule(
+        (New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-545')),
+        [System.Security.AccessControl.FileSystemRights]::ReadAndExecute, $inherit, $noProp, $allow)))
+    return $acl
+}
+
+$rootItem = Get-Item -LiteralPath $googet_root -Force -ErrorAction SilentlyContinue
+if ($null -eq $rootItem) {
+    [System.IO.Directory]::CreateDirectory($googet_root, (New-GooGetRootAcl)) | Out-Null
+    Write-Host "Created $googet_root directory."
+    $rootItem = Get-Item -LiteralPath $googet_root -Force
+}
+
+if (-not $rootItem.PSIsContainer -or (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+    throw "Refusing to use $googet_root because it is not a regular directory (attributes: $($rootItem.Attributes))."
 }
 
 $TargetGooGetExe = Join-Path $googet_root "googet.exe"
+$targetItem = Get-Item -LiteralPath $TargetGooGetExe -Force -ErrorAction SilentlyContinue
+if ($null -ne $targetItem) {
+    if ($targetItem.PSIsContainer -or (($targetItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+        throw "Refusing to overwrite unexpected entry at $TargetGooGetExe (attributes: $($targetItem.Attributes))."
+    }
+    [System.IO.File]::SetAttributes($TargetGooGetExe, [System.IO.FileAttributes]::Normal)
+    [System.IO.File]::Delete($TargetGooGetExe)
+}
 Write-Host "Copying $SourceGooGetExe to $TargetGooGetExe"
-Copy-Item -Path $SourceGooGetExe -Destination $TargetGooGetExe -Force
-# === End Windows version check ===
+Copy-Item -LiteralPath $SourceGooGetExe -Destination $TargetGooGetExe -Force
+
+Write-Host "Setting permissions on $googet_root"
+$global:LASTEXITCODE = 0
+& $icaclsExe $googet_root '/setowner' '*S-1-5-32-544' '/L' '/Q'
+if ($LASTEXITCODE -ne 0) {
+    throw "icacls /setowner failed on '$googet_root' with exit code $LASTEXITCODE"
+}
+$rootItem = Get-Item -LiteralPath $googet_root -Force
+if (-not $rootItem.PSIsContainer -or (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+    throw "Refusing to use $googet_root because it changed to a non-regular directory."
+}
+[System.IO.Directory]::SetAccessControl($googet_root, (New-GooGetRootAcl))
+Write-Host "Permissions set successfully."
 
 if (!((Get-ItemProperty $machine_env -ErrorAction SilentlyContinue).GooGetRoot -eq $googet_root)) {
   Set-ItemProperty $machine_env -Name 'GooGetRoot' -Value $googet_root
@@ -67,16 +121,6 @@ if ($path -notlike "*${googet_root}*") {
   $newPath = $path + ";${googet_root}"
   Set-ItemProperty $machine_env -Name 'Path' -Value $newPath
   Write-Host "GooGetRoot added to PATH."
-}
-
-# Set permissions on GooGet root
-Write-Host "Setting permissions on $googet_root"
-$icaclsArgs = @($googet_root, '/grant:r', 'Administrators:(OI)(CI)F', '/grant:r', 'SYSTEM:(OI)(CI)F', '/grant:r', 'Users:(OI)(CI)RX', '/inheritance:r')
-$process = Start-Process icacls.exe -ArgumentList $icaclsArgs -Wait -NoNewWindow -PassThru
-if ($process.ExitCode -ne 0) {
-    Write-Warning "icacls failed with exit code $($process.ExitCode)"
-} else {
-    Write-Host "Permissions set successfully."
 }
 
 Write-Host "GooGet installation complete. Please restart your shell session or system for PATH changes to take full effect."
